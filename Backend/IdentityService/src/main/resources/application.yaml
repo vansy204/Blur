@@ -5,16 +5,18 @@ server:
 
 spring:
   datasource:
-    url: ${DBMS_CONNECTION:jdbc:mysql://localhost:3006/identity_service}
+    url: ${DBMS_CONNECTION:jdbc:mysql://localhost:3306/Identity_service}
     username: ${DBMS_USERNAME:root}
     password: ${DBMS_PASSWORD:root}
+   # driverClassName: "com.mysql.cj.jdbc.Driver"
 
   jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: update
     show-sql: true
-
-
 
 jwt:
   signerKey: "POYgGbpnFvfHTnSkIF/UF0ZO4OMa8ewTfjNGP1+rKmBZB5bPnDczsiDxERPVu2pn"

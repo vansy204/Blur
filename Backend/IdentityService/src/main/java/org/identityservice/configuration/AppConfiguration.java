@@ -1,5 +1,7 @@
 package org.identityservice.configuration;
 
+import java.util.HashSet;
+
 import org.identityservice.entity.Role;
 import org.identityservice.entity.User;
 import org.identityservice.repository.RoleRepository;
@@ -12,21 +14,18 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashSet;
-
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
 public class AppConfiguration {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
+
     @Bean
     ApplicationRunner runner(UserRepository userRepository) {
         return args -> {
-            Role adminRole = roleRepository.save(Role.builder()
-                    .name("ADMIN")
-                    .description("Admin role")
-                    .build());
+            Role adminRole = roleRepository.save(
+                    Role.builder().name("ADMIN").description("Admin role").build());
             var roles = new HashSet<Role>();
             roles.add(adminRole);
 

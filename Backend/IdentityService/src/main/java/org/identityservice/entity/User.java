@@ -20,8 +20,13 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
 
-    @Column(name = "username", unique = true,columnDefinition = "VARCHAR(255) COLLATE utf8mb4_unicode_ci") // đánh dấu unique và không phân biệt chữ hoa thường
+    @Column(
+            name = "username",
+            unique = true,
+            columnDefinition =
+                    "VARCHAR(255) COLLATE utf8mb4_unicode_ci") // đánh dấu unique và không phân biệt chữ hoa thường
     String username;
+
     String password;
     String firstName;
     String lastName;

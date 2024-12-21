@@ -59,7 +59,7 @@ useEffect(() =>{
               <input type="text" className="form-control" id="username" placeholder="myusername" required autofocus onChange={(e) => setUsername(e.target.value)}/>
               <label htmlFor="username">Username</label>
             </div>
-            <hr />
+            
             <div className="form-floating mb-3">
               <input type="password" className="form-control" id="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
               <label htmlFor="floatingPassword">Password</label>

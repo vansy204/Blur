@@ -41,16 +41,16 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         HashSet<String> roles = new HashSet<>();
         roles.add(Role.USER.name());
-        try{
+        try {
             userRepository.save(user);
-        }catch (DataIntegrityViolationException ex){
-            throw  new AppException(ErrorCode.USER_EXISTED);
+        } catch (DataIntegrityViolationException ex) {
+            throw new AppException(ErrorCode.USER_EXISTED);
         }
 
         return userMapper.toUserResponse(user);
     }
 
-     @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<UserResponse> getUsers() {
         log.info("Getting users");
         return userRepository.findAll().stream().map(userMapper::toUserResponse).collect(Collectors.toList());
@@ -61,7 +61,6 @@ public class UserService {
         log.info("Getting user by id: {}", userId);
         return userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_EXISTED));
     }
-
     public User updateUser(String userId, UserUpdateRequest request) {
         User user = getUserById(userId);
         userMapper.updateUser(user, request);
