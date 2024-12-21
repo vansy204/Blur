@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 public class GlobalExceptionHandler {
     private static final String MIN_ATTRIBUTE = "min";
 
-    @ExceptionHandler(value = Exception.class)
+    @ExceptionHandler(value = RuntimeException.class)
     ResponseEntity<ApiResponse> handleRuntimeException(final Exception e) {
         ErrorCode errorCode = ErrorCode.UNCATEGORIZED_EXCEPTION;
 
@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = AppException.class)
     ResponseEntity<ApiResponse> handleAppException(AppException e) {
-        ErrorCode errorCode = ErrorCode.UNAUTHENTICATED;
+        ErrorCode errorCode = e.getErrorCode();
         return ResponseEntity.status(errorCode.getHttpStatusCode())
                 .body(ApiResponse.builder()
                         .code(errorCode.getCode())

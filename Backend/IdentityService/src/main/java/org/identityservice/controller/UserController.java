@@ -16,6 +16,7 @@ import org.identityservice.mapper.UserMapper;
 import org.identityservice.repository.RoleRepository;
 import org.identityservice.repository.UserRepository;
 import org.identityservice.service.UserService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -52,6 +53,7 @@ public class UserController {
     }
 
     @GetMapping("/")
+
     public ApiResponse<List<UserResponse>> getUsers() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("username: {}", authentication.getName());

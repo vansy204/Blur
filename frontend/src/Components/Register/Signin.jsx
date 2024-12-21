@@ -1,13 +1,14 @@
 /* eslint-disable jsx-a11y/anchor-is-valid */
 /* eslint-disable jsx-a11y/anchor-has-content */
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import {useNavigate} from "react-router-dom" 
 import "./Signup.css";
 
 
 const Signin = () => {
   const [username,setUsername] = useState("");
   const [password,setPassword] = useState("");
-  
+  const navigate = useNavigate();
 const handleSubmit = (event) =>{
   event.preventDefault();
   // khi an login thi goi ve api cua backend
@@ -25,13 +26,22 @@ const handleSubmit = (event) =>{
     return response.json();
   })
   .then((data)=>{
-    console.log("Resonse body: ", data );
+    console.log("Response body: ", data );
     if(data.code !== 1000){
       throw new Error("error:", data.message);
     }
+    console.log("token: ", data.result?.token);
     localStorage.setItem("token", data.result?.token);
+    navigate("/")
   })
+  
 }
+useEffect(() =>{
+  const accessToken = localStorage.getItem("token");
+  if(accessToken){
+    navigate("/")
+  }
+},[navigate])
   return (
    
       <div className="container vertical-align ">
@@ -46,17 +56,17 @@ const handleSubmit = (event) =>{
           <form>
            
           <div className="form-floating mb-3">
-              <input type="text" className="form-control" id="username" placeholder="myusername" required autofocus />
+              <input type="text" className="form-control" id="username" placeholder="myusername" required autofocus onChange={(e) => setUsername(e.target.value)}/>
               <label htmlFor="username">Username</label>
             </div>
             <hr />
             <div className="form-floating mb-3">
-              <input type="password" className="form-control" id="floatingPassword" placeholder="Password" />
+              <input type="password" className="form-control" id="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
               <label htmlFor="floatingPassword">Password</label>
             </div>
             
             <div className="d-grid mb-2">
-              <button className="btn btn-lg btn-primary btn-login fw-bold text-uppercase" type="submit">Register</button>
+              <button className="btn btn-lg btn-primary btn-login fw-bold text-uppercase" type="submit" onClick={handleSubmit}>Login</button>
             </div>
             <a className="d-block text-center mt-2 small" href="/signup"> Don't have an account? Sign Up</a>
             <hr className="my-4" />
