@@ -61,6 +61,7 @@ public class UserService {
         log.info("Getting user by id: {}", userId);
         return userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_EXISTED));
     }
+
     public User updateUser(String userId, UserUpdateRequest request) {
         User user = getUserById(userId);
         userMapper.updateUser(user, request);
