@@ -7,10 +7,7 @@ import java.util.Date;
 import java.util.StringJoiner;
 import java.util.UUID;
 
-import org.identityservice.dto.request.AuthRequest;
-import org.identityservice.dto.request.IntrospecRequest;
-import org.identityservice.dto.request.LogoutRequest;
-import org.identityservice.dto.request.RefreshRequest;
+import org.identityservice.dto.request.*;
 import org.identityservice.dto.response.AuthResponse;
 import org.identityservice.dto.response.IntrospecResponse;
 import org.identityservice.entity.InvalidatedToken;
@@ -18,6 +15,7 @@ import org.identityservice.entity.User;
 import org.identityservice.exception.AppException;
 import org.identityservice.exception.ErrorCode;
 import org.identityservice.repository.InvalidatedTokenRepository;
+import org.identityservice.repository.OutboundIdentityClient;
 import org.identityservice.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,7 +42,7 @@ public class AuthenticationService {
     UserRepository userRepository;
     PasswordEncoder passwordEncoder;
     InvalidatedTokenRepository tokenRepository;
-
+    OutboundIdentityClient outboundIdentityClient;
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -168,5 +166,32 @@ public class AuthenticationService {
             });
         }
         return stringJoiner.toString();
+    }
+
+    @NonFinal
+    @Value("${outbound.identity.client-id}")
+    protected  String CLIENT_ID;
+    @NonFinal
+    @Value("${outbound.identity.client-secret}")
+    protected  String CLIENT_SECRET;
+    @NonFinal
+    @Value("${outbound.identity.redirect-url}")
+    protected  String REDIRECT_URL;
+    @NonFinal
+    @Value("${outbound.identity.grant-type}")
+    protected  String GRANT_TYPE;
+    //login with google
+    public AuthResponse outboundAuthenticationService(String code) {
+        var response = outboundIdentityClient.exchangeToken(ExchangeTokenRequest.builder()
+                .code(code)
+                .clientId(CLIENT_ID)
+                .clientSecret(CLIENT_SECRET)
+                .redirectUri(REDIRECT_URL)
+                .grantType(GRANT_TYPE)
+                .build());
+        log.info("Token res: {} ", response);
+        return AuthResponse.builder()
+                .token(response.getAccessToken())
+                .build();
     }
 }

@@ -17,9 +17,14 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+outbound:
+  identity:
+    client-id: "948254557534-ca906iu2s6s1a33hcuvhv1pdhp9qmoti.apps.googleusercontent.com"
+    client-secret: "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"
+    redirect-url: "http://localhost:3000/authenticate"
+    grant-type: "authorization_code"
 
 jwt:
   signerKey: "POYgGbpnFvfHTnSkIF/UF0ZO4OMa8ewTfjNGP1+rKmBZB5bPnDczsiDxERPVu2pn"
   valid-duration: 3600 # in second
   refreshable-duration: 360000 #second
-

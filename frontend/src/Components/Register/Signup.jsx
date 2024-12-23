@@ -45,11 +45,7 @@ const Signup = () => {
                 <i className="fab fa-google me-2" /> Sign up with Google
               </button>
             </div>
-            <div className="d-grid">
-              <button className="btn btn-lg btn-facebook btn-login fw-bold text-uppercase" type="submit">
-                <i className="fab fa-facebook-f me-2" /> Sign up with Facebook
-              </button>
-            </div>
+          
           </form>
         </div>
       </div>

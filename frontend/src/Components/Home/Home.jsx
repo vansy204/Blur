@@ -7,20 +7,31 @@ const Home = () => {
 
     const navigate = useNavigate();
     const [userDetails,setUserDetails] = useState({});
-    const getUserDetails = async (accessToken) =>{
-        const response = await fetch(
-            "http://localhost:8080/identity/users/myinfo",{
-            method:"GET",
-            headers:{
-                Authorization: `Bearer ${accessToken}`,
-            },
-        });
-        const data = await response.json();
-        console.log("data: ", data);
-        setUserDetails(data.result);
+    const getUserDetails = async (accessToken) => {
+      const response = await fetch(
+        `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${accessToken}`
+      );
+      const data = await response.json();
+      
+      setUserDetails(data);
     };
+  
+    // const getUserDetails = async (accessToken) =>{
+    //     const response = await fetch(
+    //         "http://localhost:8080/identity/users/myinfo",{
+    //         method:"GET",
+    //         headers:{
+    //             Authorization: `Bearer ${accessToken}`,
+    //         },
+    //     });
+    //     const data = await response.json();
+    //     console.log("data: ", data);
+    //     setUserDetails(data.result);
+    // };
     useEffect(() =>{
       const accessToken = localStorage.getItem("token");
+      console.log(accessToken);
+      
       if(!accessToken){
         navigate("/login")
       }else{
@@ -42,7 +53,7 @@ const Home = () => {
         >
           <Card
             sx={{
-              minWidth: 350,
+              minWidth: 400,
               maxWidth: 500,
               boxShadow: 4,
               borderRadius: 4,
@@ -53,119 +64,18 @@ const Home = () => {
               sx={{
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "flex-start",
-                width: "100%",
-                gap: "10px",
+                alignItems: "center",
+                width: "100%", // Ensure content takes full width
               }}
             >
-              <Typography
-                sx={{
-                  fontSize: 18,
-                  mb: "40px",
-                }}
-              >
-                Welcome back to Blur, {userDetails.username} !
-              </Typography>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  width: "100%", // Ensure content takes full width
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                  }}
-                >
-                  User Id
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                  }}
-                >
-                  {userDetails.id}
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  width: "100%", // Ensure content takes full width
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                  }}
-                >
-                  First Name
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                  }}
-                >
-                  {userDetails.firstName}
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  width: "100%", // Ensure content takes full width
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                  }}
-                >
-                  Last Name
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                  }}
-                >
-                  {userDetails.lastName}
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  width: "100%", // Ensure content takes full width
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                  }}
-                >
-                  Date of birth
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                  }}
-                >
-                  {userDetails.dob}
-                </Typography>
-              </Box>
+              <img
+                src={userDetails.picture}
+                alt={`${userDetails.given_name}'s profile`}
+                className="profile-pic"
+              />
+              <p>Welcome back to BLUR,</p>
+              <h1 className="name">{userDetails.name}</h1>
+              <p className="email">{userDetails.email}</p>{" "}
             </Box>
           </Card>
         </Box>

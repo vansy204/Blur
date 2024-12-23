@@ -6,10 +6,7 @@ import org.identityservice.dto.request.*;
 import org.identityservice.dto.response.AuthResponse;
 import org.identityservice.dto.response.IntrospecResponse;
 import org.identityservice.service.AuthenticationService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.nimbusds.jose.JOSEException;
 
@@ -48,4 +45,16 @@ public class AuthController {
         var result = authenticationService.refreshToken(refreshRequest);
         return ApiResponse.<AuthResponse>builder().result(result).build();
     }
+
+
+    // login with google
+    @PostMapping("/outbound/authentication")
+    ApiResponse<AuthResponse> outboundAuthenticate(@RequestParam("code") String code){
+        var result = authenticationService.outboundAuthenticationService(code);
+        return ApiResponse.<AuthResponse>builder().code(1000).result(result).build();
+    }
+
+
+
+
 }
