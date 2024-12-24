@@ -1,11 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Box, CircularProgress, Typography } from "@mui/material";
+import {
+
+  Box,
+  CircularProgress,
+
+  Typography,
+} from "@mui/material";
 
 export default function Authenticate() {
   const navigate = useNavigate();
   const [isLoggedin, setIsLoggedin] = useState(false);
-
+ 
   useEffect(() => {
     const authCodeRegex = /code=([^&]+)/;
     const isMatch = window.location.href.match(authCodeRegex);
@@ -25,6 +31,7 @@ export default function Authenticate() {
           console.log(data);
 
           localStorage.setItem("token", data.result?.token);
+         
           setIsLoggedin(true);
         });
     }

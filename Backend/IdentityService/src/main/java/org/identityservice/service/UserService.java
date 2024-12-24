@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;
 import org.identityservice.dto.response.UserResponse;
@@ -24,6 +25,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -48,6 +50,18 @@ public class UserService {
         }
 
         return userMapper.toUserResponse(user);
+    }
+    public void createPassword(UserCreationPasswordRequest request){
+        var context = SecurityContextHolder.getContext();
+        String username = context.getAuthentication().getName();
+
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        if(!StringUtils.hasText(request.getPassword())){
+            throw new AppException(ErrorCode.PASSWORD_EXISTED);
+        }
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        userRepository.save(user);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -75,7 +89,10 @@ public class UserService {
     public UserResponse getMyInfo() {
         var context = SecurityContextHolder.getContext();
         String name = context.getAuthentication().getName();
-        return userMapper.toUserResponse(
-                userRepository.findByUsername(name).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED)));
+        User user = userRepository.findByUsername(name).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        var userResponse = userMapper.toUserResponse(user);
+        userResponse.setNoPassword(StringUtils.hasText(user.getPassword()));
+        log.info("Getting my info: {}", userResponse.getNoPassword());
+        return userResponse;
     }
 }

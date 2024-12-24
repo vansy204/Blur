@@ -6,6 +6,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.identityservice.dto.request.ApiResponse;
+import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;
 import org.identityservice.dto.response.UserResponse;
@@ -37,9 +38,14 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
+    @PostMapping("/create-password")
+    public ApiResponse<Void> createUser(@RequestBody @Valid UserCreationPasswordRequest request) {
+        userService.createPassword(request);
+        return ApiResponse.<Void>builder().code(1000).message("Password has been created, you could use it to login").build();
+    }
     @PostMapping("")
-    public ApiResponse<UserResponse> createUser(@RequestBody @Valid UserCreationRequest request) {
-        log.info(" controller Creating new user");
+    public ApiResponse<UserResponse> createPassword(@RequestBody @Valid UserCreationRequest request) {
+
         var result = userService.createUser(request);
         return ApiResponse.<UserResponse>builder().code(1000).result(result).build();
     }
@@ -55,7 +61,6 @@ public class UserController {
     public ApiResponse<List<UserResponse>> getUsers() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("username: {}", authentication.getName());
-        authentication.getAuthorities().forEach(grantedAuthority -> log.info("grantedAuthority: {}", grantedAuthority));
         return ApiResponse.<List<UserResponse>>builder()
                 .result(userService.getUsers())
                 .build();

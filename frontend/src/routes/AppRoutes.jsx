@@ -5,6 +5,7 @@ import Signup from "../Components/Register/Signup";
 import Authenticate from "../Components/Register/authenticate";
 
 
+
 const AppRoutes = () => {
   return (
     <Router>
@@ -12,6 +13,7 @@ const AppRoutes = () => {
         <Route path="/login" element={<Signin />} />
         <Route path="/signup" element={<Signup/>}/>
         <Route path="/authenticate" element={<Authenticate />} />
+     
         <Route path="/" element={<Home />} />
       </Routes>
     </Router>

@@ -1,4 +1,4 @@
-package org.identityservice.repository;
+package org.identityservice.repository.httpclient;
 
 import feign.QueryMap;
 import org.identityservice.dto.request.ExchangeTokenRequest;

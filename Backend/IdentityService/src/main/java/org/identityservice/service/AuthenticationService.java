@@ -3,20 +3,21 @@ package org.identityservice.service;
 import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.StringJoiner;
-import java.util.UUID;
+import java.util.*;
 
+import org.identityservice.constant.PredefinedRole;
 import org.identityservice.dto.request.*;
 import org.identityservice.dto.response.AuthResponse;
 import org.identityservice.dto.response.IntrospecResponse;
 import org.identityservice.entity.InvalidatedToken;
+import org.identityservice.entity.Role;
 import org.identityservice.entity.User;
 import org.identityservice.exception.AppException;
 import org.identityservice.exception.ErrorCode;
 import org.identityservice.repository.InvalidatedTokenRepository;
-import org.identityservice.repository.OutboundIdentityClient;
+import org.identityservice.repository.httpclient.OutboundIdentityClient;
 import org.identityservice.repository.UserRepository;
+import org.identityservice.repository.httpclient.OutboundUserClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ public class AuthenticationService {
     PasswordEncoder passwordEncoder;
     InvalidatedTokenRepository tokenRepository;
     OutboundIdentityClient outboundIdentityClient;
+    OutboundUserClient outboundUserClient;
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -182,6 +184,7 @@ public class AuthenticationService {
     protected  String GRANT_TYPE;
     //login with google
     public AuthResponse outboundAuthenticationService(String code) {
+        //get user info
         var response = outboundIdentityClient.exchangeToken(ExchangeTokenRequest.builder()
                 .code(code)
                 .clientId(CLIENT_ID)
@@ -189,9 +192,23 @@ public class AuthenticationService {
                 .redirectUri(REDIRECT_URL)
                 .grantType(GRANT_TYPE)
                 .build());
-        log.info("Token res: {} ", response);
+
+        //onboarding google user vao he thong
+        var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
+        Set<Role> roles = new HashSet<>();
+        roles.add(Role.builder().name(PredefinedRole.USER_ROLE).build());
+        var user = userRepository.findByUsername(userInfo.getEmail()).orElseGet(
+                () -> userRepository.save(User.builder()
+                                .username(userInfo.getEmail())
+                                .firstName(userInfo.getGivenName())
+                                .lastName(userInfo.getFamilyName())
+                                .roles(roles)
+                        .build())
+        );
+        // convert token cua google thanh token cua he thong
+        var token = generateToken(user);
         return AuthResponse.builder()
-                .token(response.getAccessToken())
+                .token(token)
                 .build();
     }
 }

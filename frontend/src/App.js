@@ -1,5 +1,4 @@
 
-import { BrowserRouter } from 'react-router-dom';
 import './App.css';
 
 import AppRoutes from './routes/AppRoutes';
@@ -9,7 +8,7 @@ function App() {
     <div className="App">
       
       <AppRoutes/>
-      
+     
     </div>
   );
 }

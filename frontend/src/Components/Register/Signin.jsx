@@ -4,11 +4,35 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Signup.css";
 import { OAuthConfig } from "../../configurations/configuration";
+import { Alert, Snackbar } from "@mui/material";
 
 const Signin = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const [snackBarOpen, setSnackBarOpen] = useState(false);
+  const [snackBarMessage, setSnackBarMessage] = useState("");
+  const [snackType, setSnackType] = useState("error");
+
+  const handleCloseSnackBar = (event, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+
+    setSnackBarOpen(false);
+  };
+
+  const showError = (message) => {
+    setSnackType("error");
+    setSnackBarMessage(message);
+    setSnackBarOpen(true);
+  };
+
+  const showSuccess = (message) => {
+    setSnackType("success");
+    setSnackBarMessage(message);
+    setSnackBarOpen(true);
+  };
   const handleSubmit = (event) => {
     event.preventDefault();
     // khi an login thi goi ve api cua backend
@@ -30,11 +54,13 @@ const Signin = () => {
         if (data.code !== 1000) {
           throw new Error("error:", data.message);
         }
-        console.log("token: ", data.result?.token);
         localStorage.setItem("token", data.result?.token);
         navigate("/");
-      });
-  };
+      })
+      .catch((error) => {
+        showError("Incorect username or password");
+  });
+};
   const handleClick = () => {
     const callbackUrl = OAuthConfig.redirectUri;
     const authUrl = OAuthConfig.authUri;
@@ -57,6 +83,23 @@ const Signin = () => {
     }
   }, [navigate]);
   return (
+    <>
+    <Snackbar
+    open={snackBarOpen}
+    onClose={handleCloseSnackBar}
+    autoHideDuration={6000}
+    anchorOrigin={{ vertical: "top", horizontal: "right" }}
+  >
+    <Alert
+      onClose={handleCloseSnackBar}
+      severity={snackType}
+      variant="filled"
+      sx={{ width: "100%" }}
+    >
+      {snackBarMessage}
+    </Alert>
+  </Snackbar>
+
     <div className="container vertical-align ">
       <div className="row">
         <div className="col-lg-10 col-xl-9 mx-auto">
@@ -64,7 +107,7 @@ const Signin = () => {
             <div className="card-img-left d-none d-md-flex translate-y-1">
               <img
                 className="background_blur"
-                src="../blur.jpg"
+                src="../sea.jpg"
                 alt="blur.jpg"
               />
             </div>
@@ -126,6 +169,7 @@ const Signin = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
