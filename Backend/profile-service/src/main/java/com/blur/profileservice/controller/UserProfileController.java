@@ -13,9 +13,12 @@ import com.blur.profileservice.service.UserProfileService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.apache.catalina.User;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -34,10 +37,14 @@ public class UserProfileController {
                 .result(result)
                 .build();
     }
-//    @GetMapping("/")
-//    public ApiResponse<List<UserProfileResponse>> getUserProfiles(){
-//
-//    }
+    @GetMapping("/users/")
+    public ApiResponse<List<UserProfileResponse>> getUserProfiles(){
+        var result = userProfileService.getAllUserProfiles();
+        return ApiResponse.<List<UserProfileResponse>>builder()
+                .code(1000)
+                .result(result)
+                .build();
+    }
     @PutMapping("/users/{userProfileId}")
     public ApiResponse<UserProfileResponse> updateUserProfile(@PathVariable String userProfileId, @RequestBody UserProfileUpdateRequest request){
         UserProfile userProfile = userProfileRepository.findById(userProfileId).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));

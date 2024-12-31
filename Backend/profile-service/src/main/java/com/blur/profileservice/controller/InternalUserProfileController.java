@@ -29,7 +29,4 @@ public class InternalUserProfileController {
                 .result(result)
                 .build();
     }
-
-
-
 }
