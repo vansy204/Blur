@@ -30,7 +30,6 @@ public class UserProfileService {
 
     public UserProfileResponse createProfile(ProfileCreationRequest request){
         UserProfile  userProfile = userProfileMapper.toUserProfile(request);
-
         try{
             userProfile = userProfileRepository.save(userProfile);
         }catch (DataIntegrityViolationException ex){

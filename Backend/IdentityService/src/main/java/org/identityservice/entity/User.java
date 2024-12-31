@@ -1,6 +1,6 @@
 package org.identityservice.entity;
 
-import java.time.LocalDate;
+
 import java.util.Set;
 
 import jakarta.persistence.*;
@@ -26,12 +26,7 @@ public class User {
             columnDefinition =
                     "VARCHAR(255) COLLATE utf8mb4_unicode_ci") // đánh dấu unique và không phân biệt chữ hoa thường
     String username;
-
     String password;
-    String firstName;
-    String lastName;
-    LocalDate dob;
-
     @ManyToMany
     Set<Role> roles;
 }

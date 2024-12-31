@@ -1,5 +1,6 @@
 
 import './App.css';
+import UserProfile from './Components/pages/UserProfile';
 
 import AppRoutes from './routes/AppRoutes';
 
@@ -8,7 +9,7 @@ function App() {
     <div className="App">
       
       <AppRoutes/>
-     
+     {/* <UserProfile/> */}
     </div>
   );
 }

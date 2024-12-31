@@ -8,6 +8,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="IdentityService" />
+        <module name="api-gateway" />
         <module name="profile-service" />
       </profile>
     </annotationProcessing>
@@ -15,6 +16,7 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="IdentityService" options="-parameters" />
+      <module name="api-gateway" options="-parameters" />
       <module name="profile-service" options="-parameters" />
     </option>
   </component>

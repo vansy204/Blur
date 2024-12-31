@@ -1,30 +1,21 @@
 package org.identityservice.dto.request;
 
-import java.time.LocalDate;
-
 import jakarta.validation.constraints.Size;
-
-import org.identityservice.validator.DobConstraint;
-
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.identityservice.validator.DobConstraint;
+
+import java.time.LocalDate;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class UserCreationRequest {
-    @Size(min = 4, message = "USERNAME_INVALID")
-    String username;
-
-    @Size(min = 8, message = "INVALID_PASSWORD")
-    String password;
-
+public class ProfileCreationRequest {
+    String userId;
     String firstName;
     String lastName;
-
-    @DobConstraint(min = 14, message = "INVALID_DOB")
     LocalDate dob;
     String city;
 }

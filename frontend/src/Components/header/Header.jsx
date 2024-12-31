@@ -132,6 +132,9 @@ export default function Header() {
         </IconButton>
         <p>Messages</p>
       </MenuItem>
+
+      
+
       <MenuItem>
         <IconButton
           size="large"
@@ -200,6 +203,7 @@ export default function Header() {
                 <MailIcon />
               </Badge>
             </IconButton>
+            
             <IconButton
               size="large"
               aria-label="show 17 new notifications"
@@ -233,6 +237,7 @@ export default function Header() {
               <MoreIcon />
             </IconButton>
           </Box>
+          
         </Toolbar>
       </AppBar>
       {renderMobileMenu}

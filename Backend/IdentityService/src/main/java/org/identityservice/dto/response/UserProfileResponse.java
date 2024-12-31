@@ -1,4 +1,4 @@
-package com.blur.profileservice.dto.response;
+package org.identityservice.dto.response;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -12,7 +12,7 @@ import java.time.LocalDate;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserProfileResponse {
     String id;
-    String userId;
+
     String firstName;
     String lastName;
     LocalDate dob;

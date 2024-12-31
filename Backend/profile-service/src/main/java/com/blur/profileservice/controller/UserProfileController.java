@@ -26,14 +26,6 @@ public class UserProfileController {
     UserProfileMapper userProfileMapper;
     private final UserProfileRepository userProfileRepository;
 
-    @PostMapping("/users")
-    public ApiResponse<UserProfileResponse> createProfile(@RequestBody ProfileCreationRequest request){
-        var result = userProfileService.createProfile(request);
-        return ApiResponse.<UserProfileResponse>builder()
-                .code(1000)
-                .result(result)
-                .build();
-    }
     @GetMapping("/users/{profileId}")
     public ApiResponse<UserProfileResponse> getProfile(@PathVariable String profileId){
         var result = userProfileMapper.toUserProfileResponse(userProfileService.getUserProfile(profileId));

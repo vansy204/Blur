@@ -18,6 +18,7 @@ import org.identityservice.repository.InvalidatedTokenRepository;
 import org.identityservice.repository.httpclient.OutboundIdentityClient;
 import org.identityservice.repository.UserRepository;
 import org.identityservice.repository.httpclient.OutboundUserClient;
+import org.identityservice.repository.httpclient.ProfileClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class AuthenticationService {
     InvalidatedTokenRepository tokenRepository;
     OutboundIdentityClient outboundIdentityClient;
     OutboundUserClient outboundUserClient;
+    private final ProfileClient profileClient;
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -197,16 +199,21 @@ public class AuthenticationService {
         var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
         Set<Role> roles = new HashSet<>();
         roles.add(Role.builder().name(PredefinedRole.USER_ROLE).build());
-        var user = userRepository.findByUsername(userInfo.getEmail()).orElseGet(
-                () -> userRepository.save(User.builder()
-                                .username(userInfo.getEmail())
-                                .firstName(userInfo.getGivenName())
-                                .lastName(userInfo.getFamilyName())
-                                .roles(roles)
-                        .build())
-        );
+        var user = userRepository.findByUsername(userInfo.getEmail());
+        var saveUser = userRepository.save(User.builder()
+                .username(userInfo.getEmail())
+                .roles(roles)
+                .build());
+
+
         // convert token cua google thanh token cua he thong
-        var token = generateToken(user);
+        var token = generateToken(saveUser);
+        profileClient.createProfile(ProfileCreationRequest.builder()
+                .userId(saveUser.getId())
+                .firstName(userInfo.getGivenName())
+                .lastName(userInfo.getFamilyName())
+                .city(userInfo.getLocale())
+                .build());
         return AuthResponse.builder()
                 .token(token)
                 .build();
