@@ -8,7 +8,6 @@ import {
   Snackbar,
   Typography,
 } from "@mui/material";
-import Header from "../header/Header";
 
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 const Home = () => {
@@ -116,7 +115,6 @@ const Home = () => {
   }, [navigate]);
   return (
     <div>
-      <Header />
       <Snackbar
         open={snackBarOpen}
         onClose={handleCloseSnackBar}
