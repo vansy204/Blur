@@ -1,18 +1,12 @@
-
-import './App.css';
-import Authenticate from './Components/Register/authenticate';
-import { Sidebar } from './Components/sidebar/Sidebar';
-
-import AppRoutes from './routes/AppRoutes';
+import React from 'react';
+import Router from './Pages/Router/Router';
 
 function App() {
   return (
-    <div className="App">
-      
-      <AppRoutes/>  
-     {/* <UserProfile/> */}
-    </div>
-  );
+       
+          <Router>
+          </Router>
+    
+  )
 }
-
 export default App;
