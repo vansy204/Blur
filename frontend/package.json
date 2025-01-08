@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@chakra-ui/react": "^3.2.5",
+    "@chakra-ui/react": "^2.10.2",
     "@emotion/react": "^11.14.0",
     "cra-template": "1.2.0",
     "formik": "^2.4.6",
@@ -45,5 +45,15 @@
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17"
+  },
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
   }
 }

@@ -34,11 +34,12 @@ export const SidebarComponent = () => {
     <div className="sticky top-0 h-[100vh] flex">
     <div className={`flex flex-col justify-between h-full  ${activeTab==="Search"?"px-2" :" px-10"} "`}>
      { <div>
-       { activeTab!=="Search" && <div className="pt-10">
+       { activeTab!=="Search" && <div className="pt-5">
           <img
-            className="w-40 "
-            src="https://i.imgur.com/zqpwkLQ.png"
+            className="w-20 h-20 rounded-full "
+            src="../logo.webp"
             alt=""
+            onClick={() =>{navigate("/")}}
           />
         </div>}
         <div className="mt-10">

@@ -1,12 +1,12 @@
-import React from 'react';
-import Router from './Pages/Router/Router';
+import React from "react";
+import Router from "./Pages/Router/Router";
+import { Provider } from "react-redux";
 
 function App() {
   return (
-       
-          <Router>
-          </Router>
-    
-  )
+   
+      <Router></Router>
+  
+  );
 }
 export default App;

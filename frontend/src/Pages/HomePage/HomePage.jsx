@@ -3,6 +3,7 @@
 import StoryCircle from '../../Components/Story/StoryCircle'
 import HomeRight from '../../Components/HomeRight/HomeRight'
 import React from 'react'
+import PostCard from '../../Components/Post/PostCard'
 
 const HomePage = () => {
   return (
@@ -15,7 +16,11 @@ const HomePage = () => {
           ))}
         </div>
         <div className="space-y-10 w-full mt-10">
-
+          {
+            [1,1,1,1].map((item) =>(
+              <PostCard post ={item}/>
+            ))
+          }
         </div>
       </div>
          <div className="w-[20%]">
