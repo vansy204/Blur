@@ -54,7 +54,4 @@ public class AuthController {
         return ApiResponse.<AuthResponse>builder().code(1000).result(result).build();
     }
 
-
-
-
 }

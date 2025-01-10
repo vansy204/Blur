@@ -2,10 +2,7 @@ package com.blur.profileservice.entity;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.neo4j.core.schema.GeneratedValue;
-import org.springframework.data.neo4j.core.schema.Id;
-import org.springframework.data.neo4j.core.schema.Node;
-import org.springframework.data.neo4j.core.schema.Property;
+import org.springframework.data.neo4j.core.schema.*;
 import org.springframework.data.neo4j.core.support.UUIDStringGenerator;
 
 import java.time.LocalDate;
@@ -27,8 +24,20 @@ public class UserProfile {
     String userId;
     String firstName;
     String lastName;
-    LocalDate dob;
     Integer age;
     String bio;
     String city;
+    String phone;
+    String email;
+    String gender;
+    String website;
+    String imageUrl;
+    String address;
+    LocalDate updatedAt;
+    LocalDate dob;
+    LocalDate createdAt;
+    @Relationship(type = "follows",direction = Relationship.Direction.OUTGOING)
+    Set<UserProfile> following = new HashSet<>();
+    @Relationship(type = "follows",direction = Relationship.Direction.INCOMING)
+    Set<UserProfile> followers = new HashSet<>();
 }

@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+
 @RestController
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -24,6 +26,7 @@ public class InternalUserProfileController {
     @PostMapping("/internal/users")
     public ApiResponse<UserProfileResponse> createProfile(@RequestBody ProfileCreationRequest request){
         var result = userProfileService.createProfile(request);
+        result.setCreatedAt(LocalDate.now());
         return ApiResponse.<UserProfileResponse>builder()
                 .code(1000)
                 .result(result)

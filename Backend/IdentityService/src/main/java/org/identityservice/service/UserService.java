@@ -4,13 +4,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.identityservice.constant.PredefinedRole;
+
 import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;
 import org.identityservice.dto.response.UserResponse;
+import org.identityservice.entity.Role;
 import org.identityservice.entity.User;
-import org.identityservice.enums.Role;
+
 import org.identityservice.exception.AppException;
 import org.identityservice.exception.ErrorCode;
 import org.identityservice.mapper.ProfileMapper;
@@ -47,13 +48,17 @@ public class UserService {
         User user = userMapper.toUser(request);
 
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        HashSet<String> roles = new HashSet<>();
-        roleRepository.findById(PredefinedRole.USER_ROLE).ifPresent(r -> roles.add(r.getName()));
+        HashSet<Role> roles = new HashSet<>();
+        roleRepository.findById("USER").ifPresent(role -> {
+            roles.add(role);
+        });
+        user.setRoles(roles);
+
         try {
             userRepository.save(user);
             // tao profile tu user da nhan
             var profileResponse = profileMapper.toProfileCreationRequest(request);
-            //maping userid tu user vao profile
+            //mapping userid tu user vao profile
             profileResponse.setUserId(user.getId());
             profileClient.createProfile(profileResponse);
             log.info("Created profile: {}", profileResponse);

@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-import org.identityservice.constant.PredefinedRole;
+
 import org.identityservice.dto.request.*;
 import org.identityservice.dto.response.AuthResponse;
 import org.identityservice.dto.response.IntrospecResponse;
@@ -198,7 +198,7 @@ public class AuthenticationService {
         //onboarding google user vao he thong
         var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
         Set<Role> roles = new HashSet<>();
-        roles.add(Role.builder().name(PredefinedRole.USER_ROLE).build());
+        roles.add(Role.builder().name("USER").build());
         var user = userRepository.findByUsername(userInfo.getEmail());
         var saveUser = userRepository.save(User.builder()
                 .username(userInfo.getEmail())

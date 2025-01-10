@@ -3,6 +3,7 @@ import React from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import HomePage from "../HomePage/HomePage";
 import { SidebarComponent } from "../../Components/Sidebar/SidebarComponent";
+import Profile from "../Profile/Profile";
 
 const Router = () => {
   const location = useLocation();
@@ -16,7 +17,7 @@ const Router = () => {
           <div className="w-full">
             <Routes>
               <Route path="/" element={<HomePage />}></Route>
-            
+              <Route path="/username" element={<Profile/>}/>
             </Routes>
           </div>
         </div>

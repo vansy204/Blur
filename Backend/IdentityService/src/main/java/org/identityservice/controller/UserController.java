@@ -39,23 +39,18 @@ public class UserController {
     private final UserRepository userRepository;
 
     @PostMapping("/create-password")
-    public ApiResponse<Void> createUser(@RequestBody @Valid UserCreationPasswordRequest request) {
+    public ApiResponse<Void> createPassword(@RequestBody @Valid UserCreationPasswordRequest request) {
         userService.createPassword(request);
         return ApiResponse.<Void>builder().code(1000).message("Password has been created, you could use it to login").build();
     }
-    @PostMapping("")
-    public ApiResponse<UserResponse> createPassword(@RequestBody @Valid UserCreationRequest request) {
+    @PostMapping("/registration")
+    public ApiResponse<UserResponse> createUser(@RequestBody @Valid UserCreationRequest request) {
 
         var result = userService.createUser(request);
         return ApiResponse.<UserResponse>builder().code(1000).result(result).build();
     }
 
-    @GetMapping("/myinfo")
-    public ApiResponse<UserResponse> getMyInfo() {
-        return ApiResponse.<UserResponse>builder()
-                .result(userService.getMyInfo())
-                .build();
-    }
+
 
     @GetMapping("/")
     public ApiResponse<List<UserResponse>> getUsers() {

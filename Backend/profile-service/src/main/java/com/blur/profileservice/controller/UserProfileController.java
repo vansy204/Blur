@@ -62,5 +62,8 @@ public class UserProfileController {
                 .result("User Profile has been deleted")
                 .build();
     }
-
+//    @PutMapping("follow/{followUserId}")
+//    public ApiResponse<String> followUser(@PathVariable String followUserId){
+//
+//    }
 }

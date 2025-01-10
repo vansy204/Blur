@@ -16,6 +16,5 @@ public class UserProfileResponse {
     String firstName;
     String lastName;
     LocalDate dob;
-    String city;
-
+    LocalDate createdAt;
 }

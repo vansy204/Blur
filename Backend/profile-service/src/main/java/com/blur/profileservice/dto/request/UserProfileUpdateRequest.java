@@ -13,5 +13,5 @@ public class UserProfileUpdateRequest {
     String firstName;
     String lastName;
     LocalDate dob;
-    String city;
+    LocalDate createAt;
 }
