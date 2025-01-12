@@ -31,6 +31,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Slf4j
 @Service
@@ -60,6 +62,8 @@ public class UserService {
             var profileResponse = profileMapper.toProfileCreationRequest(request);
             //mapping userid tu user vao profile
             profileResponse.setUserId(user.getId());
+
+
             profileClient.createProfile(profileResponse);
             log.info("Created profile: {}", profileResponse);
         } catch (DataIntegrityViolationException ex) {
