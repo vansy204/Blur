@@ -5,10 +5,11 @@ import MessageRight from '../../Components/MessageComponets/MessageRight/Message
 const MessagePage = () => {
   return (
     <div className='flex'>
-        <div className='w-[20%]'>
+        <div className='w-[23%] border border-;-slate-500'>
             <MessageLeft/>
+            
         </div>
-        <div>
+        <div className='w-full'>
             <MessageRight/>
         </div>
     </div>
