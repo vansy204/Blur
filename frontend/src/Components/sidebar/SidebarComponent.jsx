@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { IoReorderThreeOutline } from "react-icons/io5";
 import { menu, menuItems } from "./SidebarConfig";
 import { useNavigate } from "react-router-dom";
-
 import { useDisclosure } from "@chakra-ui/react";
 import SearchComponent from "../SearchComponent/SearchComponent";
 
@@ -22,8 +21,11 @@ export const SidebarComponent = () => {
       setIsSearchVisible(false)
     }else if(title === "Create"){
       onOpen();
-      
-    }else if(title === "Search"){
+    } 
+    else if(title ==="Message"){
+      navigate("/message")
+    }
+    else if(title === "Search"){
       setIsSearchVisible(true);
     }else{
       setIsSearchVisible(false);
@@ -63,6 +65,7 @@ export const SidebarComponent = () => {
       <div className="flex items-center cursor-pointer pb-10">
         <IoReorderThreeOutline className="text-2xl" />
         { activeTab!=="Search" && <p className="ml-5">More</p>}
+        
       </div>
     </div>
    

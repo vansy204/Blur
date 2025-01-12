@@ -4,6 +4,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import HomePage from "../HomePage/HomePage";
 import { SidebarComponent } from "../../Components/Sidebar/SidebarComponent";
 import Profile from "../Profile/Profile";
+import MessagePage from "../MessagePage/MessagePage";
 
 const Router = () => {
   const location = useLocation();
@@ -18,6 +19,7 @@ const Router = () => {
             <Routes>
               <Route path="/" element={<HomePage />}></Route>
               <Route path="/username" element={<Profile/>}/>
+              <Route path="/message" element={<MessagePage/>} />
             </Routes>
           </div>
         </div>
