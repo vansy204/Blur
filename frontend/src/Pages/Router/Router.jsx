@@ -5,6 +5,7 @@ import HomePage from "../HomePage/HomePage";
 import { SidebarComponent } from "../../Components/Sidebar/SidebarComponent";
 import Profile from "../Profile/Profile";
 import MessagePage from "../MessagePage/MessagePage";
+import Signin from "../../Register/Signin";
 
 const Router = () => {
   const location = useLocation();
@@ -27,7 +28,7 @@ const Router = () => {
       {(location.pathname === "/login" || location.pathname === "/signup") && (
         <div>
           <Routes>
-         
+          <Route path="/login" element={<Signin/>}/>
           </Routes>
         </div>
       )}
