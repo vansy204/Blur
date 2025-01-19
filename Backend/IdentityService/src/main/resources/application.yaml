@@ -21,7 +21,7 @@ outbound:
   identity:
     client-id: "948254557534-ca906iu2s6s1a33hcuvhv1pdhp9qmoti.apps.googleusercontent.com"
     client-secret: "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"
-    redirect-url: "http://localhost:3000/authenticate"
+    redirect-url: "http://localhost:3000/Authenticate"
     grant-type: "authorization_code"
 
 jwt:
@@ -32,3 +32,5 @@ jwt:
 app:
   services:
     profile: "http://localhost:8081/profile"
+
+

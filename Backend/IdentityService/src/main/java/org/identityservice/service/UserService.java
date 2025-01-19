@@ -62,8 +62,6 @@ public class UserService {
             var profileResponse = profileMapper.toProfileCreationRequest(request);
             //mapping userid tu user vao profile
             profileResponse.setUserId(user.getId());
-
-
             profileClient.createProfile(profileResponse);
             log.info("Created profile: {}", profileResponse);
         } catch (DataIntegrityViolationException ex) {
@@ -74,9 +72,7 @@ public class UserService {
     public void createPassword(UserCreationPasswordRequest request){
         var context = SecurityContextHolder.getContext();
         String username = context.getAuthentication().getName();
-
         User user = userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
         if(!StringUtils.hasText(request.getPassword())){
             throw new AppException(ErrorCode.PASSWORD_EXISTED);
         }
@@ -111,8 +107,7 @@ public class UserService {
         String name = context.getAuthentication().getName();
         User user = userRepository.findByUsername(name).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         var userResponse = userMapper.toUserResponse(user);
-        userResponse.setNoPassword(StringUtils.hasText(user.getPassword()));
-        log.info("Getting my info: {}", userResponse.getNoPassword());
+        userResponse.setNoPassword(!StringUtils.hasText(user.getPassword()));
         return userResponse;
     }
 }

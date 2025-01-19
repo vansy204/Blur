@@ -52,12 +52,18 @@ public class UserController {
 
 
 
-    @GetMapping("/")
+    @GetMapping("/all")
     public ApiResponse<List<UserResponse>> getUsers() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("username: {}", authentication.getName());
         return ApiResponse.<List<UserResponse>>builder()
                 .result(userService.getUsers())
+                .build();
+    }
+    @GetMapping("/")
+    public ApiResponse<UserResponse> myInfo() {
+        return ApiResponse.<UserResponse>builder()
+                .result(userService.getMyInfo())
                 .build();
     }
 
