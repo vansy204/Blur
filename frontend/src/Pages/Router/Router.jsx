@@ -14,7 +14,7 @@ const Router = () => {
   const location = useLocation();
   return (
     <div>
-      {location.pathname !== "/login" && location.pathname !== "/signup"  && location.pathname !== "/create-password" && (
+      {location.pathname !== "/login" && location.pathname !== "/register"  && location.pathname !== "/create-password" && (
         <div className="flex">
           <div className="w-[20%] border border-;-slate-500">
             <SidebarComponent />

@@ -9,7 +9,7 @@ import {
   Stack,
   useToast,
 } from "@chakra-ui/react";
-import React, { useEffect, useState } from "react";
+import React, {  useState } from "react";
 import { FaGoogle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { OAuthConfig } from "../../Config/configuration";
@@ -26,6 +26,7 @@ const LoginCard = () => {
       description,
       status,
       duration: 5000,
+      position: "top-right",
       isClosable: true,
     });
   };
@@ -49,12 +50,15 @@ const LoginCard = () => {
       .then((data) => {
         console.log("Response body: ", data);
         if (data.code !== 1000) {
-          throw new Error("Error: ", data.message);
+          throw new Error("Invalid Username Or Password!!");
         }
         localStorage.setItem("token", data.result?.token);
+        showToast("Login success!!", "","success")
         navigate("/");
       })
-      .catch((error) => {});
+      .catch((error) => {
+        showToast("Login Error",error.message,"error")
+      });
   };
   const handleClick = () => {
     const callBackUrl = OAuthConfig.redirectUri;
