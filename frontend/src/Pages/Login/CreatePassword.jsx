@@ -12,6 +12,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { getToken } from "../../service/LocalStorageService";
 
 const CreatePassword = () => {
   const [password, setPassword] = useState("");
@@ -52,7 +53,7 @@ const CreatePassword = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify(body),
       })
@@ -61,7 +62,7 @@ const CreatePassword = () => {
         })
         .then((data) => {
           if (data.code !== 1000) throw new Error(data.message);
-          getUserDetails(localStorage.getItem("token"));
+          getUserDetails(getToken());
           showToast("Password created", data.message, "success");
           navigate("/login");
         })
@@ -78,10 +79,10 @@ const CreatePassword = () => {
   };
 
   useEffect(() => {
-    const accessToken = localStorage.getItem("token");
+    const accessToken = getToken();
     if (!accessToken) {
       navigate("/login");
-    } else {
+    } else {  
       getUserDetails(accessToken);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

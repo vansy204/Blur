@@ -1,7 +1,8 @@
 import { useToast } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import "../../service/LocalStorageService";
+import { setToken } from "../../service/LocalStorageService";
 export default function Authenticate() {
   const [userDetails, setUserDetails] = useState({});
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function Authenticate() {
         })
         .then((data) => {
           console.log("data: ", data);
-          localStorage.setItem("token", data.result?.token);
+          setToken(data.result?.token);
         });
     }
   }, []);

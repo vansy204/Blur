@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { IoReorderThreeOutline } from "react-icons/io5";
 import { menuItems } from "./SidebarConfig";
 import { useNavigate } from "react-router-dom";
-import { useDisclosure } from "@chakra-ui/react";
+import { useDisclosure, useToast } from "@chakra-ui/react";
 import SearchComponent from "../SearchComponent/SearchComponent";
 import "./SidebarComponents.css";
 import LogoutModal from "./LogoutModal";
+import { getToken } from "../../service/LocalStorageService";
 
 export const SidebarComponent = () => {
   const [activeTab, setActiveTab] = useState();
@@ -13,7 +14,17 @@ export const SidebarComponent = () => {
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-
+  const toast = useToast();
+  const showToast = (title, description, status) => {
+    toast({
+      title,
+      description,
+      status,
+      duration: 5000,
+      position: "top-right",
+      isClosable: true,
+    });
+  };
   const handleTabClick = (title) => {
     setActiveTab(title);
     if (title === "Profile") {
@@ -37,12 +48,35 @@ export const SidebarComponent = () => {
     setShowDropdown(!showDropdown);
   };
 
-  const handleLoggout = () => {
-    onOpen(); // Mở modal khi bấm nút
-    localStorage.removeItem("token");
-    navigate("/login");
+  const handleLoggout = (even) => {
+    try {
+      even.preventDefault();
+      onOpen(); // Mở modal khi bấm nút
+      const token = getToken();
+      fetch("http://localhost:8888/api/identity/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token: token,
+        }),
+      })
+        .then((response) => {
+          return response.json();
+        })
+        .then((data) => {
+          if (data.code !== 1000) {
+            throw new Error("Invalid token");
+          }
+          localStorage.removeItem("token");
+          showToast("Logout success!!", "", "success");
+          navigate("/login");
+        });
+    } catch (error) {
+      showToast("Logout Error", error.message, "error");
+    }
   };
-
   return (
     <div className="sticky top-0 h-[100vh] flex">
       <div
@@ -106,7 +140,6 @@ export const SidebarComponent = () => {
       </div>
 
       {isSearchVisible && <SearchComponent />}
-      {/* Đặt modal tại đây */}
       <LogoutModal isOpen={isOpen} onClose={onClose} />
     </div>
   );

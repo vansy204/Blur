@@ -13,6 +13,7 @@ import React, {  useState } from "react";
 import { FaGoogle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { OAuthConfig } from "../../Config/configuration";
+import { setToken } from "../../service/LocalStorageService";
 
 const LoginCard = () => {
   const [username, setUsername] = useState("");
@@ -48,11 +49,10 @@ const LoginCard = () => {
         return response.json();
       })
       .then((data) => {
-        console.log("Response body: ", data);
         if (data.code !== 1000) {
           throw new Error("Invalid Username Or Password!!");
         }
-        localStorage.setItem("token", data.result?.token);
+        setToken(data.result?.token);
         showToast("Login success!!", "","success")
         navigate("/");
       })

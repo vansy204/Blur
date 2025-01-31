@@ -7,6 +7,7 @@ import {
   Heading,
   Image,
   Stack,
+  useToast,
 } from "@chakra-ui/react";
 import React, { useState } from "react";
 import { FaEye, FaEyeSlash, FaGoogle } from "react-icons/fa";
@@ -22,11 +23,51 @@ const RegisterCard = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const checkPassword = () => password === confirmPassword;
-  const handleSubmit = () =>{
-    if(!checkPassword){
-      
+  const toast = useToast();
+  const showToast = (title, description, status) => {
+    toast({
+      title,
+      description,
+      status,
+      duration: 5000,
+      position: "top-right",
+      isClosable: true,
+    });
+  };
+  const handleSubmit = (even) => {
+    try {
+      even.preventDefault();
+      if (!checkPassword()) {
+        throw new Error("Password and Confirm Password are not the same");
+      }
+      const body = {
+        username: userName,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+        dob: dob,
+      };
+      fetch("http://localhost:8888/api/identity/users/registration", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      })
+        .then((response) => {
+          return response.json();
+        })
+        .then((data) => {
+          if (data.code !== 1000) {
+            throw new Error(data.message);
+          }
+          showToast("Register success!!", "", "success");
+          navigate("/login");
+        });
+    } catch (error) {
+      showToast("Register Error", error.message, "error");
     }
-  }
+  };
   return (
     <div className="flex-row">
       <Card
@@ -159,7 +200,7 @@ const RegisterCard = () => {
                 variant="solid"
                 colorScheme="blue"
                 className="mb-3 w-full"
-                onSubmit={handleSubmit}
+                onClick={handleSubmit}
               >
                 Register
               </Button>
