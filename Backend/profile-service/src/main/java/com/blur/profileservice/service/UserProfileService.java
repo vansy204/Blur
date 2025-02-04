@@ -18,7 +18,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,8 +43,9 @@ public class UserProfileService {
     }
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserProfileResponse> getAllUserProfiles(){
-        return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).collect(Collectors.toList());
+        return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).toList();
     }
+
     public UserProfile updateUserProfile(String userProfileId, UserProfileUpdateRequest request){
         UserProfile userProfile = getUserProfile(userProfileId);
         userProfileMapper.updateUserProfile(userProfile, request);
@@ -54,6 +54,7 @@ public class UserProfileService {
     public void deleteUserProfile(String userProfileId){
         userProfileRepository.deleteById(userProfileId);
     }
+
     public String followUser(String reqUserId, String followerId){
         UserProfile reqUser = getUserProfile(reqUserId);
         UserProfile follower = getUserProfile(followerId);
@@ -61,18 +62,6 @@ public class UserProfileService {
         userProfileRepository.save(reqUser);
         return follower.getUserId() + " is now following" + reqUser.getUserId();
     }
-//    @PostAu
-//    public UserProfile getMyInfo(String userProfileId){
-//
-//    }
-//    public String unfollowUser(String reqUserId, String followerId){
-//        UserProfile reqUser = getUserProfile(reqUserId);
-//        UserProfile follower = getUserProfile(followerId);
-//        reqUser.getFollowing().remove(follower);
-//        userProfileRepository.save(reqUser);
-//        return follower.getUserId() + " is now unfollowing" + reqUser.getUserId();
-//    }
-////    public UserProfileResponse getMyProfile(){
-////        var context = SecurityContextHolder.getContext();
-////    }
+
+
 }

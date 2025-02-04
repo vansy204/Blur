@@ -8,8 +8,18 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="api-gateway" />
+        <module name="IdentityService" />
         <module name="profile-service" />
         <module name="notification-service" />
+      </profile>
+      <profile name="Annotation profile for chat-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
+        </processorPath>
+        <module name="chat-service" />
       </profile>
     </annotationProcessing>
   </component>
@@ -17,6 +27,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="IdentityService" options="-parameters" />
       <module name="api-gateway" options="-parameters" />
+      <module name="chat-service" options="-parameters" />
       <module name="notification-service" options="-parameters" />
       <module name="profile-service" options="-parameters" />
     </option>

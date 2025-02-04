@@ -24,17 +24,20 @@ public class AppConfiguration {
     @Bean
     ApplicationRunner runner(UserRepository userRepository) {
         return args -> {
+            Role userRole = roleRepository.save(Role.builder().name("USER").description("User Role").build());
             Role adminRole = roleRepository.save(
-                    Role.builder().name("ADMIN").description("Admin role").build());
+                    Role.builder().name("ADMIN").description("Admin role")
+                            .build());
             var roles = new HashSet<Role>();
             roles.add(adminRole);
-
             if (userRepository.findByUsername("admin").isEmpty()) {
 
                 User user = User.builder()
                         .username("admin")
                         .password(passwordEncoder.encode("admin"))
                         .roles(roles)
+                        .email("phamvansy204@gmail.com")
+                        .emailVerified(true)
                         .build();
                 userRepository.save(user);
                 log.info("admin user created with default password admin");

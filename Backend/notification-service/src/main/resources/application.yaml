@@ -8,5 +8,17 @@ spring:
   data:
     mongodb:
       uri: mongodb://root:root@localhost:27017/notification-service?authSource=admin
-
   #api key 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
+  kafka:
+    bootstrap-servers: localhost:9094 #server kafka
+    consumer: #config cho consumer (nguoi nhan)
+      group-id: notification-group
+      auto-offset-reset: earliest #doc message cu nhat truoc
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+notification:
+  email:
+    brevo-url: https://api.brevo.com
+    brevo-apikey: "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"

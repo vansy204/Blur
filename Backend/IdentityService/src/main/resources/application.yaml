@@ -9,7 +9,11 @@ spring:
     username: ${DBMS_USERNAME:root}
     password: ${DBMS_PASSWORD:root}
    # driverClassName: "com.mysql.cj.jdbc.Driver"
-
+  kafka:
+    bootstrap-servers: localhost:9094 #server kafka
+    producer: #config cho producer (nguoi gui)
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer #su dung type string
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer #su dung json de gui object
   jpa:
     properties:
       hibernate:
@@ -24,6 +28,8 @@ outbound:
     redirect-url: "http://localhost:3000/Authenticate"
     grant-type: "authorization_code"
 
+
+
 jwt:
   signerKey: "POYgGbpnFvfHTnSkIF/UF0ZO4OMa8ewTfjNGP1+rKmBZB5bPnDczsiDxERPVu2pn"
   valid-duration: 3600 # in second
@@ -32,5 +38,6 @@ jwt:
 app:
   services:
     profile: "http://localhost:8081/profile"
+
 
 

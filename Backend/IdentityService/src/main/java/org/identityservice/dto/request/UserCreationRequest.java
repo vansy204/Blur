@@ -18,12 +18,12 @@ public class UserCreationRequest {
     @Size(min = 4, message = "USERNAME_INVALID")
     String username;
 
+    String email;
     @Size(min = 8, message = "INVALID_PASSWORD")
     String password;
-
     String firstName;
     String lastName;
 
-    @DobConstraint(min = 14, message = "INVALID_DOB")
+    @DobConstraint(min = 10, message = "INVALID_DOB")
     LocalDate dob;
 }

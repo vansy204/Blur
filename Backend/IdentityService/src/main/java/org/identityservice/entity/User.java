@@ -26,6 +26,17 @@ public class User {
             columnDefinition =
                     "VARCHAR(255) COLLATE utf8mb4_unicode_ci") // đánh dấu unique và không phân biệt chữ hoa thường
     String username;
+    @Column(
+            name = "email",
+            unique = true,
+            columnDefinition =
+                "VARCHAR(255) COLLATE utf8mb4_unicode_ci")
+    String email;
+    @Column(
+            name = "email_verified",
+            nullable = false,
+            columnDefinition = "boolean default false")
+    boolean emailVerified;
     String password;
     @ManyToMany
     Set<Role> roles;

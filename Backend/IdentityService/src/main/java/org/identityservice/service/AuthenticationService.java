@@ -201,7 +201,6 @@ public class AuthenticationService {
         var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
         Set<Role> roles = new HashSet<>();
         roles.add(Role.builder().name("USER").build());
-        var user = userRepository.findByUsername(userInfo.getEmail());
         var saveUser = userRepository.save(User.builder()
                 .username(userInfo.getEmail())
                 .roles(roles)

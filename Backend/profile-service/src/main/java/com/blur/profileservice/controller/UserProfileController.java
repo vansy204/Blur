@@ -1,6 +1,5 @@
 package com.blur.profileservice.controller;
 
-import com.blur.profileservice.dto.request.ProfileCreationRequest;
 import com.blur.profileservice.dto.request.UserProfileUpdateRequest;
 import com.blur.profileservice.dto.response.ApiResponse;
 import com.blur.profileservice.dto.response.UserProfileResponse;
@@ -13,12 +12,8 @@ import com.blur.profileservice.service.UserProfileService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.apache.catalina.User;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -62,8 +57,5 @@ public class UserProfileController {
                 .result("User Profile has been deleted")
                 .build();
     }
-//    @PutMapping("follow/{followUserId}")
-//    public ApiResponse<String> followUser(@PathVariable String followUserId){
-//
-//    }
+
 }

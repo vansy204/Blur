@@ -1,6 +1,6 @@
 package org.identityservice.dto.response;
 
-import java.time.LocalDate;
+
 import java.util.Set;
 
 import lombok.*;
@@ -14,7 +14,8 @@ import lombok.experimental.FieldDefaults;
 public class UserResponse {
     String id;
     String username;
-
+    String email;
+    boolean emailVerified;
     Boolean noPassword;
     Set<RoleResponse> roles;
 }

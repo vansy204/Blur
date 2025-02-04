@@ -26,7 +26,6 @@ public class PermissionService {
         permissionRepository.save(permission);
         return permissionMapper.toPermissionResponse(permission);
     }
-
     public List<PermissionResponse> findAll() {
         return permissionRepository.findAll().stream()
                 .map(permissionMapper::toPermissionResponse)

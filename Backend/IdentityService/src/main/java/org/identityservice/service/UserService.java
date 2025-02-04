@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 
+import org.event.dto.NotificationEvent;
 import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;
@@ -20,6 +21,7 @@ import org.identityservice.repository.RoleRepository;
 import org.identityservice.repository.UserRepository;
 import org.identityservice.repository.httpclient.ProfileClient;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,28 +47,35 @@ public class UserService {
     ProfileClient profileClient;
     ProfileMapper profileMapper;
     RoleRepository roleRepository;
+    KafkaTemplate<String,Object> kafkaTemplate;
     public UserResponse createUser(UserCreationRequest request) {
-
         User user = userMapper.toUser(request);
-
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         HashSet<Role> roles = new HashSet<>();
-        roleRepository.findById("USER").ifPresent(role -> {
-            roles.add(role);
-        });
+        roleRepository.findById("USER").ifPresent(roles::add);
         user.setRoles(roles);
-
+        user.setEmailVerified(false);
         try {
             userRepository.save(user);
-            // tao profile tu user da nhan
-            var profileResponse = profileMapper.toProfileCreationRequest(request);
-            //mapping userid tu user vao profile
-            profileResponse.setUserId(user.getId());
-            profileClient.createProfile(profileResponse);
-            log.info("Created profile: {}", profileResponse);
+
         } catch (DataIntegrityViolationException ex) {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
+        // tao profile tu user da nhan
+        var profileResponse = profileMapper.toProfileCreationRequest(request);
+        //mapping userid tu user vao profile
+        profileResponse.setUserId(user.getId());
+        profileClient.createProfile(profileResponse);
+
+        // build notification event
+        NotificationEvent notificationEvent = NotificationEvent.builder()
+                .channel("Email")
+                .recipient(request.getEmail())
+                .subject("Welcome to Blur")
+                .body("Hello " + request.getUsername())
+                .build();
+        // consumer publish message to kafka
+        kafkaTemplate.send("notification-delivery",notificationEvent);
         return userMapper.toUserResponse(user);
     }
     public void createPassword(UserCreationPasswordRequest request){
