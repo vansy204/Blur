@@ -50,8 +50,6 @@ public class UserController {
         return ApiResponse.<UserResponse>builder().code(1000).result(result).build();
     }
 
-
-
     @GetMapping("/all")
     public ApiResponse<List<UserResponse>> getUsers() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();

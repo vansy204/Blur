@@ -3,6 +3,7 @@ package org.identityservice.service;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 import org.event.dto.NotificationEvent;
@@ -36,6 +37,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import static java.util.stream.Collectors.toList;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -66,16 +69,18 @@ public class UserService {
         //mapping userid tu user vao profile
         profileResponse.setUserId(user.getId());
         profileClient.createProfile(profileResponse);
-
         // build notification event
         NotificationEvent notificationEvent = NotificationEvent.builder()
-                .channel("Email")
+                .channel("EMAIL")
                 .recipient(request.getEmail())
                 .subject("Welcome to Blur")
                 .body("Hello " + request.getUsername())
                 .build();
-        // consumer publish message to kafka
+        // publish message to kafka
         kafkaTemplate.send("notification-delivery",notificationEvent);
+
+
+
         return userMapper.toUserResponse(user);
     }
     public void createPassword(UserCreationPasswordRequest request){
@@ -92,7 +97,7 @@ public class UserService {
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserResponse> getUsers() {
         log.info("Getting users");
-        return userRepository.findAll().stream().map(userMapper::toUserResponse).collect(Collectors.toList());
+        return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
     }
 
     @PostAuthorize("returnObject.username == authentication.name")
