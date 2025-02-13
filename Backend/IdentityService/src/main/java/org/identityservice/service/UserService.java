@@ -2,18 +2,14 @@ package org.identityservice.service;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-
-import org.event.dto.NotificationEvent;
+import org.identityservice.dto.even.NotificationEvent;
 import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;
 import org.identityservice.dto.response.UserResponse;
 import org.identityservice.entity.Role;
 import org.identityservice.entity.User;
-
 import org.identityservice.exception.AppException;
 import org.identityservice.exception.ErrorCode;
 import org.identityservice.mapper.ProfileMapper;
@@ -28,16 +24,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StringUtils;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-
-import static java.util.stream.Collectors.toList;
 
 @Slf4j
 @Service
@@ -50,7 +42,8 @@ public class UserService {
     ProfileClient profileClient;
     ProfileMapper profileMapper;
     RoleRepository roleRepository;
-    KafkaTemplate<String,Object> kafkaTemplate;
+    KafkaTemplate<String, Object> kafkaTemplate;
+
     public UserResponse createUser(UserCreationRequest request) {
         User user = userMapper.toUser(request);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -66,7 +59,7 @@ public class UserService {
         }
         // tao profile tu user da nhan
         var profileResponse = profileMapper.toProfileCreationRequest(request);
-        //mapping userid tu user vao profile
+        // mapping userid tu user vao profile
         profileResponse.setUserId(user.getId());
         profileClient.createProfile(profileResponse);
         // build notification event
@@ -77,17 +70,17 @@ public class UserService {
                 .body("Hello " + request.getUsername())
                 .build();
         // publish message to kafka
-        kafkaTemplate.send("notification-delivery",notificationEvent);
-
-
+        kafkaTemplate.send("notification-delivery", notificationEvent);
 
         return userMapper.toUserResponse(user);
     }
-    public void createPassword(UserCreationPasswordRequest request){
+
+    public void createPassword(UserCreationPasswordRequest request) {
         var context = SecurityContextHolder.getContext();
         String username = context.getAuthentication().getName();
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        if(!StringUtils.hasText(request.getPassword())){
+        User user =
+                userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        if (!StringUtils.hasText(request.getPassword())) {
             throw new AppException(ErrorCode.PASSWORD_EXISTED);
         }
         user.setPassword(passwordEncoder.encode(request.getPassword()));

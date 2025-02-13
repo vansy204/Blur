@@ -1,11 +1,10 @@
-package org.event.dto;
+package com.blur.notificationservice.dto.even;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.util.Map;
-
 
 @Data
 @NoArgsConstructor

@@ -46,12 +46,10 @@ public class AuthController {
         return ApiResponse.<AuthResponse>builder().result(result).build();
     }
 
-
     // login with google
     @PostMapping("/outbound/authentication")
-    ApiResponse<AuthResponse> outboundAuthenticate(@RequestParam("code") String code){
+    ApiResponse<AuthResponse> outboundAuthenticate(@RequestParam("code") String code) {
         var result = authenticationService.outboundAuthenticationService(code);
         return ApiResponse.<AuthResponse>builder().code(1000).result(result).build();
     }
-
 }

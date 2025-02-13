@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-
 import org.identityservice.dto.request.*;
 import org.identityservice.dto.response.AuthResponse;
 import org.identityservice.dto.response.IntrospecResponse;
@@ -15,8 +14,8 @@ import org.identityservice.entity.User;
 import org.identityservice.exception.AppException;
 import org.identityservice.exception.ErrorCode;
 import org.identityservice.repository.InvalidatedTokenRepository;
-import org.identityservice.repository.httpclient.OutboundIdentityClient;
 import org.identityservice.repository.UserRepository;
+import org.identityservice.repository.httpclient.OutboundIdentityClient;
 import org.identityservice.repository.httpclient.OutboundUserClient;
 import org.identityservice.repository.httpclient.ProfileClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,8 +34,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Slf4j
 @Service
@@ -49,6 +46,7 @@ public class AuthenticationService {
     OutboundIdentityClient outboundIdentityClient;
     OutboundUserClient outboundUserClient;
     private final ProfileClient profileClient;
+
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -176,19 +174,22 @@ public class AuthenticationService {
 
     @NonFinal
     @Value("${outbound.identity.client-id}")
-    protected  String CLIENT_ID;
+    protected String CLIENT_ID;
+
     @NonFinal
     @Value("${outbound.identity.client-secret}")
-    protected  String CLIENT_SECRET;
+    protected String CLIENT_SECRET;
+
     @NonFinal
     @Value("${outbound.identity.redirect-url}")
-    protected  String REDIRECT_URL;
+    protected String REDIRECT_URL;
+
     @NonFinal
     @Value("${outbound.identity.grant-type}")
-    protected  String GRANT_TYPE;
-    //login with google
+    protected String GRANT_TYPE;
+    // login with google
     public AuthResponse outboundAuthenticationService(String code) {
-        //get user info
+        // get user info
         var response = outboundIdentityClient.exchangeToken(ExchangeTokenRequest.builder()
                 .code(code)
                 .clientId(CLIENT_ID)
@@ -197,15 +198,12 @@ public class AuthenticationService {
                 .grantType(GRANT_TYPE)
                 .build());
 
-        //onboarding google user vao he thong
+        // onboarding google user vao he thong
         var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
         Set<Role> roles = new HashSet<>();
         roles.add(Role.builder().name("USER").build());
-        var saveUser = userRepository.save(User.builder()
-                .username(userInfo.getEmail())
-                .roles(roles)
-                .build());
-
+        var saveUser = userRepository.save(
+                User.builder().username(userInfo.getEmail()).roles(roles).build());
 
         // convert token cua google thanh token cua he thong
         var token = generateToken(saveUser);
@@ -215,8 +213,6 @@ public class AuthenticationService {
                 .lastName(userInfo.getFamilyName())
                 .city(userInfo.getLocale())
                 .build());
-        return AuthResponse.builder()
-                .token(token)
-                .build();
+        return AuthResponse.builder().token(token).build();
     }
 }

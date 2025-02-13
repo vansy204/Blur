@@ -28,7 +28,9 @@ outbound:
     redirect-url: "http://localhost:3000/Authenticate"
     grant-type: "authorization_code"
 
-
+logging:
+  level:
+    org.springframework.kafka: DEBUG
 
 jwt:
   signerKey: "POYgGbpnFvfHTnSkIF/UF0ZO4OMa8ewTfjNGP1+rKmBZB5bPnDczsiDxERPVu2pn"

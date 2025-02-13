@@ -11,6 +11,7 @@ public enum ErrorCode {
     UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR),
     CANNOT_SEND_EMAIL(1009, "Cannot send email", HttpStatus.INTERNAL_SERVER_ERROR),
     UNAUTHENTICATED(1011,"Unauthenticated",HttpStatus.UNAUTHORIZED),
+
             ;
 
 

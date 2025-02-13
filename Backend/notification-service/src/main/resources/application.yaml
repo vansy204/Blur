@@ -15,21 +15,14 @@ spring:
       key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
-        spring.deserializer.key.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.deserializer.key.delegate.class:  org.apache.kafka.common.serialization.StringDeserializer
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
         spring.json.trusted.packages: "*"
       group-id: notification-group
       auto-offset-reset: earliest
-    listener:
-      ack-mode: batch
-      backoff:
-        initial-interval: 1000 # 1 second
-        max-interval: 10000    # 10 seconds
-        multiplier: 2.0        # Exponential backoff
-      concurrency: 3
-
-
-
+logging:
+  level:
+    org.springframework.kafka: DEBUG
 notification:
   email:
     brevo-url: https://api.brevo.com

@@ -41,8 +41,12 @@ public class UserController {
     @PostMapping("/create-password")
     public ApiResponse<Void> createPassword(@RequestBody @Valid UserCreationPasswordRequest request) {
         userService.createPassword(request);
-        return ApiResponse.<Void>builder().code(1000).message("Password has been created, you could use it to login").build();
+        return ApiResponse.<Void>builder()
+                .code(1000)
+                .message("Password has been created, you could use it to login")
+                .build();
     }
+
     @PostMapping("/registration")
     public ApiResponse<UserResponse> createUser(@RequestBody @Valid UserCreationRequest request) {
 
@@ -58,6 +62,7 @@ public class UserController {
                 .result(userService.getUsers())
                 .build();
     }
+
     @GetMapping("/")
     public ApiResponse<UserResponse> myInfo() {
         return ApiResponse.<UserResponse>builder()

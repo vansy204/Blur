@@ -52,6 +52,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         if(isPublicEndpoint(exchange.getRequest())){
             return chain.filter(exchange);
+           
         }
         // su dung jwt token thuc hien authen
         // get token from authorization header
