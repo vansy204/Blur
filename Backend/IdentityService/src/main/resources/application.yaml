@@ -9,11 +9,6 @@ spring:
     username: ${DBMS_USERNAME:root}
     password: ${DBMS_PASSWORD:root}
    # driverClassName: "com.mysql.cj.jdbc.Driver"
-  kafka:
-    bootstrap-servers: localhost:9094 #server kafka
-    producer: #config cho producer (nguoi gui)
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer #su dung type string
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer #su dung json de gui object
   jpa:
     properties:
       hibernate:
@@ -40,6 +35,4 @@ jwt:
 app:
   services:
     profile: "http://localhost:8081/profile"
-
-
-
+    notification: "http://localhost:8082/notification"

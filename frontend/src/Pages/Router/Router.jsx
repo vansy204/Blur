@@ -10,6 +10,7 @@ import RegisterPage from "../Login/RegisterPage";
 import Authenticate from "../Login/Authenticate";
 import CreatePassword from "../Login/CreatePassword";
 import { getToken } from "../../service/LocalStorageService";
+import ActivationPage from "../Login/ActivationPage";
 
 const Router = () => {
   const location = useLocation();
@@ -17,7 +18,7 @@ const Router = () => {
   return (
     <div>
       
-     ({location.pathname !== "/login" && location.pathname !== "/register"  && location.pathname !== "/create-password" && (
+     ({location.pathname !== "/login" && location.pathname !== "/register"  && location.pathname !== "/create-password"&& location.pathname !== "/activate" && (
         <div className="flex">
           <div className="w-[20%] border border-;-slate-500">
             <SidebarComponent />
@@ -32,12 +33,13 @@ const Router = () => {
           </div>
         </div>
       )}
-      {(location.pathname === "/login" || location.pathname ==="/register" || location.pathname === "/create-password") && (
+      {(location.pathname === "/login" || location.pathname ==="/register" || location.pathname === "/create-password" || location.pathname === "/activate") && (
         <div>
           <Routes>
           <Route path="/login" element={<LoginPage/>}/>
           <Route path="/register" element={<RegisterPage/>}/>
           <Route path="/create-password" element={<CreatePassword/>}></Route>
+          <Route path="/Activate" element={<ActivationPage/>}></Route>
           </Routes>
         </div>
       )})

@@ -84,7 +84,7 @@ const LoginCard = () => {
         <div className="d-none d-md-flex" style={{ flex: 1, padding: 0 }}>
           <Image
             className=""
-            src="../blur.jpg"
+            src="/assets/blur.jpg"
             alt="blur"
             style={{
               objectFit: "cover", // Đảm bảo ảnh lấp đầy không gian

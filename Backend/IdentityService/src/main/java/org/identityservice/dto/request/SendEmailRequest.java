@@ -1,4 +1,4 @@
-    package com.blur.notificationservice.dto.request;
+    package org.identityservice.dto.request;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;

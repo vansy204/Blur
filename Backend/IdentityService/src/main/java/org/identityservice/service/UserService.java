@@ -3,7 +3,6 @@ package org.identityservice.service;
 import java.util.HashSet;
 import java.util.List;
 
-import org.identityservice.dto.even.NotificationEvent;
 import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;
@@ -18,7 +17,6 @@ import org.identityservice.repository.RoleRepository;
 import org.identityservice.repository.UserRepository;
 import org.identityservice.repository.httpclient.ProfileClient;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,7 +40,6 @@ public class UserService {
     ProfileClient profileClient;
     ProfileMapper profileMapper;
     RoleRepository roleRepository;
-    KafkaTemplate<String, Object> kafkaTemplate;
 
     public UserResponse createUser(UserCreationRequest request) {
         User user = userMapper.toUser(request);
@@ -63,14 +60,6 @@ public class UserService {
         profileResponse.setUserId(user.getId());
         profileClient.createProfile(profileResponse);
         // build notification event
-        NotificationEvent notificationEvent = NotificationEvent.builder()
-                .channel("EMAIL")
-                .recipient(request.getEmail())
-                .subject("Welcome to Blur")
-                .body("Hello " + request.getUsername())
-                .build();
-        // publish message to kafka
-        kafkaTemplate.send("notification-delivery", notificationEvent);
 
         return userMapper.toUserResponse(user);
     }

@@ -1,4 +1,4 @@
-package com.blur.notificationservice.dto.even;
+package com.blur.notificationservice.dto.event;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;

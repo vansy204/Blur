@@ -25,8 +25,12 @@ public class EmailService {
     @Value("${notification.email.brevo-apikey}")
     @NonFinal
     String apiKey;
-
     public EmailResponse sendEmail(SendEmailRequest request) {
+        String htmlContent = "Kich Hoat Tai khoan cua ban tai Blur! <br/> vui long click vao nut Activate Account tai duong link sau day de kich hoat tai khoan < "
+                + request.getTo().getEmail()
+                + ">: <html><body> <br/> <h2>link: <a href= "
+                +"http://localhost:3000/activate/"
+                + request.getTo().getEmail() +"<a/> <h2/> </html>";
         EmailRequest emailRequest = EmailRequest.builder()
                 .sender(Sender.builder()
                         .name("blur.com")
@@ -34,7 +38,8 @@ public class EmailService {
                         .build())
                 .to(List.of(request.getTo()))
                 .subject(request.getSubject())
-                .htmlContent(request.getHtmlContent())
+
+                .htmlContent(htmlContent)
                 .build();
         try{
             return emailClient.sendEmail(apiKey ,emailRequest);
