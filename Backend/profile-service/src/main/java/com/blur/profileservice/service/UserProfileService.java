@@ -14,6 +14,7 @@ import lombok.experimental.FieldDefaults;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +45,14 @@ public class UserProfileService {
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserProfileResponse> getAllUserProfiles(){
         return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).toList();
+    }
+    @PostAuthorize("returnObject.userId == authentication.name")
+    public UserProfileResponse myProfile(String profileId){
+        return userProfileMapper
+                .toUserProfileResponse(
+                        userProfileRepository.findById(profileId)
+                                .orElseThrow(()
+                                        -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND)));
     }
 
     public UserProfile updateUserProfile(String userProfileId, UserProfileUpdateRequest request){

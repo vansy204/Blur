@@ -57,5 +57,11 @@ public class UserProfileController {
                 .result("User Profile has been deleted")
                 .build();
     }
+    @GetMapping("/myInfo/{profileId}")
+    public ApiResponse<UserProfileResponse> myInfo(@PathVariable String profileId){
+        return ApiResponse.<UserProfileResponse>builder()
+                .result(userProfileService.myProfile(profileId))
+                .build();
+    }
 
 }
