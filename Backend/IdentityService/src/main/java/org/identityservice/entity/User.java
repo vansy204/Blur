@@ -18,7 +18,6 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
-
     @Column(
             name = "username",
             unique = true,
