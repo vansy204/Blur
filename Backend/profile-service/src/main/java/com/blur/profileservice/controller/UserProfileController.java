@@ -57,10 +57,16 @@ public class UserProfileController {
                 .result("User Profile has been deleted")
                 .build();
     }
-    @GetMapping("/myInfo/{profileId}")
-    public ApiResponse<UserProfileResponse> myInfo(@PathVariable String profileId){
+    @GetMapping("/myInfo")
+    public ApiResponse<UserProfileResponse> myInfo(){
         return ApiResponse.<UserProfileResponse>builder()
-                .result(userProfileService.myProfile(profileId))
+                .result(userProfileService.myProfile())
+                .build();
+    }
+    @PutMapping("/follow/{profileId}")
+    public ApiResponse<String> follow(@PathVariable String profileId){
+        return ApiResponse.<String>builder()
+                .result("You are following users: " + profileId )
                 .build();
     }
 

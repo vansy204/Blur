@@ -14,8 +14,10 @@ import lombok.experimental.FieldDefaults;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.prepost.PostAuthorize;
+
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -46,13 +48,13 @@ public class UserProfileService {
     public List<UserProfileResponse> getAllUserProfiles(){
         return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).toList();
     }
-    @PostAuthorize("returnObject.userId == authentication.name")
-    public UserProfileResponse myProfile(String profileId){
-        return userProfileMapper
-                .toUserProfileResponse(
-                        userProfileRepository.findById(profileId)
-                                .orElseThrow(()
-                                        -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND)));
+    public UserProfileResponse myProfile(){
+
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String profileId =(String) authentication.getDetails(); // retrieved from jwt
+        UserProfile userProfile = userProfileRepository.findUserProfileByUserId(profileId).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+        return userProfileMapper.toUserProfileResponse(userProfile);
     }
 
     public UserProfile updateUserProfile(String userProfileId, UserProfileUpdateRequest request){

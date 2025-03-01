@@ -9,11 +9,12 @@ import {
   Stack,
   useToast,
 } from "@chakra-ui/react";
-import React, {  useState } from "react";
+import React, { useState } from "react";
 import { FaGoogle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { OAuthConfig } from "../../Config/configuration";
 import { setToken } from "../../service/LocalStorageService";
+import axios from "axios";
 
 const LoginCard = () => {
   const [username, setUsername] = useState("");
@@ -31,34 +32,25 @@ const LoginCard = () => {
       isClosable: true,
     });
   };
- 
-  const handleSubmit = (even) => {
+
+  const handleSubmit = async (even) => {
     even.preventDefault();
-    // goi ve api login cua api-gateway
-    fetch("http://localhost:8888/api/identity/auth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: username,
-        password: password,
-      }),
-    })
-      .then((response) => {
-        return response.json();
-      })
-      .then((data) => {
-        if (data.code !== 1000) {
-          throw new Error("Invalid Username Or Password!!");
-        }
-        setToken(data.result?.token);
-        showToast("Login success!!", "","success")
-        navigate("/");
-      })
-      .catch((error) => {
-        showToast("Login Error",error.message,"error")
-      });
+    const user = {
+      username: username,
+      password: password,
+    };
+    try { 
+      const response = await axios.post("http://localhost:8888/api/identity/auth/token", user);
+
+      if( response.data.code !== 1000){
+        throw new Error("Invalid username or password");
+      }
+      setToken(response.data.result?.token);
+      showToast("Loggin success", "", "success")
+      navigate("/");
+    } catch (error) {
+      showToast("Login Error", error.message, "error");
+    }
   };
   const handleClick = () => {
     const callBackUrl = OAuthConfig.redirectUri;
@@ -79,12 +71,12 @@ const LoginCard = () => {
         direction={{ base: "column", sm: "row" }}
         overflow="hidden"
         variant="outline"
-        style={{ border: "none" }} // Loại bỏ viền của Card nếu cần
+        style={{ border: "none" }}
       >
         <div className="d-none d-md-flex" style={{ flex: 1, padding: 0 }}>
           <Image
             className=""
-            src="/assets/blur.jpg"
+            src="../blur.jpg"
             alt="blur"
             style={{
               objectFit: "cover", // Đảm bảo ảnh lấp đầy không gian

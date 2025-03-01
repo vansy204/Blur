@@ -84,7 +84,6 @@ public class UserService {
 
     @PostAuthorize("returnObject.username == authentication.name")
     public User getUserById(String userId) {
-        log.info("Getting user by id: {}", userId);
         return userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_EXISTED));
     }
 

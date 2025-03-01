@@ -2,13 +2,11 @@ server:
   port: 8080
   servlet:
     context-path: /identity
-
 spring:
   datasource:
-    url: ${DBMS_CONNECTION:jdbc:mysql://localhost:3306/Identity_service}
-    username: ${DBMS_USERNAME:root}
-    password: ${DBMS_PASSWORD:root}
-   # driverClassName: "com.mysql.cj.jdbc.Driver"
+    url: ${DBMS_CONNECTION}
+    username: ${DBMS_USERNAME}
+    password: ${DBMS_PASSWORD}
   jpa:
     properties:
       hibernate:
@@ -18,20 +16,15 @@ spring:
     show-sql: true
 outbound:
   identity:
-    client-id: "948254557534-ca906iu2s6s1a33hcuvhv1pdhp9qmoti.apps.googleusercontent.com"
-    client-secret: "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"
+    client-id: ${CLIENT_ID}
+    client-secret: ${CLIENT_SECRET}
     redirect-url: "http://localhost:3000/Authenticate"
     grant-type: "authorization_code"
 
-logging:
-  level:
-    org.springframework.kafka: DEBUG
-
 jwt:
-  signerKey: "POYgGbpnFvfHTnSkIF/UF0ZO4OMa8ewTfjNGP1+rKmBZB5bPnDczsiDxERPVu2pn"
+  signerKey: ${jwt.signerKey}
   valid-duration: 3600 # in second
   refreshable-duration: 360000 #second
-
 app:
   services:
     profile: "http://localhost:8081/profile"

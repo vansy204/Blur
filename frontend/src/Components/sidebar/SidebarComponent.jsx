@@ -6,7 +6,8 @@ import { useDisclosure, useToast } from "@chakra-ui/react";
 import SearchComponent from "../SearchComponent/SearchComponent";
 import "./SidebarComponents.css";
 import LogoutModal from "./LogoutModal";
-import { getToken } from "../../service/LocalStorageService";
+import { getToken, removeToken } from "../../service/LocalStorageService";
+import axios from "axios";
 
 export const SidebarComponent = () => {
   const [activeTab, setActiveTab] = useState();
@@ -48,31 +49,21 @@ export const SidebarComponent = () => {
     setShowDropdown(!showDropdown);
   };
 
-  const handleLoggout = (even) => {
+  const handleLoggout = async (even) => {
     try {
       even.preventDefault();
       onOpen(); // Mở modal khi bấm nút
       const token = getToken();
-      fetch("http://localhost:8888/api/identity/auth/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token: token,
-        }),
-      })
-        .then((response) => {
-          return response.json();
-        })
-        .then((data) => {
-          if (data.code !== 1000) {
-            throw new Error("Invalid token");
-          }
-          localStorage.removeItem("token");
-          showToast("Logout success!!", "", "success");
-          navigate("/login");
-        });
+      const response = await axios.post(
+        "http://localhost:8888/api/identity/auth/logout",
+        token
+      );
+      if (response.data.code !== 1000) {
+        throw new Error("Invalid token");
+      }
+      removeToken(token);
+      showToast("Logout success!!", "", "success");
+      navigate("/login");
     } catch (error) {
       showToast("Logout Error", error.message, "error");
     }
