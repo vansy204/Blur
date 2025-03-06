@@ -1,5 +1,5 @@
 import { Client } from "@stomp/stompjs";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { AiFillPicture } from "react-icons/ai";
 import { FaCircle, FaMicrophone, FaPhoneAlt, FaVideo } from "react-icons/fa";
 import { FaCirclePlus } from "react-icons/fa6";
@@ -13,12 +13,14 @@ const MessageRight = () => {
   const [messages, setMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
 
+  const messagesEndRef = useRef(null);
+
   const queryParams = new URLSearchParams(window.location.search);
   const currentUser = queryParams.get("currentUser") || "user1";
   const recipientUser = queryParams.get("recipientUser") || "user2";
 
   useEffect(() => {
-    const socket = new SockJS("http://localhost:8080/ws");
+    const socket = new SockJS("http://localhost:8083/chat/ws");
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
@@ -26,6 +28,8 @@ const MessageRight = () => {
       onConnect: () => {
         console.log(`Connected as ${currentUser}`);
         setIsConnected(true);
+        
+        // Đảm bảo mỗi tab subscribe vào queue của currentUser
         client.subscribe(`/user/${currentUser}/queue/private`, (msg) => {
           console.log(`Received message for ${currentUser}: ${msg.body}`);
           setMessages((prev) => [...prev, msg.body]);
@@ -41,24 +45,34 @@ const MessageRight = () => {
       },
     });
 
+    // Activate the STOMP client
     client.activate();
     setStompClient(client);
 
+    // Clean up on unmount
     return () => {
       if (client) client.deactivate();
     };
   }, [currentUser]);
 
+  // Scroll to the bottom when a new message is added
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const sendMessage = () => {
     if (stompClient && isConnected) {
-      console.log(`Sending message from ${currentUser} to ${recipientUser}: ${message}`);
+      console.log(
+        `Sending message from ${currentUser} to ${recipientUser}: ${message}`
+      );
+      // Gửi tin nhắn đến server
       stompClient.publish({
-        destination: "/app/private",
-        body: message,
-        headers: { username: recipientUser },
+        destination: "/app/private",  // Destination phải đúng
+        body: message,  // Nội dung tin nhắn
+        headers: { username: recipientUser },  // Gửi tên người nhận
       });
-      setMessages((prev) => [...prev, `You: ${message}`]);
-      setMessage("");
+      setMessages((prev) => [...prev, `You: ${message}`]); // Hiển thị tin nhắn gửi
+      setMessage(""); // Xóa ô nhập sau khi gửi
     } else {
       console.error("Cannot send message: Not connected");
     }
@@ -99,15 +113,20 @@ const MessageRight = () => {
                 {msg}
               </div>
             ))}
+
+            <div ref={messagesEndRef} />
           </div>
         </div>
       </div>
-      <hr />
-      <div className="sticky bottom-0 h-[10%] bg-white flex items-center justify-between px-2">
+
+      {/* Thanh nhập tin nhắn */}
+      <div className="fixed bottom-0 left-0 w-full h-[10%] bg-white flex items-center justify-between px-2">
         <div className="flex items-center w-full">
           <FaCirclePlus className="text-2xl mr-2 cursor-pointer" />
           <AiFillPicture className="text-2xl mr-2 cursor-pointer" />
           <FaMicrophone className="text-2xl mr-2 cursor-pointer" />
+
+          {/* Thanh nhập tin nhắn */}
           <input
             type="text"
             placeholder={`Chat with ${recipientUser}`}
@@ -115,12 +134,14 @@ const MessageRight = () => {
             disabled={!isConnected}
             onChange={(e) => setMessage(e.target.value)}
             value={message}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
-          <IoSend className="text-2xl ml-2 cursor-pointer" onClick={sendMessage} />
+
+          <IoSend
+            className="text-2xl ml-2 cursor-pointer"
+            onClick={sendMessage}
+          />
         </div>
-      </div>
-      <div className="text-sm text-gray-500">
-        Logged in as: {currentUser} | Chatting with: {recipientUser}
       </div>
     </div>
   );

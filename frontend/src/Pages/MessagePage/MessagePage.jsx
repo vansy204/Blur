@@ -5,13 +5,14 @@ import MessageRight from '../../Components/MessageComponets/MessageRight/Message
 const MessagePage = () => {
   return (
     <div className="flex h-screen">
-      <div className="w-[23%] border border-slate-500 overflow-y-auto max-h-screen">
-        <MessageLeft />
-      </div>
-      <div className="ml-2 w-full">
-        <MessageRight />
-      </div>
+    <div className="fixed top-0 left-0 w-[23%] h-screen border border-slate-500 overflow-y-auto">
+      <MessageLeft />
     </div>
+    <div className="ml-[23%] w-full">
+      <MessageRight />
+    </div>
+  </div>
+  
   );
 };
 
