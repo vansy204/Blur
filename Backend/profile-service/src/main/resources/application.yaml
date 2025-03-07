@@ -9,3 +9,6 @@ spring:
       username: ${DBMS_USERNAME}
       password: ${DBMS_PASSWORD}
 
+app:
+  services:
+    identity: "http://localhost:8080/identity"

@@ -49,8 +49,6 @@ public class UserProfileService {
         return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).toList();
     }
     public UserProfileResponse myProfile(){
-
-
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String profileId =(String) authentication.getDetails(); // retrieved from jwt
         UserProfile userProfile = userProfileRepository.findUserProfileByUserId(profileId).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));

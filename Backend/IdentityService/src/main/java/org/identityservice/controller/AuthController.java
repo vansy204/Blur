@@ -28,7 +28,7 @@ public class AuthController {
     }
 
     @PostMapping("/introspect")
-    ApiResponse<IntrospecResponse> introspect(@RequestBody IntrospecRequest introspecRequest)
+    ApiResponse<IntrospecResponse> introspect(@RequestBody IntrospectRequest introspecRequest)
             throws ParseException, JOSEException {
         var result = authenticationService.introspect(introspecRequest);
         return ApiResponse.<IntrospecResponse>builder().result(result).build();

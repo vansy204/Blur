@@ -60,11 +60,9 @@ public class AuthenticationService {
     protected long REFRESHABLE_DURATION;
 
     public AuthResponse authenticate(AuthRequest authRequest) {
-        log.info("signer key {}", SIGNER_KEY);
         var user = userRepository
                 .findByUsername(authRequest.getUsername())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
         boolean authenticated = passwordEncoder.matches(authRequest.getPassword(), user.getPassword());
         if (!authenticated) {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
@@ -75,7 +73,6 @@ public class AuthenticationService {
 
     private String generateToken(User user) {
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
-
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(user.getUsername())
                 .issuer("Blur.vn")
@@ -97,7 +94,7 @@ public class AuthenticationService {
         }
     }
 
-    public IntrospecResponse introspect(IntrospecRequest introspecRequest) throws JOSEException, ParseException {
+    public IntrospecResponse introspect(IntrospectRequest introspecRequest) throws JOSEException, ParseException {
         var token = introspecRequest.getToken();
         boolean isValid = true;
         try {
