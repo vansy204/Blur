@@ -48,36 +48,40 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     @Value("${app.api-prefix}")
     @NonFinal
     private String apiPrefix;
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        if(isPublicEndpoint(exchange.getRequest())){
+        if (isPublicEndpoint(exchange.getRequest())) {
             return chain.filter(exchange);
-           
+
         }
         // su dung jwt token thuc hien authen
         // get token from authorization header
         List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
-        if(CollectionUtils.isEmpty(authHeader)) {
+        if (CollectionUtils.isEmpty(authHeader)) {
             return unauthenticated(exchange.getResponse());
         }
         String token = authHeader.get(0).replace("Bearer ", "");
         //verify token - do identity_service dam nhiem
         return identityService.introspect(token).flatMap(introspecResponseApiResponse ->
         {
-            if(introspecResponseApiResponse.getResult().isValid()){
+            if (introspecResponseApiResponse.getResult().isValid()) {
                 return chain.filter(exchange);
-            }else{
+            } else {
                 return unauthenticated(exchange.getResponse());
             }
         }).onErrorResume(throwable -> unauthenticated(exchange.getResponse()));
     }
+
     @Override
     public int getOrder() {
         return -1; //dam bao filter dc chay chinh
     }
+
     private boolean isPublicEndpoint(ServerHttpRequest request) {
         return Arrays.stream(publicEnpoints).anyMatch(s -> request.getURI().getPath().matches(apiPrefix + s));
     }
+
     Mono<Void> unauthenticated(ServerHttpResponse response) {
         ApiResponse<?> apiResponse = ApiResponse.builder()
                 .code(1401)

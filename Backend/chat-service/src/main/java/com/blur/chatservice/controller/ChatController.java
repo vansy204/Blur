@@ -11,6 +11,7 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+
 import static java.lang.System.*;
 
 @Controller
@@ -19,8 +20,8 @@ import static java.lang.System.*;
 @RequiredArgsConstructor
 public class ChatController {
 
-     SimpMessagingTemplate simpMessagingTemplate;
-     MessageRepository messageRepository;
+    SimpMessagingTemplate simpMessagingTemplate;
+    MessageRepository messageRepository;
 
     @MessageMapping("/private")
     public void sendPrivateMessage(

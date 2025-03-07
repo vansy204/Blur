@@ -20,12 +20,14 @@ public class WebClientConfiguration {
                 .baseUrl("http://localhost:8080/identity")
                 .build();
     }
+
     @Bean
     IdentityClient identityClient(WebClient webClient) {
         HttpServiceProxyFactory httpServiceProxyFactory = HttpServiceProxyFactory
                 .builderFor(WebClientAdapter.create(webClient)).build();
         return httpServiceProxyFactory.createClient(IdentityClient.class);
     }
+
     @Bean
     CorsWebFilter corsWebFilter() {
         CorsConfiguration configuration = new CorsConfiguration();

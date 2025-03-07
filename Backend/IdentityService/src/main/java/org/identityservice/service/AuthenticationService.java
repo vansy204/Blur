@@ -89,7 +89,6 @@ public class AuthenticationService {
             jwsObject.sign(new MACSigner(SIGNER_KEY.getBytes()));
             return jwsObject.serialize();
         } catch (JOSEException e) {
-            log.error("Cannot create token ", e);
             throw new RuntimeException(e);
         }
     }
@@ -140,11 +139,11 @@ public class AuthenticationService {
 
         Date expirationDate = (isRefresh)
                 ? new Date(signedJWT
-                        .getJWTClaimsSet()
-                        .getIssueTime()
-                        .toInstant()
-                        .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS)
-                        .toEpochMilli())
+                .getJWTClaimsSet()
+                .getIssueTime()
+                .toInstant()
+                .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS)
+                .toEpochMilli())
                 : signedJWT.getJWTClaimsSet().getExpirationTime();
         var verified = signedJWT.verify(verifier);
         if (!verified && expirationDate.after(new Date())) {
@@ -184,6 +183,7 @@ public class AuthenticationService {
     @NonFinal
     @Value("${outbound.identity.grant-type}")
     protected String GRANT_TYPE;
+
     // login with google
     public AuthResponse outboundAuthenticationService(String code) {
         // get user info
