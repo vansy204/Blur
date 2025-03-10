@@ -63,10 +63,17 @@ public class UserProfileController {
                 .result(userProfileService.myProfile())
                 .build();
     }
-    @PutMapping("/follow/{profileId}")
-    public ApiResponse<String> follow(@PathVariable String profileId){
+
+    @PutMapping("/users/follow/{userId}")
+    public ApiResponse<String> followUser(@PathVariable String userId){
         return ApiResponse.<String>builder()
-                .result("You are following users: " + profileId )
+                .result(userProfileService.followUser(userId))
+                .build();
+    }
+    @PutMapping("/users/unfollow/{userId}")
+    public ApiResponse<String> unfollowUser(@PathVariable String userId){
+        return ApiResponse.<String>builder()
+                .result(userProfileService.unfollowUser(userId))
                 .build();
     }
 

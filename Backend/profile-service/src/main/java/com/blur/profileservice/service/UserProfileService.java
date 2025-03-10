@@ -11,16 +11,14 @@ import com.blur.profileservice.repository.UserProfileRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -31,45 +29,76 @@ public class UserProfileService {
     UserProfileMapper userProfileMapper;
 
 
-    public UserProfileResponse createProfile(ProfileCreationRequest request){
-        UserProfile  userProfile = userProfileMapper.toUserProfile(request);
-        try{
+    public UserProfileResponse createProfile(ProfileCreationRequest request) {
+        UserProfile userProfile = userProfileMapper.toUserProfile(request);
+        try {
             userProfile = userProfileRepository.save(userProfile);
-        }catch (DataIntegrityViolationException ex){
+        } catch (DataIntegrityViolationException ex) {
             throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
         }
         return userProfileMapper.toUserProfileResponse(userProfile);
     }
 
-    public UserProfile getUserProfile(String id){
+    public UserProfile getUserProfile(String id) {
         return userProfileRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
     }
+
     @PreAuthorize("hasRole('ADMIN')")
-    public List<UserProfileResponse> getAllUserProfiles(){
+    public List<UserProfileResponse> getAllUserProfiles() {
         return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).toList();
     }
-    public UserProfileResponse myProfile(){
+
+    public UserProfileResponse getByUserId(String userId) {
+        UserProfile userProfile = userProfileRepository.findByUserId(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXIST));
+        return userProfileMapper.toUserProfileResponse(userProfile);
+    }
+
+    public UserProfileResponse myProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String profileId =(String) authentication.getDetails(); // retrieved from jwt
+        String profileId = (String) authentication.getDetails(); // retrieved from jwt
         UserProfile userProfile = userProfileRepository.findUserProfileByUserId(profileId).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
         return userProfileMapper.toUserProfileResponse(userProfile);
     }
 
-    public UserProfile updateUserProfile(String userProfileId, UserProfileUpdateRequest request){
+    public UserProfile updateUserProfile(String userProfileId, UserProfileUpdateRequest request) {
         UserProfile userProfile = getUserProfile(userProfileId);
         userProfileMapper.updateUserProfile(userProfile, request);
         return userProfileRepository.save(userProfile);
     }
-    public void deleteUserProfile(String userProfileId){
+
+    public void deleteUserProfile(String userProfileId) {
         userProfileRepository.deleteById(userProfileId);
     }
 
-    public String followUser(String reqUserId, String followerId){
-        UserProfile reqUser = getUserProfile(reqUserId);
-        UserProfile follower = getUserProfile(followerId);
-        reqUser.getFollowing().add(follower);
-        userProfileRepository.save(reqUser);
-        return follower.getUserId() + " is now following" + reqUser.getUserId();
+    public String followUser(String followerId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        var reqUserId = authentication.getName();
+
+        if (reqUserId.equals(followerId)) {
+            throw new AppException(ErrorCode.CANNOT_FOLLOW_YOURSELF);
+        }
+
+        userProfileRepository.follow(reqUserId, followerId);
+
+
+        var followingUser = userProfileRepository.findUserProfileByUserId(followerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+
+        return "You are following " + followingUser.getFirstName();
+    }
+
+    public String unfollowUser(String followerId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String reqUserId = authentication.getName();
+
+        // Optional: Kiểm tra người cần unfollow có tồn tại không
+        var followingUser = userProfileRepository.findUserProfileByUserId(followerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+
+        // Gọi Cypher query để xóa quan hệ follows
+        userProfileRepository.unfollow(reqUserId, followerId);
+
+        return "You unfollowed " + followingUser.getFirstName();
     }
 
 

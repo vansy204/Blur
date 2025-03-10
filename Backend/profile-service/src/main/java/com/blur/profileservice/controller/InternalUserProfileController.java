@@ -32,4 +32,10 @@ public class InternalUserProfileController {
                 .result(result)
                 .build();
     }
+//    @GetMapping("/internal/users/{userId}")
+//    public ApiResponse<UserProfileResponse> getProfile(@PathVariable Long userId){
+//        return ApiResponse.<UserProfileResponse>builder()
+//                .
+//                .build()
+//    }
 }

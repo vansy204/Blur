@@ -15,3 +15,6 @@ notification:
     brevo-url: https://api.brevo.com
     brevo-apikey: "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"
 
+logging:
+  level:
+    root: error

@@ -38,6 +38,7 @@ public class UserProfile {
     LocalDate createdAt;
     @Relationship(type = "follows",direction = Relationship.Direction.OUTGOING)
     Set<UserProfile> following = new HashSet<>();
+
     @Relationship(type = "follows",direction = Relationship.Direction.INCOMING)
     Set<UserProfile> followers = new HashSet<>();
 }

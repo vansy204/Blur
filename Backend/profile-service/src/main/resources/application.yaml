@@ -12,3 +12,6 @@ spring:
 app:
   services:
     identity: "http://localhost:8080/identity"
+logging:
+  level:
+    root: error
