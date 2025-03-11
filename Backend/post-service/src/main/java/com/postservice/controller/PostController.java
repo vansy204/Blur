@@ -9,10 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -33,6 +30,12 @@ public class PostController {
     public ApiResponse<List<PostResponse>> getMyPosts() {
         return ApiResponse.<List<PostResponse>>builder()
                 .result(postService.getMyPosts())
+                .build();
+    }
+    @PutMapping("/{postId}/like")
+    public ApiResponse<String> likePost(@PathVariable String postId) {
+        return ApiResponse.<String>builder()
+                .result(postService.likePost(postId))
                 .build();
     }
 }

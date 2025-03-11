@@ -10,6 +10,7 @@
         <module name="api-gateway" />
         <module name="IdentityService" />
         <module name="profile-service" />
+        <module name="post-service" />
         <module name="notification-service" />
       </profile>
       <profile name="Annotation profile for post-service" enabled="true">
@@ -17,11 +18,9 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct-processor/1.5.5.Final/mapstruct-processor-1.5.5.Final.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct/1.5.5.Final/mapstruct-1.5.5.Final.jar" />
         </processorPath>
-        <module name="post-service" />
         <module name="chat-service" />
       </profile>
     </annotationProcessing>
