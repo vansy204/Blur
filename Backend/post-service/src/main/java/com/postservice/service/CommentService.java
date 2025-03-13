@@ -43,13 +43,16 @@ public class CommentService {
         comment = commentRepository.save(comment);
         return commentMapper.toCommentResponse(comment);
     }
+
     public List<CommentResponse> getAllCommentByPostId(String postId) {
         return commentRepository.findAllByPostId(postId).stream().map(commentMapper::toCommentResponse).collect(Collectors.toList());
     }
+
     public CommentResponse getCommentById(String commentId) {
         return commentMapper.toCommentResponse(commentRepository.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND)));
     }
+
     public CommentResponse updateComment(String commentId, CreateCommentRequest request) {
 
         var comment = commentRepository.findById(commentId).
@@ -57,7 +60,7 @@ public class CommentService {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
-        if(!comment.getUserId().equals(userId)) {
+        if (!comment.getUserId().equals(userId)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
@@ -66,13 +69,14 @@ public class CommentService {
         commentRepository.save(comment);
         return commentMapper.toCommentResponse(comment);
     }
+
     public String deleteComment(String commentId) {
         var comment = commentRepository.findById(commentId).
                 orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
-        if(!comment.getUserId().equals(userId)) {
+        if (!comment.getUserId().equals(userId)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 

@@ -1,7 +1,6 @@
 package com.postservice.service;
 
 import com.postservice.dto.request.PostRequest;
-
 import com.postservice.dto.response.PostResponse;
 import com.postservice.dto.response.UserProfileResponse;
 import com.postservice.entity.Post;
@@ -31,6 +30,7 @@ public class PostService {
     PostMapper postMapper;
     ProfileClient profileClient;
     PostLikeRepository postLikeRepository;
+
     public PostResponse createPost(PostRequest postRequest) {
         // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -45,12 +45,13 @@ public class PostService {
         post = postRepository.save(post);
         return postMapper.toPostResponse(post);
     }
-    public PostResponse updatePost(String postId,PostRequest postRequest) {
+
+    public PostResponse updatePost(String postId, PostRequest postRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
         var userId = authentication.getName();
-        if(!post.getUserId().equals(userId)) {
+        if (!post.getUserId().equals(userId)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
         post.setContent(postRequest.getContent());
@@ -59,12 +60,13 @@ public class PostService {
         post = postRepository.save(post);
         return postMapper.toPostResponse(post);
     }
+
     public String deletePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
         var userId = authentication.getName();
-        if(!post.getUserId().equals(userId)) {
+        if (!post.getUserId().equals(userId)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
         postRepository.deleteById(postId);
@@ -76,22 +78,27 @@ public class PostService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
         UserProfileResponse userProfile = null;
-        try{
-            profileClient.getProfile(userId).getResult();
-        }catch (Exception e){
+        try {
+            userProfile = profileClient.getProfile(userId).getResult();
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        return postRepository.findAllByUserId(userId).stream().map(postMapper::toPostResponse).collect(Collectors.toList());
+        return postRepository.findAllByUserId(userId)
+                .stream().map(postMapper::toPostResponse)
+                .collect(Collectors.toList());
     }
 
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
-        if(postLikeRepository.existsByPostIdAndUserId(postId, userId)){
+        if (postLikeRepository.existsByPostIdAndUserId(postId, userId)) {
             postLikeRepository.deleteByPostIdAndUserId(postId, userId);
             return "unlike";
         }
-        postLikeRepository.save(PostLike.builder().postId(postId).userId(userId).build());
+        postLikeRepository.save(PostLike.builder()
+                .postId(postId)
+                .userId(userId)
+                .build());
         return "like";
     }
 
