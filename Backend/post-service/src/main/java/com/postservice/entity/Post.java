@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 
 import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
@@ -20,5 +21,5 @@ public class Post {
     String content;
     Instant createdAt;
     Instant updatedAt;
-
+    List<String> mediaUrls;
 }

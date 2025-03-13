@@ -29,6 +29,3 @@ app:
   services:
     profile: "http://localhost:8081/profile"
     notification: "http://localhost:8082/notification"
-logging:
-  level:
-    root: error

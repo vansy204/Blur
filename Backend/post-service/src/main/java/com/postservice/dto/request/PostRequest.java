@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -13,4 +15,5 @@ import lombok.experimental.FieldDefaults;
 
 public class PostRequest {
     String content;
+    List<String> mediaUrls;
 }

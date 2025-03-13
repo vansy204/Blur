@@ -43,6 +43,3 @@ spring:
             - Path=${app.api-prefix}/post/**
           filters:
             - StripPrefix=1
-logging:
-  level:
-    root: error

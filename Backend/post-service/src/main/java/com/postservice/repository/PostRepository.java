@@ -10,5 +10,6 @@ import java.util.List;
 @Repository
 public interface PostRepository extends MongoRepository<Post, String> {
      List<Post> findAllByUserId(String userId);
+
      Post findByUserId(String userId);
 }

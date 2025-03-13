@@ -1,24 +1,24 @@
 package com.postservice.entity;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Data;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 
 import java.time.Instant;
 
-@Document(value = "comment")
-@Builder
 @Data
+@Builder
+@Document(value = "comment-reply")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@AllArgsConstructor
-@NoArgsConstructor
-public class Comment {
+public class CommentReply {
     @MongoId
     String id;
-    String postId;
-    String userId;
     String content;
+    String userId;
+    String commentId;
     Instant createdAt;
     Instant updatedAt;
 }

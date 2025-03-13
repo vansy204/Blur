@@ -6,6 +6,8 @@ import com.postservice.dto.response.PostResponse;
 import com.postservice.dto.response.UserProfileResponse;
 import com.postservice.entity.Post;
 import com.postservice.entity.PostLike;
+import com.postservice.exception.AppException;
+import com.postservice.exception.ErrorCode;
 import com.postservice.mapper.PostMapper;
 import com.postservice.repository.PostLikeRepository;
 import com.postservice.repository.PostRepository;
@@ -35,12 +37,38 @@ public class PostService {
 
         Post post = Post.builder()
                 .content(postRequest.getContent())
+                .mediaUrls(postRequest.getMediaUrls())
                 .userId(authentication.getName())
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
         post = postRepository.save(post);
         return postMapper.toPostResponse(post);
+    }
+    public PostResponse updatePost(String postId,PostRequest postRequest) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
+        var userId = authentication.getName();
+        if(!post.getUserId().equals(userId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        post.setContent(postRequest.getContent());
+        post.setMediaUrls(postRequest.getMediaUrls());
+        post.setUpdatedAt(Instant.now());
+        post = postRepository.save(post);
+        return postMapper.toPostResponse(post);
+    }
+    public String deletePost(String postId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
+        var userId = authentication.getName();
+        if(!post.getUserId().equals(userId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        postRepository.deleteById(postId);
+        return "Post deleted successfully";
     }
 
     public List<PostResponse> getMyPosts() {

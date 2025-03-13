@@ -38,4 +38,17 @@ public class PostController {
                 .result(postService.likePost(postId))
                 .build();
     }
+    @PutMapping("/{postId}/update")
+    public ApiResponse<PostResponse> updatePost(@PathVariable String postId,
+                                               @RequestBody PostRequest post) {
+        return ApiResponse.<PostResponse>builder()
+                .result(postService.updatePost(postId, post))
+                .build();
+    }
+    @DeleteMapping("/{postId}/delete")
+    public ApiResponse<String> deletePost(@PathVariable String postId) {
+        return ApiResponse.<String>builder()
+                .result(postService.deletePost(postId))
+                .build();
+    }
 }
