@@ -6,7 +6,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 
 import java.time.Instant;
-@Document(value = "comment")
+@Document(value = "comment-like")
 @Builder
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
