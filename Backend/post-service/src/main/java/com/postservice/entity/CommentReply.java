@@ -16,9 +16,11 @@ import java.time.Instant;
 public class CommentReply {
     @MongoId
     String id;
-    String content;
     String userId;
+    String userName;
+    String content;
     String commentId;
+    String parentReplyId;
     Instant createdAt;
     Instant updatedAt;
 }

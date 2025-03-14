@@ -18,6 +18,7 @@ public class Post {
     @MongoId
     String id;
     String userId;
+    String userName;
     String content;
     Instant createdAt;
     Instant updatedAt;

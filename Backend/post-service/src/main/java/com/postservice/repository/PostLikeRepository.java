@@ -7,8 +7,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 @Repository
 public interface PostLikeRepository extends MongoRepository<PostLike, String> {
-    List<PostLike> findAllByPostId(String postId);
-    PostLike findByPostId(String postId);
 
     boolean existsByPostIdAndUserId(String postId, String userId);
 

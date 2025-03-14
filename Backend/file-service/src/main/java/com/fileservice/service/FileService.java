@@ -16,7 +16,7 @@ import java.util.UUID;
 public class FileService {
     public Object uploadFile(MultipartFile file) throws IOException {
         Path folder = Paths.get("C:/upload");
-        if(!Files.exists(folder)) {
+        if (!Files.exists(folder)) {
             Files.createDirectories(folder);
         }
         String fileExtention = StringUtils.getFilenameExtension(file.getOriginalFilename());
@@ -27,7 +27,7 @@ public class FileService {
 
         Path filePath = folder.resolve(fileName).normalize().toAbsolutePath();
 
-        Files.copy(file.getInputStream(),filePath, StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
         return null;
 
 

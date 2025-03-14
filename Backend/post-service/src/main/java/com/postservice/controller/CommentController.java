@@ -14,12 +14,12 @@ import java.util.List;
 
 
 @RestController
+@RequestMapping("/comment")
 @RequiredArgsConstructor
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CommentController {
     CommentService commentService;
-    CommentReplyService commentReplyService;
 
     @PostMapping("/{postId}/create")
     public ApiResponse<CommentResponse> createComment(@PathVariable String postId,
@@ -57,34 +57,6 @@ public class CommentController {
                 .result(commentService.deleteComment(commentId))
                 .build();
     }
-    @PostMapping("/{commentId}/reply")
-    public ApiResponse<CommentResponse> createCommentReply(@PathVariable String commentId,@RequestBody CreateCommentRequest comment) {
-        return ApiResponse.<CommentResponse>builder()
-                .result(commentReplyService.createCommentReply(commentId, comment))
-                .build();
-    }
-    @PutMapping("/{commentReplyId}/updateReply")
-    public ApiResponse<CommentResponse> updateCommentReply(@PathVariable String commentReplyId,@RequestBody CreateCommentRequest commentReply){
-        return ApiResponse.<CommentResponse>builder()
-                .result(commentReplyService.updateCommentReply(commentReplyId, commentReply))
-                .build();
-    }
-    @GetMapping("/{commentId}/all")
-    public ApiResponse<List<CommentResponse>> getAllCommentReplies(@PathVariable String commentId) {
-        return ApiResponse.<List<CommentResponse>>builder()
-                .result(commentReplyService.getAllCommentReplyByCommentId(commentId))
-                .build();
-    }
-    @DeleteMapping("/{commentReplyId}/deleteReply")
-    public ApiResponse<String> deleteCommentReply(@PathVariable String commentReplyId) {
-        return ApiResponse.<String>builder()
-                .result(commentReplyService.deleteCommentReply(commentReplyId))
-                .build();
-    }
-    @GetMapping("/commentReply/{commentReplyId}")
-    public ApiResponse<CommentResponse> getCommentReply(@PathVariable String commentReplyId) {
-        return ApiResponse.<CommentResponse>builder()
-                .result(commentReplyService.getCommentReplyByCommentReplyId(commentReplyId))
-                .build();
-    }
+
+
 }

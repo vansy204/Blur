@@ -8,6 +8,7 @@ import com.postservice.exception.ErrorCode;
 import com.postservice.mapper.CommentMapper;
 import com.postservice.repository.CommentRepository;
 import com.postservice.repository.PostRepository;
+import com.postservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -28,19 +29,23 @@ import java.util.stream.Collectors;
 public class CommentService {
     CommentRepository commentRepository;
     CommentMapper commentMapper;
-
+    ProfileClient profileClient;
 
     public CommentResponse createComment(CreateCommentRequest request, String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
+        var user = profileClient.getProfile(userId);
         var comment = Comment.builder()
                 .content(request.getContent())
                 .userId(userId)
+                .userName(user.getResult().getFirstName())
                 .postId(postId)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
+        log.info("Comment created user {}", user.getResult().getFirstName());
         comment = commentRepository.save(comment);
+
         return commentMapper.toCommentResponse(comment);
     }
 

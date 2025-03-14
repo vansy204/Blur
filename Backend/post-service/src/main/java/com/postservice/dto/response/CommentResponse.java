@@ -3,6 +3,8 @@ package com.postservice.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.time.Instant;
+
 @Builder
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -14,6 +16,6 @@ public class CommentResponse {
     String userId;
     String userName;
     String postId;
-    String createdAt;
-    String updatedAt;
+    Instant createdAt;
+    Instant updatedAt;
 }

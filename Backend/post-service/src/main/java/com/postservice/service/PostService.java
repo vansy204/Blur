@@ -14,6 +14,7 @@ import com.postservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -34,14 +36,17 @@ public class PostService {
     public PostResponse createPost(PostRequest postRequest) {
         // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
+        var userId = authentication.getName();
+        var profile = profileClient.getProfile(userId);
         Post post = Post.builder()
                 .content(postRequest.getContent())
                 .mediaUrls(postRequest.getMediaUrls())
-                .userId(authentication.getName())
+                .userId(userId)
+                .userName(profile.getResult().getFirstName())
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
+        log.info("user name: {}", profile.getResult().getFirstName());
         post = postRepository.save(post);
         return postMapper.toPostResponse(post);
     }
