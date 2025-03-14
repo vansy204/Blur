@@ -43,23 +43,23 @@ public class CommentReplyService {
         return commentMapper.toCommentResponse(commentReplyRepository.save(commentReply));
     }
 
-    public CommentResponse updateCommentReply(String commentId, CommentReply commentReply) {
+    public CommentResponse updateCommentReply(String commentReplyId, CreateCommentRequest commentReply) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         var userId = auth.getName();
-        var comment = commentRepository.findById(commentId)
+        var comment = commentReplyRepository.findById(commentReplyId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
         if (!comment.getUserId().equals(userId)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
         comment.setUpdatedAt(Instant.now());
         comment.setContent(commentReply.getContent());
-        return commentMapper.toCommentResponse(commentRepository.save(comment));
+        return commentMapper.toCommentResponse(commentReplyRepository.save(comment));
     }
 
     public String deleteCommentReply(String commentId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         var userId = auth.getName();
-        var comment = commentRepository.findById(commentId)
+        var comment = commentReplyRepository.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
         if (!comment.getUserId().equals(userId)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
@@ -73,5 +73,9 @@ public class CommentReplyService {
         return commentResponses.stream().map(commentMapper::toCommentResponse)
                 .collect(Collectors.toList());
     }
-
+    public CommentResponse getCommentReplyByCommentReplyId(String commentReplyId) {
+        var commentReply = commentReplyRepository.findById(commentReplyId)
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
+        return commentMapper.toCommentResponse(commentReply);
+    }
 }
