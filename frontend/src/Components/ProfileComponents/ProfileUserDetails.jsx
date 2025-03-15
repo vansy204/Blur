@@ -1,8 +1,38 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
+import { getUserDetails } from "../../service/JwtService";
+import axios from "axios";
+import { getToken } from "../../service/LocalStorageService";
 
 const ProfileUserDetails = () => {
+  const [user,setUser] = useState(null);
+    useEffect(() =>{
+      const fetchUser = async () =>{
+        const userData = getUserDetails();
+        const token = getToken();
+        if(!userData) return;
+        try{
+          const response = await axios.get("http://localhost:8888/api/profile/users/myInfo",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          )
+          if(response.data?.code !== 1000){
+            throw new Error("Invalid User");
+          }
+          setUser(response.data?.result);
+          console.log("user: ", response.data?.result);
+          
+      }catch(error){
+          console.log("Error:" , error);
+      };
+    }
+    fetchUser();
+  },[]);
   const navigate = useNavigate();
   return (
     <div className="py-10 w-full">
@@ -16,7 +46,7 @@ const ProfileUserDetails = () => {
         </div>
         <div className="space-y-5">
           <div className="flex space-x-10 items-center">
-            <p>UserName</p>
+            <p>{user?.firstName}</p>
             <button onClick={() => navigate("/account/edit")}>
               Edit Profile
             </button>

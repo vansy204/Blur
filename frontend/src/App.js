@@ -1,12 +1,10 @@
 import React from "react";
 
-import MessagePage from "./Pages/MessagePage/MessagePage";
-
+import Router from "./Pages/Router/Router";
 
 function App() {
   return (
-      // <Router></Router>
-     <MessagePage></MessagePage>
+    <Router/>
   );
 }
 export default App;

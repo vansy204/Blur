@@ -9,15 +9,12 @@ import LoginPage from "../Login/LoginPage";
 import RegisterPage from "../Login/RegisterPage";
 import Authenticate from "../Login/Authenticate";
 import CreatePassword from "../Login/CreatePassword";
-import { getToken } from "../../service/LocalStorageService";
 import ActivationPage from "../Login/ActivationPage";
 
 const Router = () => {
   const location = useLocation();
-  const token = getToken();
   return (
     <div>
-      
      ({location.pathname !== "/login" && location.pathname !== "/register"  && location.pathname !== "/create-password"&& location.pathname !== "/activate" && (
         <div className="flex">
           <div className="w-[20%] border border-;-slate-500">
