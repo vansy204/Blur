@@ -55,4 +55,10 @@ public class PostController {
                 .result(postService.deletePost(postId))
                 .build();
     }
+    @GetMapping("/all")
+    public ApiResponse<List<PostResponse>> getAllPosts() {
+        return ApiResponse.<List<PostResponse>>builder()
+                .result(postService.getAllPosts())
+                .build();
+    }
 }

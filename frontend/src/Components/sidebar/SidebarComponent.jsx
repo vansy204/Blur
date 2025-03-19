@@ -1,21 +1,30 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { IoReorderThreeOutline } from "react-icons/io5";
 import { menuItems } from "./SidebarConfig";
 import { useNavigate } from "react-router-dom";
 import { useDisclosure, useToast } from "@chakra-ui/react";
 import SearchComponent from "../SearchComponent/SearchComponent";
-import "./SidebarComponents.css";
 import LogoutModal from "./LogoutModal";
 import { getToken, removeToken } from "../../service/LocalStorageService";
 import axios from "axios";
+import { getUserDetails } from "../../service/JwtService";
+import CreatePostModal from "../Post/CreatePostModal";
 
-export const SidebarComponent = () => {
+export const SidebarComponent = ({ onPostCreate }) => {
   const [activeTab, setActiveTab] = useState();
   const [showDropdown, setShowDropdown] = useState(false);
-  const navigate = useNavigate();
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
   const toast = useToast();
+
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const {
+    isOpen: isCreateOpen,
+    onOpen: onCreateOpen,
+    onClose: onCreateClose,
+  } = useDisclosure();
+
   const showToast = (title, description, status) => {
     toast({
       title,
@@ -26,111 +35,175 @@ export const SidebarComponent = () => {
       isClosable: true,
     });
   };
+
   const handleTabClick = (title) => {
     setActiveTab(title);
-    if (title === "Profile") {
-      navigate("/username");
-      setIsSearchVisible(false);
-    } else if (title === "Home") {
-      navigate("/");
-      setIsSearchVisible(false);
-    } else if (title === "Create") {
-      onOpen();
-    } else if (title === "Message") {
-      navigate("/message");
-    } else if (title === "Search") {
-      setIsSearchVisible(true);
-    } else {
-      setIsSearchVisible(false);
+    switch (title) {
+      case "Profile":
+        navigate("/profile");
+        setIsSearchVisible(false);
+        break;
+      case "Home":
+        navigate("/");
+        setIsSearchVisible(false);
+        break;
+      case "Create":
+        onCreateOpen();
+        break;
+      case "Message":
+        navigate("/message");
+        setIsSearchVisible(false);
+        break;
+      case "Search":
+        setIsSearchVisible(true);
+        break;
+      default:
+        setIsSearchVisible(false);
     }
   };
 
-  const handleClick = () => {
-    setShowDropdown(!showDropdown);
-  };
+  const handleClick = () => setShowDropdown(!showDropdown);
 
-  const handleLoggout = async (even) => {
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userData = getUserDetails();
+      const token = getToken();
+      if (!userData) return;
+      try {
+        const response = await axios.get(
+          "http://localhost:8888/api/profile/users/myInfo",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (response.data?.code !== 1000) throw new Error("Invalid User");
+        setUser(response.data?.result);
+      } catch (error) {
+        console.error("Error:", error);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async (e) => {
     try {
-      even.preventDefault();
-      onOpen(); // Mở modal khi bấm nút
+      e.preventDefault();
       const token = getToken();
       const response = await axios.post(
-        "http://localhost:8888/api/identity/auth/logout",{token}
+        "http://localhost:8888/api/identity/auth/logout",
+        { token }
       );
-      if (response.data.code !== 1000) {
-        throw new Error("Invalid token");
-      }
+      if (response.data.code !== 1000) throw new Error("Invalid token");
       removeToken(token);
-      showToast("Logout success!!", "", "success");
+      showToast("Logout successful!", "", "success");
       navigate("/login");
     } catch (error) {
       showToast("Logout Error", error.message, "error");
     }
   };
+
   return (
-    <div className="sticky top-0 h-[100vh] flex">
+    <div className="flex h-screen w-full overflow-hidden">
       <div
-        className={`flex flex-col justify-between h-full  ${
-          activeTab === "Search" ? "px-2" : " px-10"
-        } "`}
+        className={`${
+          isSearchVisible ? "w-20" : "w-64"
+        } fixed top-0 left-0 h-screen transition-all duration-300 flex flex-col justify-between px-4 py-6 bg-white border-r shadow-md z-50`}
       >
-        <div>
-          {activeTab !== "Search" && (
-            <div className="pt-5">
-              <img
-                className="w-20 h-20 rounded-full "
-                src="../logo.webp"
-                alt=""
-                onClick={() => {
-                  navigate("/");
-                }}
-              />
-            </div>
-          )}
-          <div className="mt-10">
-            {menuItems.map((item) => (
-              <div
-                onClick={() => handleTabClick(item.title)}
-                className="flex items-center mb-5 cursor-pointer text-lg"
-                key={item.title}
-              >
-                {activeTab === item.title ? item.activeIcon : item.icon}
-                {activeTab !== "Search" && (
+        {activeTab !== "Search" && (
+          <div className="flex items-center justify-center">
+            <img
+              className="w-16 h-16 rounded-full cursor-pointer hover:opacity-80"
+              src="../logo.webp"
+              alt="Logo"
+              onClick={() => navigate("/")}
+            />
+          </div>
+        )}
+
+        <div className="mt-10 flex-1 overflow-y-auto">
+          {menuItems.map((item) => (
+            <div
+              key={item.title}
+              onClick={() => handleTabClick(item.title)}
+              className={`flex items-center py-2 px-4 mb-2 rounded-lg cursor-pointer hover:bg-gray-100 transition ${
+                activeTab === item.title ? "bg-gray-200 font-semibold" : ""
+              }`}
+            >
+              {item.title === "Profile" && user ? (
+                <>
+                  <img
+                    src={user.imageUrl}
+                    alt="avatar"
+                    className="w-6 h-6 rounded-full object-cover"
+                  />
+                  <span
+                    className={`ml-3 transition-all duration-300 ${
+                      isSearchVisible ? "hidden" : "inline"
+                    }`}
+                  >
+                    {user.firstName} {user.lastName}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xl">
+                    {activeTab === item.title ? item.activeIcon : item.icon}
+                  </span>
                   <p
-                    className={`${
-                      activeTab === item.title ? "font-bold" : "font-simibold}"
+                    className={`ml-3 transition-all duration-300 ${
+                      isSearchVisible ? "hidden" : "inline"
                     }`}
                   >
                     {item.title}
                   </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="dropdown">
-          <div className=" flex items-center cursor-pointer pb-10">
-            <IoReorderThreeOutline
-              className="three-line text-2xl"
-              onClick={handleClick}
-            />
-            {activeTab !== "Search" && <p className="ml-5">More</p>}
-            <div className="dropdown-content">
-              {showDropdown && (
-                <button
-                  className="bg-black text-white py-1 px-4 rounded-md cursor-pointer"
-                  onClick={handleLoggout}
-                >
-                  Log Out
-                </button>
+                </>
               )}
             </div>
+          ))}
+        </div>
+
+        <div className="relative">
+          <div
+            className="flex items-center py-2 px-4 rounded-lg hover:bg-gray-100 cursor-pointer"
+            onClick={handleClick}
+          >
+            <IoReorderThreeOutline className="text-2xl" />
+            <p
+              className={`ml-3 transition-all duration-300 ${
+                isSearchVisible ? "hidden" : "inline"
+              }`}
+            >
+              More
+            </p>
           </div>
+          {showDropdown && (
+            <div className="absolute bottom-12 left-0 w-full bg-white shadow-lg border rounded-md z-10">
+              <button
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                Log Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {isSearchVisible && <SearchComponent />}
+      <div
+        className={`flex-1 ml-${isSearchVisible ? "20" : "64"} overflow-y-auto p-4`}
+      >
+        {isSearchVisible && <SearchComponent />}
+      </div>
+
       <LogoutModal isOpen={isOpen} onClose={onClose} />
+      <CreatePostModal
+        isOpen={isCreateOpen}
+        onClose={onCreateClose}
+        onPostCreate={onPostCreate}
+      />
     </div>
   );
 };

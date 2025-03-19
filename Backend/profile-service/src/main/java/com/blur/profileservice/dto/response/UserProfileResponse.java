@@ -14,7 +14,17 @@ public class UserProfileResponse {
     String userId;
     String firstName;
     String lastName;
+    String bio;
+    String city;
+    String phone;
+    String email;
+    String gender;
+    String website;
+    String imageUrl;
+    String address;
     LocalDate dob;
+    LocalDate updatedAt;
     LocalDate createdAt;
+
 
 }

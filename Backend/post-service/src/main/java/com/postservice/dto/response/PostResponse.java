@@ -18,6 +18,7 @@ public class PostResponse {
     String id;
     String userId;
     String userName;
+    String userImageUrl;
     String content;
     List<String> mediaUrls;
     Instant createdAt;

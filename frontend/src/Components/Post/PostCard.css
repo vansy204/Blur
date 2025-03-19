@@ -26,3 +26,26 @@
     width: 100%;
     padding: .5rem .7rem;
 }
+/* Swiper buttons nhỏ gọn và đẹp */
+.swiper-button-next,
+.swiper-button-prev {
+  color: white;
+  background-color: rgba(0, 0, 0, 0.4);
+  padding: 6px 10px;
+  border-radius: 50%;
+  width: auto;
+  height: auto;
+  font-size: 14px;
+  transition: 0.3s;
+}
+
+.swiper-button-next:hover,
+.swiper-button-prev:hover {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* Ẩn mũi tên khi không cần thiết */
+.swiper-button-disabled {
+  opacity: 0;
+  pointer-events: none;
+}

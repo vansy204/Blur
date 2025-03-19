@@ -12,6 +12,14 @@ import java.time.LocalDate;
 public class UserProfileUpdateRequest {
     String firstName;
     String lastName;
-    LocalDate dob;
-    LocalDate createAt;
+    String bio;
+    String city;
+    String phone;
+    String email;
+    String gender;
+    String website;
+    String imageUrl;
+   String address;
+    String dob;
 }
+

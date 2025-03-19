@@ -2,30 +2,26 @@ import React from "react";
 import { MessageLeftCard } from "./MessageLeftCard";
 
 const MessageLeft = () => {
-  
-
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar">
-      <div className="sticky top-0 bg-white z-10">
-        <div className="flex ml-2 pb-4 mt-5">
+    <div className="h-full overflow-y-auto custom-scrollbar bg-gray-50">
+      <div className="sticky top-0 bg-white z-10 shadow-md p-4">
+        <div className="flex items-center">
           <img
-            className="rounded-full h-20 w-20"
+            className="rounded-full h-16 w-16"
             src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
-            alt=""
+            alt="Profile"
           />
-          <div className="pl-2 mt-4">
-            <p className="text-xl">UserName</p>
-            <p>Name</p>
+          <div className="pl-4">
+            <p className="text-xl font-semibold">UserName</p>
+            <p className="text-sm text-gray-500">Full Name</p>
           </div>
         </div>
-        <p className="ml-2 font-semibold text-xl pb-2 border-b">Chats</p>
+        <p className="mt-4 font-semibold text-lg border-b pb-2">Chats</p>
       </div>
-      <div className="flex">
-        <div className="w-full ml-2 mr-2">
-          {[1, 1, 1, 1, 1, 1, 1, 1, 1, 1].map((item, index) => (
-            <MessageLeftCard key={index} />
-          ))}
-        </div>
+      <div className="p-2 space-y-2">
+        {[...Array(10)].map((_, index) => (
+          <MessageLeftCard key={index} />
+        ))}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 package com.postservice.service;
 
 import com.postservice.dto.request.PostRequest;
+import com.postservice.dto.response.ApiResponse;
 import com.postservice.dto.response.PostResponse;
 import com.postservice.dto.response.UserProfileResponse;
 import com.postservice.entity.Post;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -76,6 +78,40 @@ public class PostService {
         }
         postRepository.deleteById(postId);
         return "Post deleted successfully";
+    }
+    public List<PostResponse> getAllPosts() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserId = authentication.getName();
+
+        List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
+
+        return posts.stream().map(post -> {
+            String userName = "Unknown";
+            String userImageUrl = null;
+
+            try {
+                ApiResponse<UserProfileResponse> response = profileClient.getProfile(post.getUserId());
+                UserProfileResponse userProfile = response.getResult();
+
+                if (userProfile != null) {
+                    userName = userProfile.getFirstName() + " " + userProfile.getLastName();
+                    userImageUrl = userProfile.getImageUrl();
+                }
+            } catch (Exception e) {
+                System.out.println("Không lấy được profile cho userId: " + post.getUserId());
+            }
+
+            return PostResponse.builder()
+                    .id(post.getId())
+                    .userId(post.getUserId())
+                    .userName(userName)
+                    .userImageUrl(userImageUrl)  // ✅ Truyền vào response
+                    .content(post.getContent())
+                    .mediaUrls(post.getMediaUrls())
+                    .createdAt(post.getCreatedAt())
+                    .updatedAt(post.getUpdatedAt())
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     public List<PostResponse> getMyPosts() {

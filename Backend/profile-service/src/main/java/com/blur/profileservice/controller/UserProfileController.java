@@ -42,11 +42,10 @@ public class UserProfileController {
     }
     @PutMapping("/users/{userProfileId}")
     public ApiResponse<UserProfileResponse> updateUserProfile(@PathVariable String userProfileId, @RequestBody UserProfileUpdateRequest request){
-        UserProfile userProfile = userProfileRepository.findById(userProfileId).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
-        userProfileMapper.updateUserProfile(userProfile, request);
+        var profileUpdated = userProfileService.updateUserProfile(userProfileId, request);
         return ApiResponse.<UserProfileResponse>builder()
                 .code(1000)
-                .result(userProfileMapper.toUserProfileResponse(userProfileRepository.save(userProfile)))
+                .result(userProfileMapper.toUserProfileResponse(profileUpdated))
                 .build();
     }
     @DeleteMapping("/users/{userProfileId}")
@@ -57,7 +56,7 @@ public class UserProfileController {
                 .result("User Profile has been deleted")
                 .build();
     }
-    @GetMapping("/myInfo")
+    @GetMapping("/users/myInfo")
     public ApiResponse<UserProfileResponse> myInfo(){
         return ApiResponse.<UserProfileResponse>builder()
                 .result(userProfileService.myProfile())

@@ -1,74 +1,82 @@
 import React, { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
-import { getUserDetails } from "../../service/JwtService";
-import axios from "axios";
 import { getToken } from "../../service/LocalStorageService";
+import { fetchUserInfo } from "../../api/userApi";
+import { fetchUserPosts } from "../../api/postApi";
 
 const ProfileUserDetails = () => {
-  const [user,setUser] = useState(null);
-    useEffect(() =>{
-      const fetchUser = async () =>{
-        const userData = getUserDetails();
-        const token = getToken();
-        if(!userData) return;
-        try{
-          const response = await axios.get("http://localhost:8888/api/profile/users/myInfo",
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          )
-          if(response.data?.code !== 1000){
-            throw new Error("Invalid User");
-          }
-          setUser(response.data?.result);
-          console.log("user: ", response.data?.result);
-          
-      }catch(error){
-          console.log("Error:" , error);
-      };
-    }
-    fetchUser();
-  },[]);
   const navigate = useNavigate();
+  const [posts, setPosts] = useState([]);
+  const [user, setUser] = useState(null);
+  const token = getToken();
+
+  useEffect(() => {
+    const getUserInfo = async () => {
+      try {
+        const result = await fetchUserInfo(token);
+        setUser(result);
+      } catch (error) {
+        console.log("Error fetching user:", error);
+      }
+    };
+
+    const getUserPosts = async () => {
+      try {
+        const result = await fetchUserPosts(token);
+        setPosts(result);
+      } catch (error) {
+        console.log("Error fetching posts:", error);
+      }
+    };
+
+    if (token) {
+      getUserInfo();
+      getUserPosts();
+    }
+  }, [token]);
+
   return (
-    <div className="py-10 w-full">
-      <div className="flex items-center">
-        <div className="w-[15%]">
-          <img
-            className="w-32 h-32 rounded-full"
-            src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
-            alt=""
-          />
-        </div>
-        <div className="space-y-5">
-          <div className="flex space-x-10 items-center">
-            <p>{user?.firstName}</p>
-            <button onClick={() => navigate("/account/edit")}>
+    <div className="py-10 w-full px-4">
+      <div className="flex flex-col md:flex-row items-center gap-8">
+        <img
+          className="w-32 h-32 rounded-full object-cover border"
+          src={
+            user?.imageUrl ||
+            "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
+          }
+          alt="Profile"
+        />
+        <div className="space-y-4 text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start gap-4">
+            <h2 className="text-xl font-semibold">{user?.firstName}</h2>
+            <button
+              onClick={() => navigate("/account/edit")}
+              className="bg-gray-100 hover:bg-gray-200 transition px-3 py-1 rounded text-sm"
+            >
               Edit Profile
             </button>
-            <LuCircleDashed onClick={() => navigate("/account/edit")} />
+            <LuCircleDashed
+              className="cursor-pointer"
+              onClick={() => navigate("/account/edit")}
+            />
           </div>
-          <div className="flex space-x-10">
+          <div className="flex justify-center md:justify-start gap-6 text-sm">
             <div>
-              <span className="font-semibold mr-2">10</span>
-              <span>posts</span>
+              <span className="font-semibold">{posts?.length}</span> posts
             </div>
             <div>
-              <span className="font-semibold mr-2">99</span>
-              <span>follower</span>
+              <span className="font-semibold">99</span> followers
             </div>
             <div>
-              <span className="font-semibold mr-2">99</span>
-              <span>following</span>
+              <span className="font-semibold">99</span> following
             </div>
           </div>
           <div>
-            <p className="font-semibold">Name</p>
-            <p className="font-thin text-sm">bio</p>
+            <p className="font-semibold">
+              {user?.firstName} {user?.lastName}
+            </p>
+            <p className="text-gray-600 text-sm">{user?.bio}</p>
           </div>
         </div>
       </div>

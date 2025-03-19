@@ -15,7 +15,5 @@ public class UserProfileResponse {
     String userId;
     String firstName;
     String lastName;
-    LocalDate dob;
-    LocalDate createdAt;
-
+    String imageUrl;
 }
