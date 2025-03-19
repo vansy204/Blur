@@ -3,6 +3,7 @@ package com.postservice.controller;
 import com.postservice.dto.request.PostRequest;
 import com.postservice.dto.response.ApiResponse;
 import com.postservice.dto.response.PostResponse;
+import com.postservice.entity.PostLike;
 import com.postservice.service.PostService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,12 @@ public class PostController {
                 .result(postService.likePost(postId))
                 .build();
     }
-
+    @PutMapping("/{postId}/unlike")
+    public ApiResponse<String> unlikePost(@PathVariable String postId) {
+        return ApiResponse.<String>builder()
+                .result(postService.unlikePost(postId))
+                .build();
+    }
     @PutMapping("/{postId}/update")
     public ApiResponse<PostResponse> updatePost(@PathVariable String postId,
                                                 @RequestBody PostRequest post) {
@@ -59,6 +65,12 @@ public class PostController {
     public ApiResponse<List<PostResponse>> getAllPosts() {
         return ApiResponse.<List<PostResponse>>builder()
                 .result(postService.getAllPosts())
+                .build();
+    }
+    @GetMapping("/{postId}/likes")
+    public ApiResponse<List<PostLike>> getPostLikes(@PathVariable String postId) {
+        return ApiResponse.<List<PostLike>>builder()
+                .result(postService.getPostLikesByPostId(postId))
                 .build();
     }
 }

@@ -9,16 +9,17 @@ import {
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { FaRegComment } from "react-icons/fa";
 import { RiSendPlaneLine } from "react-icons/ri";
-import CommentModal from "../Comment/CommentModal";
 import { useDisclosure } from "@chakra-ui/react";
-
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
+
+import CommentModal from "../Comment/CommentModal";
 import { timeDifference } from "../../Config/Logic";
 import { getToken } from "../../service/LocalStorageService";
+import { fetchLikePost } from "../../api/postApi";
 
 const PostCard = ({ post, user }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -28,26 +29,109 @@ const PostCard = ({ post, user }) => {
   const [isPlaying, setIsPlaying] = useState({});
   const [progress, setProgress] = useState({});
   const [comments, setComments] = useState([]);
+  const [likes, setLikes] = useState([]);
 
   const videoRefs = useRef([]);
+  const token = getToken();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const handleClick = () => setShowDropdown(!showDropdown);
-  const handlePostUnlike = () => setIsPostLiked(false);
-  const handlePostLike = () => setIsPostLiked(true);
-  const handleOpenCommentModal = () => onOpen();
+  // Fetch likes & comments
+  useEffect(() => {
+    if (!post?.id || !user?.id) return;
+  
+    const fetchData = async () => {
+      try {
+        const [commentRes, likeRes] = await Promise.all([
+          axios.get(`http://localhost:8888/api/post/comment/${post.id}/comments`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }),
+          fetchLikePost(token, post.id),
+        ]);
+  
+        setComments(commentRes.data.result || []);
+        const likesArray = Array.isArray(likeRes) ? likeRes : [];
+        setLikes(likesArray);
+        const liked = likesArray.some((likeItem) => likeItem.userId === post.userId);
+        
+        setIsPostLiked(liked);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        // Đặt mảng rỗng trong trường hợp lỗi
+        setLikes([]);
+        setComments([]);
+      }
+    };
+  
+    fetchData();
+  }, [post?.id, user?.id, token]);
+
+  // Toggle like
+  const handlePostLike = async () => {
+    try {
+      const res = await axios.put(
+        `http://localhost:8888/api/post/${post.id}/like`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (res.data.code !== 1000) throw new Error("Like failed");
+
+      setIsPostLiked(true);
+      
+      // Thêm một đối tượng like mới với cấu trúc đúng
+      setLikes((prev) => [...prev, {
+        userId: post.userId,
+        postId: post.id,
+        createdAt: new Date().toISOString(),
+        id: res.data.result?.id || `temp-${Date.now()}` // ID tạm thời nếu API không trả về id
+      }]);
+    } catch (error) {
+      console.error("Error liking post:", error);
+    }
+  };
+
+  // Toggle unlike
+  const handlePostUnLike = async () => {
+    try {
+      const res = await axios.put(
+        `http://localhost:8888/api/post/${post.id}/unlike`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+  
+      if (res.data.code !== 1000) throw new Error("Unlike failed");
+  
+      setIsPostLiked(false);
+      // Lọc ra những like không phải của người dùng hiện tại
+      setLikes((prev) => prev.filter((likeItem) => likeItem.userId !== user.id));
+    } catch (error) {
+      console.error("Error unliking post:", error);
+    }
+  };
+
   const handleSavePost = () => setIsSaved(true);
   const handleUnSavePost = () => setIsSaved(false);
-  const token = getToken();
-  const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
+  const handleClick = () => setShowDropdown(!showDropdown);
+  const handleOpenCommentModal = () => onOpen();
 
   const togglePlayPause = (index) => {
     const video = videoRefs.current[index];
     if (!video) return;
 
-    const currentlyPlaying = isPlaying[index];
-
-    if (currentlyPlaying) {
+    if (isPlaying[index]) {
       video.pause();
     } else {
       video.play();
@@ -55,7 +139,7 @@ const PostCard = ({ post, user }) => {
 
     setIsPlaying((prev) => ({
       ...prev,
-      [index]: !currentlyPlaying,
+      [index]: !prev[index],
     }));
   };
 
@@ -70,28 +154,7 @@ const PostCard = ({ post, user }) => {
     }));
   };
 
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const response = await axios.get(
-          `http://localhost:8888/api/post/comment/${post?.id}/comments`,{
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-
-        setComments(response.data.result);
-      } catch (error) {
-        console.error("Error fetching comments:", error);
-      }
-    };
-
-    if (post?.id) {
-      fetchComments();
-    }
-  }, [post?.id]);
+  const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
 
   return (
     <div className="bg-white shadow-md rounded-xl overflow-hidden mb-8 border border-gray-200">
@@ -107,7 +170,7 @@ const PostCard = ({ post, user }) => {
             alt="User"
           />
           <div className="pl-3">
-            <p className="font-semibold text-sm">{post?.userName}</p>
+            <p className="font-semibold text-sm">{post?.userName || "Unknown"}</p>
             <p className="text-xs text-gray-500">
               {post?.createdAt ? timeDifference(post.createdAt) : "Just now"}
             </p>
@@ -129,7 +192,7 @@ const PostCard = ({ post, user }) => {
       {/* Caption */}
       {post?.content && (
         <div className="px-5 pb-3 text-sm">
-          <span className="font-semibold mr-1">{user?.userName}</span>
+          <span className="font-semibold mr-1">{post?.userName}</span>
           {post.content}
         </div>
       )}
@@ -198,7 +261,7 @@ const PostCard = ({ post, user }) => {
           {isPostLiked ? (
             <AiFillHeart
               className="text-2xl text-red-600 cursor-pointer hover:opacity-60"
-              onClick={handlePostUnlike}
+              onClick={handlePostUnLike}
             />
           ) : (
             <AiOutlineHeart
@@ -229,10 +292,11 @@ const PostCard = ({ post, user }) => {
 
       {/* Likes & Comments */}
       <div className="px-5 pb-2">
-        <p className="text-sm font-semibold">10 likes</p>
+        <p className="text-sm font-semibold">{likes.length} likes</p>
         <p
           className="text-sm text-gray-500 mt-1 cursor-pointer"
-          onClick={handleOpenCommentModal}>
+          onClick={handleOpenCommentModal}
+        >
           View all {comments.length} comments
         </p>
       </div>
@@ -249,8 +313,10 @@ const PostCard = ({ post, user }) => {
 
       {/* Comment Modal */}
       <CommentModal
-        onClose={onClose}
+        post={post}
+        comments={comments}
         isOpen={isOpen}
+        onClose={onClose}
         isSaved={isSaved}
         isPostLike={isPostLiked}
         handlePostLike={handlePostLike}

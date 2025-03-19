@@ -124,7 +124,7 @@ public class PostService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return postRepository.findAllByUserId(userId)
+        return postRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
                 .stream().map(postMapper::toPostResponse)
                 .collect(Collectors.toList());
     }
@@ -132,15 +132,22 @@ public class PostService {
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
-        if (postLikeRepository.existsByPostIdAndUserId(postId, userId)) {
-            postLikeRepository.deleteByPostIdAndUserId(postId, userId);
-            return "unlike";
-        }
+
         postLikeRepository.save(PostLike.builder()
                 .postId(postId)
                 .userId(userId)
+                .createdAt(Instant.now())
                 .build());
         return "like";
     }
+    public String unlikePost(String postId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = authentication.getName();
+        postLikeRepository.deleteByPostIdAndUserId(postId, userId);
+        return "unlike";
 
+    }
+    public List<PostLike> getPostLikesByPostId(String postId) {
+        return postLikeRepository.findAllByPostId(postId);
+    }
 }

@@ -13,6 +13,7 @@ public enum ErrorCode {
     INVALID_KEY(1001, "Invalid message key", HttpStatus.BAD_REQUEST),
     UNAUTHENTICATED(1006, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     POST_NOT_FOUND(1020, "Post not found", HttpStatus.NOT_FOUND),
+    USER_NOT_FOUND(1021, "User not found", HttpStatus.NOT_FOUND),
     ;
     private final int code;
     private final String message;

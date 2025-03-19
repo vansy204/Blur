@@ -11,4 +11,5 @@ public interface PostLikeRepository extends MongoRepository<PostLike, String> {
     boolean existsByPostIdAndUserId(String postId, String userId);
 
     void deleteByPostIdAndUserId(String postId, String userId);
+    List<PostLike> findAllByPostId(String postId);
 }
