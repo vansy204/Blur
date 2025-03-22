@@ -12,6 +12,10 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
+import java.time.Instant;
+import java.time.LocalDate;
+
 import static java.lang.System.*;
 
 @Controller
@@ -19,24 +23,18 @@ import static java.lang.System.*;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class ChatController {
+    SimpMessagingTemplate messagingTemplate;
 
-    SimpMessagingTemplate simpMessagingTemplate;
-    MessageRepository messageRepository;
-
-    @MessageMapping("/private")
-    public void sendPrivateMessage(
-            @Payload String message,
-            @Header("username") String recipientUsername) {
-        out.println("Sending message to " + recipientUsername + ": " + message);
-
-        simpMessagingTemplate.convertAndSendToUser(
-                recipientUsername,
-                "/queue/private",
-                "From sender: " + message);
-        messageRepository.save(Message.builder()
-                .content(message)
-                .receiverId(recipientUsername)
-                .build());
+    @MessageMapping("/chat/send") // client sẽ gửi vào /app/chat/send
+    public void sendMessage(Message message, Principal principal) {
+        message.setSenderId(principal.getName());
+        message.setTimestamp(Instant.now());
+        // Gửi đến user nhận thông qua /user/{receiver}/queue/messages
+        messagingTemplate.convertAndSendToUser(
+                message.getReceiverId(),
+                "/queue/messages",
+                message
+        );
 
     }
 }

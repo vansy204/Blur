@@ -192,7 +192,6 @@ const PostCard = ({ post, user }) => {
       {/* Caption */}
       {post?.content && (
         <div className="px-5 pb-3 text-sm">
-          <span className="font-semibold mr-1">{post?.userName}</span>
           {post.content}
         </div>
       )}
@@ -313,6 +312,7 @@ const PostCard = ({ post, user }) => {
 
       {/* Comment Modal */}
       <CommentModal
+        user={user}
         post={post}
         comments={comments}
         isOpen={isOpen}

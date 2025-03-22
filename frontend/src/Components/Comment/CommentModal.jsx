@@ -12,10 +12,13 @@ import { RiSendPlaneLine } from "react-icons/ri";
 import { FaRegComment } from "react-icons/fa";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 const CommentModal = ({
-  onClose,
+  user,
+  post,
+  comments,
   isOpen,
+  onClose,
   isSaved,
-  isPostLiked,
+  isPostLike,
   handlePostLike,
   handleSavePost,
 }) => {
@@ -40,12 +43,12 @@ const CommentModal = ({
                     <div>
                       <img
                         className="w-9 h-9 rounded-full"
-                        src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
+                        src={post?.userImageUrl || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"}
                         alt=""
                       />
                     </div>
                     <div className="m;-2">
-                      <p>UserName</p>
+                      <p>{post?.userName}</p>
                     </div>
                   </div>
                   <BsThreeDots />
@@ -59,7 +62,7 @@ const CommentModal = ({
                 <div className="absolute bottom-0 w-[90%]">
                   <div className="flex justify-between items-center w-full py-4 ">
                     <div className="flex items-center space-x-2">
-                      {isPostLiked ? (
+                      {isPostLike ? (
                         <AiFillHeart
                           className="text-2xl hover:opacity-50 cursor-pointer text-red-600"
                           onClick={handlePostLike}

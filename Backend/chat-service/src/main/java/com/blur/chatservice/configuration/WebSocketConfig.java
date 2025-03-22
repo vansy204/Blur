@@ -1,4 +1,4 @@
-package com.blur.chatservice.config;
+package com.blur.chatservice.configuration;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -12,15 +12,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic", "/queue");
-        config.setApplicationDestinationPrefixes("/app");
-        config.setUserDestinationPrefix("/user");
+        config.enableSimpleBroker("/topic", "/queue"); // broker để gửi tin nhắn đến client
+        config.setApplicationDestinationPrefixes("/app"); // prefix cho client gửi tin nhắn lên server
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:3000")
+        registry.addEndpoint("/ws-chat")
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(new JwtHandshakeInterceptor()) // interceptor để lấy token
                 .withSockJS();
     }
 }

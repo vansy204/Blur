@@ -10,6 +10,7 @@ import Authenticate from "../Login/Authenticate";
 import CreatePassword from "../Login/CreatePassword";
 import ActivationPage from "../Login/ActivationPage";
 import EditAccountPage from "../Account/EditAccountPage";
+import OtherUserProfile from "../../Components/ProfileComponents/OrderUserProfile";
 
 const Router = () => {
   const location = useLocation();
@@ -35,6 +36,7 @@ const Router = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:id" element={<OtherUserProfile/>} />
           <Route path="/message" element={<MessagePage />} />
           <Route path="/authenticate" element={<Authenticate />} />
           <Route path="/account/edit" element={<EditAccountPage />} />
