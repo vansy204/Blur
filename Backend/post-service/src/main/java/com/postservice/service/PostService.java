@@ -43,11 +43,11 @@ public class PostService {
                 .content(postRequest.getContent())
                 .mediaUrls(postRequest.getMediaUrls())
                 .userId(userId)
-                .userName(profile.getResult().getFirstName())
+                .firstName(profile.getResult().getFirstName())
+                .lastName(profile.getResult().getLastName())
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
-        log.info("user name: {}", profile.getResult().getFirstName());
         post = postRepository.save(post);
         return postMapper.toPostResponse(post);
     }

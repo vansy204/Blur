@@ -13,17 +13,18 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-
 public class UserProfileController {
     UserProfileService userProfileService;
     UserProfileMapper userProfileMapper;
-    private final UserProfileRepository userProfileRepository;
-
     @GetMapping("/users/{profileId}")
     public ApiResponse<UserProfileResponse> getProfile(@PathVariable String profileId){
         var result = userProfileMapper.toUserProfileResponse(userProfileService.getUserProfile(profileId));
@@ -73,6 +74,13 @@ public class UserProfileController {
     public ApiResponse<String> unfollowUser(@PathVariable String userId){
         return ApiResponse.<String>builder()
                 .result(userProfileService.unfollowUser(userId))
+                .build();
+    }
+    @GetMapping("/users/search/{firstName}")
+    public ApiResponse<List<UserProfileResponse>> searchUserProfiles(@PathVariable String firstName){
+        var result = userProfileService.findUserProfileByFirstName(firstName);
+        return ApiResponse.<List<UserProfileResponse>>builder()
+                .result(result)
                 .build();
     }
 

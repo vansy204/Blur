@@ -38,12 +38,12 @@ public class CommentService {
         var comment = Comment.builder()
                 .content(request.getContent())
                 .userId(userId)
-                .userName(user.getResult().getFirstName())
+                .firstName(user.getResult().getFirstName())
+                .lastName(user.getResult().getLastName())
                 .postId(postId)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
-        log.info("Comment created user {}", user.getResult().getFirstName());
         comment = commentRepository.save(comment);
 
         return commentMapper.toCommentResponse(comment);

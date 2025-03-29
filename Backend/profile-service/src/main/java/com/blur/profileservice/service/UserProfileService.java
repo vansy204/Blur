@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.User;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 
 @Service
@@ -45,7 +47,10 @@ public class UserProfileService {
     public UserProfile getUserProfile(String id) {
         return userProfileRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
     }
+    public List<UserProfileResponse> findUserProfileByFirstName(String firstName) {
+        return userProfileRepository.findAllByFirstNameContainingIgnoreCase(firstName).stream().map(userProfileMapper::toUserProfileResponse).toList();
 
+    }
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserProfileResponse> getAllUserProfiles() {
         return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).toList();
