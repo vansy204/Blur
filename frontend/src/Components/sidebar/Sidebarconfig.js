@@ -25,16 +25,8 @@ export const menuItems = [
     icon: <AiOutlineSearch className="text-2xl mr-5" />,
     activeIcon: <AiOutlineSearch className="text-2xl mr-5" />,
   },
-  {
-    title: "Explore",
-    icon: <AiOutlineCompass className="text-2xl mr-5" />,
-    activeIcon: <AiFillCompass className="text-2xl mr-5" />,
-  },
-  {
-    title: "Reels",
-    icon: <RiVideoLine className="text-2xl mr-5" />,
-    activeIcon: <RiVideoFill className="text-2xl mr-5" />,
-  },
+
+
   {
     title: "Message",
     icon: <AiOutlineMessage className="text-2xl mr-5" />,

@@ -11,6 +11,7 @@ import CreatePassword from "../Login/CreatePassword";
 import ActivationPage from "../Login/ActivationPage";
 import EditAccountPage from "../Account/EditAccountPage";
 import OtherUserProfile from "../../Components/ProfileComponents/OrderUserProfile";
+import SearchPage from "../Search/SearchPage";
 
 const Router = () => {
   const location = useLocation();
@@ -27,9 +28,11 @@ const Router = () => {
   return (
     <div className="flex">
       {/* Sidebar luôn hiển thị */}
-      <div className="w-[250px] min-h-screen border-r">
+      {location.pathname !== "/login" && location.pathname !== "/register" && (
+        <div className="w-[250px] min-h-screen border-r">
         <SidebarComponent />
       </div>
+      )}
 
       {/* Nội dung chính */}
       <div className="flex-1 p-4">
@@ -44,6 +47,7 @@ const Router = () => {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/create-password" element={<CreatePassword />} />
           <Route path="/activate" element={<ActivationPage />} />
+          <Route path="/search" element={<SearchPage/>}/>
         </Routes>
       </div>
     </div>

@@ -34,13 +34,16 @@ const ReqUserPostPart = () => {
 
   return (
     <div className="mt-8">
+      {/* Tabs */}
       <div className="flex justify-center gap-10 border-t py-4 text-sm">
         {tabs.map((item) => (
           <div
             key={item.tab}
             onClick={() => setActiveTab(item.tab)}
             className={`flex items-center gap-2 cursor-pointer transition-all ${
-              activeTab === item.tab ? "text-black font-semibold border-b-2 border-black" : "text-gray-500"
+              activeTab === item.tab
+                ? "text-black font-semibold border-b-2 border-black"
+                : "text-gray-500"
             }`}
           >
             {item.icon}
@@ -49,11 +52,16 @@ const ReqUserPostPart = () => {
         ))}
       </div>
 
-      <div className="space-y-4 px-4">
+      {/* Grid layout for posts */}
+      <div className="px-4">
         {posts.length === 0 ? (
           <p className="text-center text-gray-500 py-10">No posts to show.</p>
         ) : (
-          posts.map((post) => <ReqUserPostCard key={post.id} post={post} />)
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {posts.map((post) => (
+              <ReqUserPostCard key={post.id} post={post} />
+            ))}
+          </div>
         )}
       </div>
     </div>

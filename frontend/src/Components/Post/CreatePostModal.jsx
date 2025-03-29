@@ -25,9 +25,9 @@ import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
 import { useEffect, useRef, useState } from "react";
 import { getToken } from "../../service/LocalStorageService";
 
-const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
+const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   const [content, setContent] = useState("");
-  const [images, setImages] = useState([]);
+  const [mediaFiles, setMediaFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -35,23 +35,29 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
   const toast = useToast();
   const token = getToken();
 
+  // Xử lý tạo preview ảnh và video
   useEffect(() => {
-    setPreviewUrls(images.map((file) => URL.createObjectURL(file)));
-  }, [images]);
+    const newPreviewUrls = mediaFiles.map((file) => ({
+      url: URL.createObjectURL(file),
+      type: file.type,
+    }));
+    setPreviewUrls(newPreviewUrls);
+  }, [mediaFiles]);
 
-  const handleImageChange = (e) => {
-    setImages(Array.from(e.target.files));
+  // Xử lý chọn file ảnh/video
+  const handleMediaChange = (e) => {
+    setMediaFiles(Array.from(e.target.files));
   };
 
   const resetAndClose = () => {
     setContent("");
-    setImages([]);
+    setMediaFiles([]);
     setPreviewUrls([]);
     onClose();
   };
 
   const handleCloseAttempt = () => {
-    if (content || images.length > 0) {
+    if (content || mediaFiles.length > 0) {
       setIsConfirmOpen(true);
     } else {
       resetAndClose();
@@ -67,8 +73,8 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
     try {
       setIsLoading(true);
       const mediaUrls =
-        images.length > 0
-          ? await Promise.all(images.map(uploadToCloudnary))
+        mediaFiles.length > 0
+          ? await Promise.all(mediaFiles.map(uploadToCloudnary))
           : [];
 
       const newPost = { content, mediaUrls };
@@ -91,8 +97,9 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
         isClosable: true,
       });
 
-      // 👉 Gọi callback cập nhật UI
+      // ✅ Gọi callback để cập nhật danh sách bài viết mà không cần reload trang
       onPostCreate(response.data);
+
       resetAndClose();
     } catch (error) {
       console.error("Error creating post:", error);
@@ -117,32 +124,48 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
           <ModalHeader textAlign="center">Create New Post</ModalHeader>
           <ModalCloseButton onClick={handleCloseAttempt} />
           <ModalBody px={0} py={0}>
-            <Box display="flex" flexDir={{ base: "column", md: "row" }}>
+            <Box display="flex" flexDir={{ base: "column", md: "row" }} minH="400px">
+              {/* Khu vực hiển thị media */}
               <Box
-                flex="1"
+                flex="1.5"
                 bg="gray.50"
                 display="flex"
-                flexWrap="wrap"
                 justifyContent="center"
                 alignItems="center"
-                minH="300px"
+                minH="400px"
                 p={2}
               >
                 {previewUrls.length > 0 ? (
-                  previewUrls.map((url, i) => (
-                    <Image
-                      key={i}
-                      src={url}
-                      boxSize="100px"
-                      borderRadius="md"
-                      objectFit="cover"
-                    />
-                  ))
+                  previewUrls.map((media, i) =>
+                    media.type.startsWith("video") ? (
+                      <video
+                        key={i}
+                        src={media.url}
+                        controls
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: "8px",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <Image
+                        key={i}
+                        src={media.url}
+                        boxSize="100%"
+                        borderRadius="md"
+                        objectFit="cover"
+                      />
+                    )
+                  )
                 ) : (
-                  <Box color="gray.400">No Image Selected</Box>
+                  <Box color="gray.400">No Image/Video Selected</Box>
                 )}
               </Box>
-              <Box flex="1" p={4}>
+
+              {/* Khu vực nhập nội dung */}
+              <Box flex="1" p={4} display="flex" flexDir="column">
                 <Textarea
                   placeholder="Write a caption..."
                   value={content}
@@ -151,7 +174,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
                   resize="none"
                 />
                 <Box mt={4}>
-                  <label htmlFor="upload-photo">
+                  <label htmlFor="upload-media">
                     <Box
                       cursor="pointer"
                       border="2px dashed #CBD5E0"
@@ -162,12 +185,12 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
                     >
                       <strong>Click to select images/videos</strong>
                       <Input
-                        id="upload-photo"
+                        id="upload-media"
                         type="file"
                         accept="image/*,video/*"
                         multiple
                         display="none"
-                        onChange={handleImageChange}
+                        onChange={handleMediaChange}
                       />
                     </Box>
                   </label>
@@ -175,6 +198,8 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
               </Box>
             </Box>
           </ModalBody>
+
+          {/* Footer */}
           <ModalFooter justifyContent="space-between" px={6} py={4}>
             <Button onClick={handleCloseAttempt} variant="ghost" rounded="full">
               Cancel
@@ -183,7 +208,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
               colorScheme="blue"
               onClick={handleSubmit}
               isLoading={isLoading}
-              isDisabled={!content.trim() && images.length === 0}
+              isDisabled={!content.trim() && mediaFiles.length === 0}
               rounded="full"
             >
               {isLoading ? <Spinner size="sm" /> : "Post"}
@@ -192,6 +217,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
         </ModalContent>
       </Modal>
 
+      {/* Confirm Dialog */}
       <AlertDialog
         isOpen={isConfirmOpen}
         leastDestructiveRef={cancelRef}
@@ -201,8 +227,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate }) => {
         <AlertDialogContent>
           <AlertDialogHeader>Discard post?</AlertDialogHeader>
           <AlertDialogBody>
-            Are you sure you want to discard this post? Your content will be
-            lost.
+            Are you sure you want to discard this post? Your content will be lost.
           </AlertDialogBody>
           <AlertDialogFooter>
             <Button ref={cancelRef} onClick={() => setIsConfirmOpen(false)}>

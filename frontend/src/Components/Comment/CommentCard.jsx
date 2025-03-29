@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
+import { timeDifference } from "../../Config/Logic";
 
-const CommentCard = () => {
+const CommentCard = ({comment, user}) => {
   const [isCommentLike, setIsCommentLike] = useState();
   const handleUnlikeComment = () => {
     setIsCommentLike(false);
@@ -16,18 +17,17 @@ const CommentCard = () => {
           <div>
             <img
               className="w-9 h-9 rounded-full"
-              src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
+              src={user?.imageUrl || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"}
               alt=""
             />
           </div>
           <div className="ml-3">
             <p>
-              <span className="font-semibold">UserName</span>
-              <span className="ml-2">comment content</span>
+              <span className="font-semibold">{comment?.firstName} {comment?.lastName}</span>
+              <span className="ml-2">{comment?.content}</span>
             </p>
             <div className="flex items-center space-x-3 text-xs opacity-60 pt-2">
-              <span>create at</span>
-              <p>20 likes</p>
+              <span>{timeDifference(comment?.createdAt)}</span>
             </div>
           </div>
         </div>
@@ -39,8 +39,8 @@ const CommentCard = () => {
             />
           ) : (
             <AiOutlineHeart
-              onClick={handleLikeComment}
               className="text-xs hover:opacity-50 cursor-pointer"
+              onClick={handleLikeComment}
             />
           )}
         </div>
