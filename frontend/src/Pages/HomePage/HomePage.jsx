@@ -60,6 +60,8 @@ const HomePage = () => {
     </div>
   );
 
+
+  
   return (
     <div className="flex justify-center w-full px-4 xl:px-0">
       {/* MAIN FEED */}
