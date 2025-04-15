@@ -1,0 +1,15 @@
+server:
+  port: 8086
+  servlet:
+    context-path: /stories
+spring:
+  application:
+    name: story-service
+  data:
+    mongodb:
+      uri: mongodb://root:root@localhost:27017/story-service?authSource=admin
+
+app:
+  service:
+    profile:
+      url: "http://localhost:8081/profile"

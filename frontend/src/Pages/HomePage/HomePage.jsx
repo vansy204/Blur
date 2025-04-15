@@ -85,10 +85,10 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* Right sidebar */}
+      {/* Right sidebar
       <div className="hidden xl:block w-[320px] ml-10">
         <HomeRight />
-      </div>
+      </div> */}
     </div>
   );
 };
