@@ -1,48 +1,47 @@
-import StoryCircle from '../../Components/Story/StoryCircle';
-import HomeRight from '../../Components/HomeRight/HomeRight';
-import PostCard from '../../Components/Post/PostCard';
-import { fetchAllPost, fetchLikePost } from '../../api/postApi';
 import { useEffect, useState } from 'react';
+import StoryCircle from '../../Components/Story/StoryCircle';
+import PostCard from '../../Components/Post/PostCard';
+import CreateStoryCircle from '../../Components/Story/AddStoryModal';
+import { fetchAllPost } from '../../api/postApi';
 import { fetchUserInfo } from '../../api/userApi';
+import { fetchAllStories } from '../../api/storyApi';
 import { getToken } from '../../service/LocalStorageService';
 
 const HomePage = () => {
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [stories, setStories] = useState([]);
   const token = getToken();
 
+  // Fetch user info, posts, and stories in parallel
   useEffect(() => {
-    const getUserInfo = async () => {
-      try {
-        const result = await fetchUserInfo(token);
-        setUser(result);
-      } catch (error) {
-        console.log("Error fetching user info:", error);
-      }
-    };
-
-    const getUserPosts = async () => {
-      try {
-        setIsLoading(true);
-        const result = await fetchAllPost(token);
-        setPosts(result);
-      } catch (error) {
-        console.log("Error fetching posts:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (token) {
-      getUserInfo();
-      getUserPosts();
+      fetchData();
     }
   }, [token]);
 
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
 
-  
-  // 👉 Fake loading shimmer component
+      // Fetch user info, posts, and stories in parallel
+      const [userInfo, userPosts, userStories] = await Promise.all([
+        fetchUserInfo(token),
+        fetchAllPost(token),
+        fetchAllStories(),
+      ]);
+
+      setUser(userInfo);
+      setPosts(userPosts);
+      setStories(userStories || []);
+    } catch (error) {
+      console.log("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const PostSkeleton = () => (
     <div className="bg-white shadow-md rounded-xl overflow-hidden mb-8 border border-gray-200 animate-pulse">
       <div className="flex items-center p-4">
@@ -60,35 +59,32 @@ const HomePage = () => {
     </div>
   );
 
+  const renderStories = () => (
+    <div className="storyDiv flex space-x-2 p-4 rounded-md justify-start w-full">
+      <CreateStoryCircle />
+      {Array.isArray(stories) && stories.map((story, index) => (
+        <StoryCircle key={index} story={story} />
+      ))}
+    </div>
+  );
 
-  
+  const renderPosts = () => (
+    <div className="space-y-10 w-full mt-6">
+      {isLoading
+        ? Array.from({ length: 3 }).map((_, index) => <PostSkeleton key={index} />)
+        : posts.map((post, index) => <PostCard key={index} post={post} user={user} />)}
+    </div>
+  );
+
   return (
     <div className="flex justify-center w-full px-4 xl:px-0">
-      {/* MAIN FEED */}
       <div className="w-full max-w-[600px]">
-        {/* Story */}
-        <div className="storyDiv flex space-x-2 p-4 rounded-md justify-start w-full">
-          {[1, 2, 3].map((_, index) => (
-            <StoryCircle key={index} />
-          ))}
-        </div>
+        {/* Story Section */}
+        {renderStories()}
 
-        {/* Post List */}
-        <div className="space-y-10 w-full mt-6">
-          {isLoading
-            ? Array.from({ length: 3 }).map((_, index) => (
-                <PostSkeleton key={index} />
-              ))
-            : posts.map((post, index) => (
-                <PostCard key={index} post={post} user={user} l/>
-              ))}
-        </div>
+        {/* Post List Section */}
+        {renderPosts()}
       </div>
-
-      {/* Right sidebar
-      <div className="hidden xl:block w-[320px] ml-10">
-        <HomeRight />
-      </div> */}
     </div>
   );
 };
