@@ -1,23 +1,10 @@
 import React, { useState } from "react";
 import StoryModal from "./StoryModal";
 
-const StoryCircle = () => {
+const StoryCircle = ({ story }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const stories = [
-    {
-      type: "image",
-      url: "https://cdn.pixabay.com/photo/2023/06/22/06/53/beautiful-girl-8080757_640.jpg",
-    },
-    {
-      type: "image",
-      url: "https://cdn.pixabay.com/photo/2021/06/17/18/58/flowers-6344661_640.jpg",
-    },
-    {
-      type: "video",
-      url: "https://www.w3schools.com/html/mov_bbb.mp4",
-    },
-  ];
+  const stories = [story]; // có thể mở rộng nếu 1 user có nhiều story
 
   return (
     <>
@@ -26,11 +13,11 @@ const StoryCircle = () => {
         className="cursor-pointer flex flex-col items-center"
       >
         <img
-          className="w-16 h-16 rounded-full border-2 border-blue-500 p-1"
-          src={stories[0].url}
+          className="w-16 h-16 rounded-full border-2 border-blue-500 p-1 object-cover"
+          src={story.mediaUrl}
           alt="story"
         />
-        <p className="">username</p>
+        <p className="text-sm mt-1">{story.username || "username"}</p>
       </div>
 
       <StoryModal

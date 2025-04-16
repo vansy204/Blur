@@ -14,6 +14,8 @@ public enum ErrorCode {
     UNAUTHENTICATED(1006, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     POST_NOT_FOUND(1020, "Post not found", HttpStatus.NOT_FOUND),
     USER_NOT_FOUND(1021, "User not found", HttpStatus.NOT_FOUND),
+    STORY_NOT_FOUND(1022, "Story not found", HttpStatus.NOT_FOUND),
+    STORY_LIKE_NOT_FOUND(1023, "Story like not found", HttpStatus.NOT_FOUND),
     ;
     private final int code;
     private final String message;
