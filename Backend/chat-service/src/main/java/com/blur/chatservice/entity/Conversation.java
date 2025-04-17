@@ -14,14 +14,13 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@Document(collection = "messages")
-public class Message {
+@Document(collection = "conversations")
+public class Conversation {
     @Id
      String id;
-     String senderId;
-     String content;
-     String conversationId;
-     Boolean read;
-     Instant timestamp;
-
+     List<String> participants;
+     String lastMessageContent;
+     String lastMessageSenderId;
+     Instant lastMessageTimestamp;
+     Instant createdAt;
 }

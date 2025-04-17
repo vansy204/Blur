@@ -8,7 +8,8 @@ import java.util.List;
 
 @Repository
 public interface MessageRepository extends MongoRepository<Message, String> {
-    List<Message> findBySenderIdAndReceiverIdOrReceiverIdAndSenderIdOrderByTimestampAsc(
-            String sender1, String receiver1,
-            String sender2, String receiver2
-    );}
+    List<Message> findByConversationIdOrderByTimestampAsc(String conversationId);
+
+    List<Message> findBySenderIdAndConversationIdAndReadFalse(String senderId, String conversationId);
+
+}
