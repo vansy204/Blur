@@ -11,12 +11,14 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 import java.util.List;
 
 @Service
@@ -85,4 +87,17 @@ public class StoryService {
         return storyRepository.save(story);
     }
 
+    @Scheduled(fixedRate = 3600000) // Run every hour (3600000 ms)
+    public void deleteOldStories() {
+        log.info("Running scheduled task to delete old stories");
+        Instant twentyFourHoursAgo = Instant.now().minus(24, ChronoUnit.HOURS);
+        
+        List<Story> oldStories = storyRepository.findAllByCreatedAtBefore(twentyFourHoursAgo);
+        if (!oldStories.isEmpty()) {
+            log.info("Deleting {} stories older than 24 hours", oldStories.size());
+            storyRepository.deleteAll(oldStories);
+        }
+    }
+
+    // Rest of your existing methods...
 }

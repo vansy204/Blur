@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import StoryCircle from '../../Components/Story/StoryCircle';
 import PostCard from '../../Components/Post/PostCard';
-import CreateStoryCircle from '../../Components/Story/AddStoryModal';
 import { fetchAllPost } from '../../api/postApi';
 import { fetchUserInfo } from '../../api/userApi';
 import { fetchAllStories } from '../../api/storyApi';
@@ -14,22 +13,14 @@ const HomePage = () => {
   const [stories, setStories] = useState([]);
   const token = getToken();
 
-  // Fetch user info, posts, and stories in parallel
-  useEffect(() => {
-    if (token) {
-      fetchData();
-    }
-  }, [token]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      // Fetch user info, posts, and stories in parallel
       const [userInfo, userPosts, userStories] = await Promise.all([
         fetchUserInfo(token),
         fetchAllPost(token),
-        fetchAllStories(),
+        fetchAllStories(token),
       ]);
 
       setUser(userInfo);
@@ -40,6 +31,18 @@ const HomePage = () => {
     } finally {
       setIsLoading(false);
     }
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      fetchData();
+    }
+  }, [token, fetchData]);
+
+  // Xử lý khi story mới được tạo
+  const handleStoryCreated = (newStory) => {
+    // Refresh lại danh sách stories
+    fetchData();
   };
 
   const PostSkeleton = () => (
@@ -59,14 +62,70 @@ const HomePage = () => {
     </div>
   );
 
-  const renderStories = () => (
-    <div className="storyDiv flex space-x-2 p-4 rounded-md justify-start w-full">
-      <CreateStoryCircle />
-      {Array.isArray(stories) && stories.map((story, index) => (
-        <StoryCircle key={index} story={story} />
-      ))}
-    </div>
+  const StorySkeleton = () => (
+    <div className="w-16 h-16 rounded-full bg-gray-300 animate-pulse"></div>
   );
+
+  const renderStories = () => {
+    // Nhóm stories theo authorId
+    const storiesByUser = {};
+    
+    if (Array.isArray(stories) && stories.length > 0) {
+      stories.forEach(story => {
+        if (!story.authorId) return;
+        
+        if (!storiesByUser[story.authorId]) {
+          storiesByUser[story.authorId] = [];
+        }
+        
+        storiesByUser[story.authorId].push(story);
+      });
+    }
+    
+    // Lấy danh sách các user có story
+    const usersWithStories = Object.keys(storiesByUser).map(authorId => {
+      const userStories = storiesByUser[authorId];
+
+      // Sắp xếp stories theo thời gian (mới nhất trước)
+      userStories.sort((a, b) => {
+        const timeA = a.timestamp || a.createdAt;
+        const timeB = b.timestamp || b.createdAt;
+        return new Date(timeB) - new Date(timeA);
+      });
+      
+      return {
+        authorId,
+        stories: userStories,
+        // Sử dụng story đầu tiên (mới nhất) để hiển thị trong StoryCircle
+        representativeStory: userStories[0]
+      };
+    });
+  
+    return (
+      <div className="storyDiv flex space-x-2 p-4 rounded-md justify-start w-full overflow-x-auto">
+        <StoryCircle isAddNew={true} onStoryCreated={handleStoryCreated} />
+        
+        {isLoading ? (
+          // Show skeletons when loading
+          Array.from({ length: 4 }).map((_, index) => (
+            <div key={`skeleton-${index}`} className="flex flex-col items-center">
+              <StorySkeleton />
+              <div className="w-12 h-3 bg-gray-200 rounded mt-1"></div>
+            </div>
+          ))
+        ) : (
+          // Show actual stories when loaded
+          usersWithStories.map((userStory, index) => (
+            <StoryCircle 
+              key={`story-${userStory.authorId}`} 
+              story={userStory.representativeStory} 
+              stories={userStory.stories} // Truyền tất cả stories của user này
+            />
+          ))
+        )}
+      </div>
+    );
+  };
 
   const renderPosts = () => (
     <div className="space-y-10 w-full mt-6">
@@ -79,10 +138,7 @@ const HomePage = () => {
   return (
     <div className="flex justify-center w-full px-4 xl:px-0">
       <div className="w-full max-w-[600px]">
-        {/* Story Section */}
         {renderStories()}
-
-        {/* Post List Section */}
         {renderPosts()}
       </div>
     </div>
