@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { useToast } from "@chakra-ui/react";
 import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
 import { createStory } from "../../api/storyApi";
 
@@ -7,6 +8,9 @@ const AddStoryModal = ({ onClose, onStoryCreated }) => {
   const [caption, setCaption] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const toast = useToast();
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const handleMediaChange = (e) => {
     const file = e.target.files[0];
@@ -28,6 +32,49 @@ const AddStoryModal = ({ onClose, onStoryCreated }) => {
     }
   };
 
+  // Generate thumbnail from video
+  const generateThumbnail = (videoFile) => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        // Set video to 1/3 of its duration
+        video.currentTime = Math.min(video.duration / 3, 2); // Use 2 seconds or 1/3 of duration, whichever is less
+      };
+      
+      video.onloadeddata = () => {
+        // Create canvas with video dimensions
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw video frame to canvas
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert canvas to blob
+        canvas.toBlob((blob) => {
+          if (blob) {
+            // Create a file from the blob
+            const thumbnailFile = new File([blob], `thumbnail_${videoFile.name.split('.')[0]}.jpg`, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(thumbnailFile);
+          } else {
+            reject(new Error("Failed to generate thumbnail"));
+          }
+        }, 'image/jpeg', 0.7);
+      };
+      
+      video.onerror = () => {
+        reject(new Error("Error loading video"));
+      };
+      
+      video.src = URL.createObjectURL(videoFile);
+    });
+  };
+
   const handlePost = async () => {
     if (!media) {
       setError("Vui lòng chọn hình ảnh hoặc video");
@@ -38,21 +85,43 @@ const AddStoryModal = ({ onClose, onStoryCreated }) => {
     setError("");
     
     try {
-      const mediaUrl = await uploadToCloudnary(media);
+      let mediaUrl = null;
+      let thumbnailUrl = null;
+      const isVideo = media.type.startsWith('video/');
+      
+      // Upload media to Cloudinary
+      mediaUrl = await uploadToCloudnary(media);
+      
+      // If it's a video, generate and upload thumbnail
+      if (isVideo) {
+        try {
+          const thumbnailFile = await generateThumbnail(media);
+          thumbnailUrl = await uploadToCloudnary(thumbnailFile);
+        } catch (thumbnailError) {
+          console.error("Error generating thumbnail:", thumbnailError);
+          // Continue without thumbnail if generation fails
+        }
+      }
       
       const storyData = {
         content: caption,
         mediaUrl,
+        mediaType: isVideo ? "video" : "image",
+        thumbnailUrl: thumbnailUrl || (isVideo ? null : mediaUrl), // Use original image as thumbnail for images
         timestamp: Date.now()
       };
       
       const result = await createStory(storyData);
       
       if (result) {
-        // Thông báo thành công
-        alert("Story đã được tạo thành công!");
+        toast({
+          title: "Story đã được tạo thành công!",
+          description: "Story của bạn đã được đăng.",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
         
-        // Callback để refresh danh sách story nếu có
         if (onStoryCreated && typeof onStoryCreated === 'function') {
           onStoryCreated(result);
         }
@@ -74,7 +143,11 @@ const AddStoryModal = ({ onClose, onStoryCreated }) => {
         <div className="flex-1 flex items-center justify-center bg-gray-50 text-gray-400 text-sm">
           {media ? (
             media.type.startsWith("video") ? (
-              <video controls className="h-full w-full object-contain">
+              <video 
+                ref={videoRef} 
+                controls 
+                className="h-full w-full object-contain"
+              >
                 <source src={URL.createObjectURL(media)} />
               </video>
             ) : (
@@ -87,6 +160,7 @@ const AddStoryModal = ({ onClose, onStoryCreated }) => {
           ) : (
             "No Image/Video Selected"
           )}
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
 
         {/* Right side – Form */}
