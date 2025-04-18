@@ -120,6 +120,8 @@ const HomePage = () => {
               key={`story-${userStory.authorId}`} 
               story={userStory.representativeStory} 
               stories={userStory.stories} // Truyền tất cả stories của user này
+              currentUserId={user?.id} // cần truyền user hiện tại để kiểm tra quyền xoá
+
             />
           ))
         )}
