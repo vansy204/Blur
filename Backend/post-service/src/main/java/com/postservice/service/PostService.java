@@ -149,4 +149,11 @@ public class PostService {
     public List<PostLike> getPostLikesByPostId(String postId) {
         return postLikeRepository.findAllByPostId(postId);
     }
+
+    public List<PostResponse> getPostsByUserId(String userId) {
+        return postRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(postMapper::toPostResponse)
+                .collect(Collectors.toList());
+    }
 }

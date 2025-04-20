@@ -82,17 +82,19 @@ public class UserProfileService {
 
     public String followUser(String followerId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        var reqUserId = authentication.getName();
+        String reqUserId = authentication.getName();
 
         if (reqUserId.equals(followerId)) {
             throw new AppException(ErrorCode.CANNOT_FOLLOW_YOURSELF);
         }
 
-        userProfileRepository.follow(reqUserId, followerId);
-
-
-        var followingUser = userProfileRepository.findUserProfileByUserId(followerId)
+        // Lấy Neo4j UUID từ userId
+        var requester = userProfileRepository.findUserProfileByUserId(reqUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+
+        var followingUser = userProfileRepository.findUserProfileById(followerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+        userProfileRepository.follow(requester.getId(), followerId);
 
         return "You are following " + followingUser.getFirstName();
     }
@@ -101,15 +103,30 @@ public class UserProfileService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String reqUserId = authentication.getName();
 
-        // Optional: Kiểm tra người cần unfollow có tồn tại không
-        var followingUser = userProfileRepository.findUserProfileByUserId(followerId)
+        var requester = userProfileRepository.findUserProfileByUserId(reqUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
 
-        // Gọi Cypher query để xóa quan hệ follows
-        userProfileRepository.unfollow(reqUserId, followerId);
+        var followingUser = userProfileRepository.findUserProfileById(followerId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+        requester.getFollowers().remove(followingUser);
+        userProfileRepository.unfollow(requester.getId(), followerId);
 
         return "You unfollowed " + followingUser.getFirstName();
     }
+    public List<UserProfileResponse> getFollowers(String profileId) {
+        return userProfileRepository.findAllFollowersById(profileId)
+                .stream()
+                .map(userProfileMapper::toUserProfileResponse)
+                .toList();
+
+    }
+    public List<UserProfileResponse> getFollowing(String profileId) {
+        return userProfileRepository.findAllFollowingById(profileId)
+                .stream()
+                .map(userProfileMapper::toUserProfileResponse)
+                .toList();
+    }
+
 
 
 }

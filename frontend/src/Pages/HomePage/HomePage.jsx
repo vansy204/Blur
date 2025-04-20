@@ -121,7 +121,7 @@ const HomePage = () => {
               story={userStory.representativeStory} 
               stories={userStory.stories} // Truyền tất cả stories của user này
               currentUserId={user?.id} // cần truyền user hiện tại để kiểm tra quyền xoá
-
+            user={user} // Truyền user để hiển thị tên
             />
           ))
         )}

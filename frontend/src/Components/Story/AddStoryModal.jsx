@@ -32,17 +32,20 @@ const AddStoryModal = ({ onClose, onStoryCreated }) => {
     }
   };
 
-  // Generate thumbnail from video
   const generateThumbnail = (videoFile) => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.preload = 'metadata';
+      
+      // This event fires when metadata is loaded
       video.onloadedmetadata = () => {
         // Set video to 1/3 of its duration
-        video.currentTime = Math.min(video.duration / 3, 2); // Use 2 seconds or 1/3 of duration, whichever is less
+        video.currentTime = Math.min(video.duration / 3, 2);
       };
       
-      video.onloadeddata = () => {
+      // Add seeked event - this is the key fix!
+      // This event fires when the seeking operation completed - meaning the video is actually at the time we specified
+      video.onseeked = () => {
         // Create canvas with video dimensions
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
@@ -72,9 +75,10 @@ const AddStoryModal = ({ onClose, onStoryCreated }) => {
       };
       
       video.src = URL.createObjectURL(videoFile);
+      // For some browsers, we need to trigger load explicitly
+      video.load();
     });
   };
-
   const handlePost = async () => {
     if (!media) {
       setError("Vui lòng chọn hình ảnh hoặc video");

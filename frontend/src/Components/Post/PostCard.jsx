@@ -19,10 +19,10 @@ import "swiper/css/pagination";
 import CommentModal from "../Comment/CommentModal";
 import { timeDifference } from "../../Config/Logic";
 import { getToken } from "../../service/LocalStorageService";
-import { fetchLikePost } from "../../api/postApi";
+import { fetchLikePost, deletePost } from "../../api/postApi"; // Import deletePost
 import { IoSend } from "react-icons/io5";
 
-const PostCard = ({ post, user }) => {
+const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop for parent component update
   const [showDropdown, setShowDropdown] = useState(false);
   const [isPostLiked, setIsPostLiked] = useState(false);
   const toast = useToast();
@@ -74,6 +74,41 @@ const PostCard = ({ post, user }) => {
 
     fetchData();
   }, [post?.id, user?.id, token]);
+  
+  // Handle Delete Post
+  const handleDeletePost = async () => {
+    if (window.confirm("Are you sure you want to delete this post?")) {
+      try {
+        await deletePost(token, post.id);
+        
+        toast({
+          title: "Post deleted successfully",
+          status: "success",
+          duration: 3000,
+          position: "top-right",
+          isClosable: true,
+        });
+        
+        // Close dropdown
+        setShowDropdown(false);
+        
+        // Notify parent component to update posts list
+        if (onPostDeleted) {
+          onPostDeleted(post.id);
+        }
+      } catch (error) {
+        toast({
+          title: "Failed to delete post",
+          description: error.message || "Something went wrong",
+          status: "error",
+          duration: 3000,
+          position: "top-right",
+          isClosable: true,
+        });
+      }
+    }
+  };
+
   const handleCreateComment = async (comment) => {
     try {
       const res = await axios.post(
@@ -92,7 +127,7 @@ const PostCard = ({ post, user }) => {
       setComments((prev) => [...prev, res.data.result]);
       setComment(res.data.result.content);
       console.log("comment: ", res.data.result);
-      
+
       // const userCreate = await axios.get(
       //   `http://localhost:8888/api/profile/internal/users/${res.data.result.userId}`
       // );
@@ -211,6 +246,12 @@ const PostCard = ({ post, user }) => {
   const handleClickUserName = () => {
     console.log("User name clicked");
   };
+  
+  // Check if current user is the post owner
+  const isCurrentUserPostOwner = post?.userId === user?.userId;
+
+  
+  
   return (
     <div className="bg-white shadow-md rounded-xl overflow-hidden mb-8 border border-gray-200">
       {/* Header */}
@@ -243,7 +284,12 @@ const PostCard = ({ post, user }) => {
           />
           {showDropdown && (
             <div className="absolute top-6 right-0 bg-black text-white text-sm py-1 px-4 rounded-md z-10 cursor-pointer">
-              Delete
+              {isCurrentUserPostOwner && (
+                <div onClick={handleDeletePost}>Delete</div>
+              )}
+              {!isCurrentUserPostOwner && (
+                <div>Report</div>
+              )}
             </div>
           )}
         </div>
@@ -276,7 +322,7 @@ const PostCard = ({ post, user }) => {
                       <video
                         ref={(el) => (videoRefs.current[index] = el)}
                         src={url}
-                        className="w-full h-[400px] object-cover"
+                        className="max-h-[80vh] w-full object-contain bg-black"
                         loop
                         muted={isMuted}
                         onTimeUpdate={() => handleTimeUpdate(index)}
@@ -346,7 +392,7 @@ const PostCard = ({ post, user }) => {
             onClick={handleOpenCommentModal}
           />
           <RiSendPlaneLine className="text-xl cursor-pointer hover:opacity-60" />
-        </div>  
+        </div>
         <div className="cursor-pointer">
           {isSaved ? (
             <BsBookmarkFill
@@ -388,11 +434,13 @@ const PostCard = ({ post, user }) => {
             }
           }}
         />
-        <IoSend onClick={(e) =>{
-          e.preventDefault();
-          handleCreateComment(comment);
-          setComment("");
-        }} />
+        <IoSend
+          onClick={(e) => {
+            e.preventDefault();
+            handleCreateComment(comment);
+            setComment("");
+          }}
+        />
       </div>
 
       <CommentModal

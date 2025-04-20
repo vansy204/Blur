@@ -73,4 +73,11 @@ public class PostController {
                 .result(postService.getPostLikesByPostId(postId))
                 .build();
     }
+    @GetMapping("/users/posts/{userId}")
+    public ApiResponse<List<PostResponse>> getUserPosts(@PathVariable String userId) {
+        var result = postService.getPostsByUserId(userId);
+        return ApiResponse.<List<PostResponse>>builder()
+                .result(result)
+                .build();
+    }
 }

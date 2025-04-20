@@ -40,6 +40,7 @@ public class StoryService {
                 .authorId(userId)
                 .firstName(profile.getResult().getFirstName())
                 .lastName(profile.getResult().getLastName())
+                .thumbnailUrl(createStoryRequest.getThumbnailUrl())
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();

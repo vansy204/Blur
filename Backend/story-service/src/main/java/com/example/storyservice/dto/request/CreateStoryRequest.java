@@ -14,6 +14,7 @@ import java.util.List;
 public class CreateStoryRequest {
     String content;
     String mediaUrl;
+    String thumbnailUrl;
     Instant timestamp;
 
 }

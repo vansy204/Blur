@@ -4,9 +4,9 @@ server:
     context-path: /identity
 spring:
   datasource:
-    url: ${DBMS_CONNECTION}
-    username: ${DBMS_USERNAME}
-    password: ${DBMS_PASSWORD}
+    url: "jdbc:mysql://localhost:3306/Identity_service"
+    username: "root"
+    password: "root"
   jpa:
     properties:
       hibernate:
@@ -16,13 +16,13 @@ spring:
     show-sql: true
 outbound:
   identity:
-    client-id: ${CLIENT_ID}
-    client-secret: ${CLIENT_SECRET}
+    client-id: "948254557534-ca906iu2s6s1a33hcuvhv1pdhp9qmoti.apps.googleusercontent.com"
+    client-secret: ""
     redirect-url: "http://localhost:3000/Authenticate"
     grant-type: "authorization_code"
 
 jwt:
-  signerKey: ${jwt.signerKey}
+  signerKey: "15dbefda1f522778324fdbb8810d843bc5716214e793da2040db05b9fefc5e84"
   valid-duration: 3600 # in second
   refreshable-duration: 360000 #second
 app:

@@ -31,6 +31,8 @@ const SearchPage = () => {
       }
 
       setResults(response?.data.result);
+      console.log(response?.data.result);
+      
     } catch (error) {
       console.error(error.message);
       setResults([]); // Xóa kết quả cũ nếu có lỗi
@@ -75,8 +77,8 @@ const SearchPage = () => {
               <li
                 key={item.id}
                 className="p-3 border-b cursor-pointer hover:bg-gray-100 transition"
-                onClick={() => navigate(`/profile/${item.id}`)}
-              >
+                onClick={() => navigate(`/profile/user/?profileId=${item.id}`)}
+                >
                 <div className="flex items-center">
                   <img
                     src={

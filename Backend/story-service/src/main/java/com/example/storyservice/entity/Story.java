@@ -23,6 +23,7 @@ public class Story {
     Instant timestamp;
     String firstName;
     String lastName;
+    String thumbnailUrl;
     Instant createdAt;
     Instant updatedAt;
 }

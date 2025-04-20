@@ -12,6 +12,7 @@ import com.blur.profileservice.service.UserProfileService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -79,6 +81,20 @@ public class UserProfileController {
     @GetMapping("/users/search/{firstName}")
     public ApiResponse<List<UserProfileResponse>> searchUserProfiles(@PathVariable String firstName){
         var result = userProfileService.findUserProfileByFirstName(firstName);
+        return ApiResponse.<List<UserProfileResponse>>builder()
+                .result(result)
+                .build();
+    }
+    @GetMapping("/users/follower/{profileId}")
+    public ApiResponse<List<UserProfileResponse>> followers(@PathVariable String profileId){
+        var result = userProfileService.getFollowers(profileId);
+        return ApiResponse.<List<UserProfileResponse>>builder()
+                .result(result)
+                .build();
+    }
+    @GetMapping("/users/following/{profileId}")
+    public ApiResponse<List<UserProfileResponse>> followings(@PathVariable String profileId){
+        var result = userProfileService.getFollowers(profileId);
         return ApiResponse.<List<UserProfileResponse>>builder()
                 .result(result)
                 .build();

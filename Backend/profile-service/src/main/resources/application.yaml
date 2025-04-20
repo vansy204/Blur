@@ -6,8 +6,8 @@ spring:
   neo4j:
     uri: bolt://localhost:7687
     authentication:
-      username: ${DBMS_USERNAME}
-      password: ${DBMS_PASSWORD}
+      username: "neo4j"
+      password: "12345678"
 
 app:
   services:
