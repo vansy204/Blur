@@ -88,13 +88,14 @@ public class UserProfileController {
     @GetMapping("/users/follower/{profileId}")
     public ApiResponse<List<UserProfileResponse>> followers(@PathVariable String profileId){
         var result = userProfileService.getFollowers(profileId);
+
         return ApiResponse.<List<UserProfileResponse>>builder()
                 .result(result)
                 .build();
     }
     @GetMapping("/users/following/{profileId}")
     public ApiResponse<List<UserProfileResponse>> followings(@PathVariable String profileId){
-        var result = userProfileService.getFollowers(profileId);
+        var result = userProfileService.getFollowing(profileId);
         return ApiResponse.<List<UserProfileResponse>>builder()
                 .result(result)
                 .build();

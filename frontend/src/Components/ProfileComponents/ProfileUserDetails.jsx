@@ -2,13 +2,15 @@ import React, { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
 import { getToken } from "../../service/LocalStorageService";
-import { fetchUserInfo } from "../../api/userApi";
+import { fetchUserInfo, getFollowers, getFollowings } from "../../api/userApi";
 import { fetchUserPosts } from "../../api/postApi";
 
 const ProfileUserDetails = () => {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
+  const [followers, setFollowers] = useState([]);
+  const [followings, setFollowings] = useState([]);
   const token = getToken();
 
   useEffect(() => {
@@ -16,6 +18,17 @@ const ProfileUserDetails = () => {
       try {
         const result = await fetchUserInfo(token);
         setUser(result);
+
+        if (result?.id) {
+          // Gọi API lấy followers và followings sau khi có user id
+          const [followerData, followingData] = await Promise.all([
+            getFollowers(result.id, token),
+            getFollowings(result.id, token),
+          ]);
+          setFollowers(followerData || []);
+          setFollowings(followingData || []);
+
+        }
       } catch (error) {
         console.log("Error fetching user:", error);
       }
@@ -66,10 +79,10 @@ const ProfileUserDetails = () => {
               <span className="font-semibold">{posts?.length}</span> posts
             </div>
             <div>
-              <span className="font-semibold">99</span> followers
+              <span className="font-semibold">{followers.length}</span> followers
             </div>
             <div>
-              <span className="font-semibold">99</span> following
+              <span className="font-semibold">{followings.length}</span> following
             </div>
           </div>
           <div>

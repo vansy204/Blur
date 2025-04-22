@@ -16,7 +16,6 @@ const HomePage = () => {
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-
       const [userInfo, userPosts, userStories] = await Promise.all([
         fetchUserInfo(token),
         fetchAllPost(token),

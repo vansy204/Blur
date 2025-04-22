@@ -48,24 +48,32 @@ public class UserProfileService {
         return userProfileRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
     }
     public List<UserProfileResponse> findUserProfileByFirstName(String firstName) {
-        return userProfileRepository.findAllByFirstNameContainingIgnoreCase(firstName).stream().map(userProfileMapper::toUserProfileResponse).toList();
+        return userProfileRepository.findAllByFirstNameContainingIgnoreCase(firstName)
+                .stream()
+                .map(userProfileMapper::toUserProfileResponse)
+                .toList();
 
     }
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserProfileResponse> getAllUserProfiles() {
-        return userProfileRepository.findAll().stream().map(userProfileMapper::toUserProfileResponse).toList();
+        return userProfileRepository.findAll()
+                .stream()
+                .map(userProfileMapper::toUserProfileResponse)
+                .toList();
     }
 
     public UserProfileResponse getByUserId(String userId) {
-        UserProfile userProfile = userProfileRepository.findByUserId(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXIST));
+        UserProfile userProfile = userProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXIST));
         return userProfileMapper.toUserProfileResponse(userProfile);
     }
 
     public UserProfileResponse myProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = authentication.getName(); // retrieved from jwt
-        log.info("UserProfileService myProfile profileId: {}", userId);
-        UserProfile userProfile = userProfileRepository.findByUserId(userId).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+        String userId = authentication.getName();
+
+        UserProfile userProfile = userProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
 
         return userProfileMapper.toUserProfileResponse(userProfile);
     }

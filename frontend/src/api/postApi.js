@@ -51,7 +51,6 @@ export const fetchLikePost = async (token,postId) =>{
     if (response.data?.code !== 1000) {
       throw new Error(`fetch error: ${response.data?.code}`);
     }
-
     return response.data?.result;
   } catch (error) {
     console.error("Fetch posts error:", error);
@@ -85,4 +84,19 @@ export const getPostsByUserId = async (userId, token) => {
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data?.result || [];
+};
+export const fetchAllComments = async (token, postId) => {
+  try {
+    const response = await axios.get(`http://localhost:8888/api/comment/${postId}/comments`,
+     {
+      headers:{
+        Authorization : `Bearer ${token}`
+      }
+    }
+    );
+    return response.data?.result;
+  } catch (error) {
+    console.error("Fetch all comments error:", error);
+    throw error;
+  }
 };
