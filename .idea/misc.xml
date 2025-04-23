@@ -8,7 +8,6 @@
         <option value="$PROJECT_DIR$/Backend/api-gateway/pom.xml" />
         <option value="$PROJECT_DIR$/Backend/notification-service/pom.xml" />
         <option value="$PROJECT_DIR$/Backend/IdentityService/pom.xml" />
-        <option value="$PROJECT_DIR$/Backend/chat-service/pom.xml" />
         <option value="$PROJECT_DIR$/Backend/post-service/pom.xml" />
         <option value="$PROJECT_DIR$/Backend/file-service/pom.xml" />
         <option value="$PROJECT_DIR$/Backend/story-service/pom.xml" />

@@ -1,9 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getToken } from "../../service/LocalStorageService";
-import { fetchUserInfo, getFollowers, getFollowings } from "../../api/userApi";
-import { fetchUserPosts } from "../../api/postApi";
+import {
+  fetchUserInfo,
+  fetchUserProfileById,
+  getFollowers,
+  getFollowings,
+  followUser,
+  unfollowUser,
+} from "../../api/userApi";
+import { getPostsByUserId } from "../../api/postApi";
+import ReqUserPostCard from "./ReqUserPostCard";
 
 const ProfileUserDetails = () => {
   const navigate = useNavigate();
@@ -11,42 +19,75 @@ const ProfileUserDetails = () => {
   const [user, setUser] = useState(null);
   const [followers, setFollowers] = useState([]);
   const [followings, setFollowings] = useState([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const token = getToken();
+  const [params] = useSearchParams();
+  const profileId = params.get("profileId");
 
   useEffect(() => {
-    const getUserInfo = async () => {
+    const fetchData = async () => {
       try {
-        const result = await fetchUserInfo(token);
-        setUser(result);
+        setIsLoading(true);
 
-        // Gọi API followers và followings sau khi có userId
-        if (result?.id) {
+        const loggedInUser = await fetchUserInfo(token);
+        setCurrentUser(loggedInUser);
+
+        const profileData = await fetchUserProfileById(profileId, token);
+        setUser(profileData);
+
+        if (profileData?.id) {
           const [followerData, followingData] = await Promise.all([
-            getFollowers(result.id, token),
-            getFollowings(result.id, token),
+            getFollowers(profileData.id, token),
+            getFollowings(profileData.id, token),
           ]);
           setFollowers(followerData || []);
           setFollowings(followingData || []);
+
+          const isUserFollowing = followerData?.some(
+            (follower) => follower.id === loggedInUser.id
+          );
+          setIsFollowing(isUserFollowing);
         }
+
+        const postData = await getPostsByUserId(profileData.userId, token);
+        setPosts(postData);
       } catch (error) {
-        console.log("Error fetching user:", error);
+        console.log("Error fetching profile data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    const getUserPosts = async () => {
-      try {
-        const result = await fetchUserPosts(token);
-        setPosts(result);
-      } catch (error) {
-        console.log("Error fetching posts:", error);
-      }
-    };
-
-    if (token) {
-      getUserInfo();
-      getUserPosts();
+    if (token && profileId) {
+      fetchData();
     }
-  }, [token]);
+  }, [profileId]);
+
+  const handleFollowToggle = async () => {
+    if (!currentUser) return;
+
+    try {
+      setIsLoading(true);
+      if (isFollowing) {
+        await unfollowUser(user.id, token);
+        setFollowers((prev) =>
+          prev.filter((follower) => follower.id !== currentUser.id)
+        );
+      } else {
+        await followUser(user.id, token);
+        setFollowers((prev) => [...prev, currentUser]);
+      }
+      setIsFollowing(!isFollowing);
+    } catch (error) {
+      console.log("Error toggling follow status:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isOwnProfile = currentUser?.id === user?.id;
 
   return (
     <div className="py-10 w-full px-4">
@@ -62,16 +103,32 @@ const ProfileUserDetails = () => {
         <div className="space-y-4 text-center md:text-left">
           <div className="flex items-center justify-center md:justify-start gap-4">
             <h2 className="text-xl font-semibold">{user?.firstName}</h2>
-            <button
-              onClick={() => navigate("/account/edit")}
-              className="bg-gray-100 hover:bg-gray-200 transition px-3 py-1 rounded text-sm"
-            >
-              Edit Profile
-            </button>
-            <LuCircleDashed
-              className="cursor-pointer"
-              onClick={() => navigate("/account/edit")}
-            />
+            {isOwnProfile ? (
+              <>
+                <button
+                  onClick={() => navigate("/account/edit")}
+                  className="bg-gray-100 hover:bg-gray-200 transition px-3 py-1 rounded text-sm"
+                >
+                  Edit Profile
+                </button>
+                <LuCircleDashed
+                  className="cursor-pointer"
+                  onClick={() => navigate("/account/edit")}
+                />
+              </>
+            ) : (
+              <button
+                onClick={handleFollowToggle}
+                disabled={isLoading}
+                className={`px-3 py-1 rounded text-sm transition ${
+                  isFollowing
+                    ? "bg-gray-100 hover:bg-gray-200"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+              >
+                {isLoading ? "Loading..." : isFollowing ? "Unfollow" : "Follow"}
+              </button>
+            )}
           </div>
           <div className="flex justify-center md:justify-start gap-6 text-sm">
             <div>
@@ -91,6 +148,20 @@ const ProfileUserDetails = () => {
             <p className="text-gray-600 text-sm">{user?.bio}</p>
           </div>
         </div>
+      </div>
+
+      {/* Danh sách bài viết */}
+      <div className="mt-10 w-full">
+        <h3 className="text-lg font-semibold mb-4">Posts</h3>
+        {posts.length === 0 ? (
+          <p className="text-gray-500">No posts to show.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {posts.map((post) => (
+              <ReqUserPostCard key={post.id} post={post} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

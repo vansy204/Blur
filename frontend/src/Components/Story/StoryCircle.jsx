@@ -80,7 +80,7 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
           playsInline
           onError={(e) => {
             console.log("Video error, fallback to placeholder");
-            e.target.poster = "https://placehold.co/300x500";
+          
           }}
         />
       ) : (
@@ -90,7 +90,6 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
           className="w-full h-full object-cover group-hover:brightness-75 transition"
           onError={(e) => {
             console.log("Image error, falling back to placeholder");
-            e.target.src = "https://placehold.co/300x500";
           }}
         />
       )}
@@ -99,13 +98,11 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
   
       <div className="absolute top-2 left-2 w-10 h-10 rounded-full border-4 border-blue-500 overflow-hidden">
         <img
-          src={user?.imageUrl || "https://via.placeholder.com/150"}
+          src={user?.imageUrl}
           alt="avatar"
-          className="w-full h-full object-cover"
-          onError={(e) => (e.target.src = "https://via.placeholder.com/150")}
+          className="w-full h-full object-cover" 
         />
       </div>
-  
       <div className="absolute bottom-2 left-2 right-2 text-sm font-semibold text-white line-clamp-1">
         {getDisplayName()}
       </div>

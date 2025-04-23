@@ -142,9 +142,9 @@ export const fetchUserProfileById = async (profileId, token) => {
   }
 };
 
-export const getFollowers = async (userId, token) => {
+export const getFollowers = async (profileId, token) => {
   try {
-    const response = await axios.get(`${BASE_URL}/users/follower/${userId}`, config(token));
+    const response = await axios.get(`${BASE_URL}/users/follower/${profileId}`, config(token));
     return response.data?.result;
   } catch (error) {
     console.error("Error fetching followers:", error);
@@ -152,9 +152,9 @@ export const getFollowers = async (userId, token) => {
   }
 };
 
-export const getFollowings = async (userId, token) => {
+export const getFollowings = async (profileId, token) => {
   try {
-    const response = await axios.get(`${BASE_URL}/users/following/${userId}`, config(token));
+    const response = await axios.get(`${BASE_URL}/users/following/${profileId}`, config(token));
     return response.data?.result;
   } catch (error) {
     console.error("Error fetching followings:", error);

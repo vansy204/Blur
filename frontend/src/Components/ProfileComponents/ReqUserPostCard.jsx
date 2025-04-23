@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import { AiFillHeart } from "react-icons/ai";
 import { FaComment } from "react-icons/fa";
 import { fetchAllComments, fetchLikePost } from "../../api/postApi";
+import { getToken } from "../../service/LocalStorageService";
 
-
-const ReqUserPostCard = ({ post, token }) => {
+const ReqUserPostCard = ({ post }) => {
+  const token = getToken();
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
 
@@ -25,20 +26,21 @@ const ReqUserPostCard = ({ post, token }) => {
     };
     fetchLikeAndComment();
   }, [post.id, token]);
+
   return (
     <div className="w-full max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg bg-white transition-all duration-300 hover:shadow-xl">
       {hasMedia ? (
-        <div className="relative w-full aspect-square bg-black">
+        <div className="relative w-full aspect-square bg-black overflow-hidden">
           {isVideo(post.mediaUrls[0]) ? (
             <video
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain transition-transform duration-300 hover:scale-105 bg-black"
               src={post.mediaUrls[0]}
               controls
               preload="metadata"
             />
           ) : (
             <img
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain transition-transform duration-300 hover:scale-105 bg-black"
               src={post.mediaUrls[0]}
               alt="Post media"
             />
@@ -46,7 +48,9 @@ const ReqUserPostCard = ({ post, token }) => {
         </div>
       ) : (
         <div className="p-4">
-          <p className="text-gray-800 text-sm leading-relaxed">{post.content}</p>
+          <p className="text-gray-800 text-sm leading-relaxed">
+            {post?.content}
+          </p>
         </div>
       )}
 

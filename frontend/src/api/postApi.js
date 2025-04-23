@@ -87,11 +87,11 @@ export const getPostsByUserId = async (userId, token) => {
 };
 export const fetchAllComments = async (token, postId) => {
   try {
-    const response = await axios.get(`http://localhost:8888/api/comment/${postId}/comments`,
-     {
-      headers:{
-        Authorization : `Bearer ${token}`
-      }
+    const response = await axios.get(`http://localhost:8888/api/post/comment/${postId}/comments`,{
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     }
     );
     return response.data?.result;
