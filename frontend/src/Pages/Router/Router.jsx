@@ -1,7 +1,6 @@
 import React from "react";
 import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import HomePage from "../HomePage/HomePage";
-
 import Profile from "../Profile/Profile";
 import MessagePage from "../MessagePage/MessagePage";
 import LoginPage from "../Login/LoginPage";
@@ -17,38 +16,38 @@ import { SidebarComponent } from "../../Components/Sidebar/SidebarComponent";
 const Router = () => {
   const location = useLocation();
   const isAuthenticated = !!localStorage.getItem("token");
-
+  
   const authRoutes = ["/login", "/register", "/create-password", "/activate"];
   const isAuthPage = authRoutes.includes(location.pathname);
-
+  
   // Nếu chưa đăng nhập và không ở trang auth → chuyển về login
   if (!isAuthenticated && !isAuthPage) {
     return <Navigate to="/login" replace />;
   }
-
+  
   return (
     <div className="flex">
-      {/* Sidebar luôn hiển thị */}
-      {location.pathname !== "/login" && location.pathname !== "/register" && (
-        <div className="w-[250px] min-h-screen border-r">
-          <SidebarComponent/>
-      </div>
+      {/* Sidebar only for authenticated pages */}
+      {isAuthenticated && !isAuthPage && (
+        <div className="fixed top-0 left-0 w-[240px] h-screen border-r bg-white z-10">
+          <SidebarComponent />
+        </div>
       )}
-
-      {/* Nội dung chính */}
-      <div className="flex-1 p-4">
+      
+      {/* Adjust main content based on whether sidebar is present */}
+      <div className={`${isAuthenticated && !isAuthPage ? "pl-3 ml-[240px] w-[calc(100%-240px)]" : "w-full"}`}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/user" element={<OtherUserProfile/>} />
-          <Route path="/message" element={<MessagePage />} />
+          <Route path="/profile/user" element={<OtherUserProfile />} />
+          <Route path="/message" element={<MessagePage  />} />
           <Route path="/authenticate" element={<Authenticate />} />
           <Route path="/account/edit" element={<EditAccountPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/create-password" element={<CreatePassword />} />
           <Route path="/activate" element={<ActivationPage />} />
-          <Route path="/search" element={<SearchPage/>}/>
+          <Route path="/search" element={<SearchPage />} />
         </Routes>
       </div>
     </div>

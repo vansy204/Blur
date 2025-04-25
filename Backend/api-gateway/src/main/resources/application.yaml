@@ -30,18 +30,12 @@ spring:
           filters:
             - StripPrefix=1
         - id: chat_service
-          uri: http://localhost:8083
+          uri: ws://localhost:8083/mess
           predicates:
-            - Path=${app.api-prefix}/chat/**
+            - Path=/api/chat/ws/**
           filters:
-            - StripPrefix=1
-        - id: chat_service_websocket
-          uri: lb:ws://chat-service  # Use lb:ws:// for service discovery or ws:// for direct connection
-          predicates:
-            - Path=${app.api-prefix}/chat/ws/**
-          filters:
-            - StripPrefix=2  # Strip /api/chat from the path
-
+            - RewritePath=/ws/(?<segment>.*), /${segment}
+            - StripPrefix=2
         - id: post_service
           uri: http://localhost:8084
           predicates:

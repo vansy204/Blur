@@ -1,0 +1,11 @@
+server:
+  port: 8083
+  servlet:
+    context-path: /mess
+spring:
+  data:
+    mongodb:
+      uri: mongodb://root:root@localhost:27017/chat-service?authSource=admin
+  websocket:
+    # Enable WebSocket support
+    enabled: true

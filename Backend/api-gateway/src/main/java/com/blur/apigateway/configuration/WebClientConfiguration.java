@@ -1,6 +1,8 @@
 package com.blur.apigateway.configuration;
 
 import com.blur.apigateway.repository.IdentityClient;
+import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -31,11 +33,22 @@ public class WebClientConfiguration {
     @Bean
     CorsWebFilter corsWebFilter() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowCredentials(true); // 🔥 QUAN TRỌNG
+        configuration.setAllowedOrigins(List.of("http://localhost:3000")); // ❌ KHÔNG DÙNG '*'
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowedMethods(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return new CorsWebFilter(source);
     }
+    @Bean
+    public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
+        return builder.routes()
+                .route("websocket_route", r -> r.path("/ws/**")
+                        .uri("ws://localhost:8083/mess")) // Địa chỉ WebSocket service
+                .build();
+    }
+
 }
