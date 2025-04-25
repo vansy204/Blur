@@ -98,7 +98,7 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
   
       <div className="absolute top-2 left-2 w-10 h-10 rounded-full border-4 border-blue-500 overflow-hidden">
         <img
-          src={user?.imageUrl}
+          src={user?.imageUrl ||"https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"}
           alt="avatar"
           className="w-full h-full object-cover" 
         />

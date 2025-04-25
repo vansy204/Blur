@@ -241,10 +241,10 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
         <div className="absolute top-4 left-2 right-2 flex items-center gap-2 z-10 px-2 pt-4">
           <div className="w-8 h-8 rounded-full overflow-hidden border border-white">
             <img 
-              src={currentStory?.userProfileImage || "https://via.placeholder.com/40"} 
+              src={currentStory?.userProfileImage} 
               alt="profile" 
               className="w-full h-full object-cover"
-              onError={(e) => e.target.src = "https://via.placeholder.com/40"}
+         
             />
           </div>
           <div className="text-white text-sm font-medium">
@@ -292,7 +292,7 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
               src={currentStory.mediaUrl}
               alt="story"
               className="w-full object-cover rounded-xl"
-              onError={(e) => e.target.src = "https://via.placeholder.com/500x500?text=Image+Not+Found"}
+
             />
           )
         )}

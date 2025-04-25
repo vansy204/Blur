@@ -1,0 +1,19 @@
+server:
+  port: 8083
+  servlet:
+    context-path: /chat
+spring:
+  data:
+    mongodb:
+      uri: mongodb://root:root@localhost:27017/chat-service?authSource=admin
+  websocket:
+    # Enable WebSocket support
+    enabled: true
+app:
+  service:
+    profile:
+      url: "http://localhost:8081/profile"
+logging:
+  level:
+    org.springframework.web.socket: DEBUG
+    org.springframework.messaging: DEBUG
