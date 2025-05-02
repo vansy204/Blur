@@ -265,6 +265,8 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
             }
             alt="User"
           />
+          {console.log("post: ", post)}
+          
           <div className="pl-3">
             <p
               className="font-semibold text-sm cursor-pointer"
