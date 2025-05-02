@@ -45,12 +45,6 @@ spring:
           filters:
             - StripPrefix=1
 
-        - id: file_service
-          uri: http://localhost:8085
-          predicates:
-            - Path=${app.api-prefix}/file/**
-          filters:
-            - StripPrefix=1
 
         - id: story_service
           uri: http://localhost:8086
