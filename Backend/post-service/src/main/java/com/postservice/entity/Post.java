@@ -18,6 +18,7 @@ public class Post {
     @MongoId
     String id;
     String userId;
+    String profileId;
     String firstName;
     String lastName;
     String content;

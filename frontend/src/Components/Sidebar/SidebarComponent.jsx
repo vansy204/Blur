@@ -49,6 +49,9 @@ export const SidebarComponent = ({ onPostCreate }) => {
       case "Message":
         navigate("/message");
         break;
+      case "Notification":
+        navigate("/notification");
+        break;
       case "Search":
         navigate("/search");
         break;

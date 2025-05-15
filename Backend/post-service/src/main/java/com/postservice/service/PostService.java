@@ -79,15 +79,11 @@ public class PostService {
         return "Post deleted successfully";
     }
     public List<PostResponse> getAllPosts() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUserId = authentication.getName();
-
         List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
-
         return posts.stream().map(post -> {
             String userName = "Unknown";
             String userImageUrl = null;
-
+            String profileId = null;
             try {
                 ApiResponse<UserProfileResponse> response = profileClient.getProfile(post.getUserId());
                 UserProfileResponse userProfile = response.getResult();
@@ -95,6 +91,7 @@ public class PostService {
                 if (userProfile != null) {
                     userName = userProfile.getFirstName() + " " + userProfile.getLastName();
                     userImageUrl = userProfile.getImageUrl();
+                    profileId = userProfile.getId();
                 }
             } catch (Exception e) {
                 System.out.println("Không lấy được profile cho userId: " + post.getUserId());
@@ -103,6 +100,7 @@ public class PostService {
             return PostResponse.builder()
                     .id(post.getId())
                     .userId(post.getUserId())
+                    .profileId(profileId)
                     .userName(userName)
                     .userImageUrl(userImageUrl)  // ✅ Truyền vào response
                     .content(post.getContent())

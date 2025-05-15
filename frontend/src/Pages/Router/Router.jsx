@@ -12,6 +12,7 @@ import EditAccountPage from "../Account/EditAccountPage";
 import OtherUserProfile from "../../Components/ProfileComponents/OrderUserProfile";
 import SearchPage from "../Search/SearchPage";
 import { SidebarComponent } from "../../Components/Sidebar/SidebarComponent";
+import NotificationsPage from "../Notification/NotificationPage";
 
 const Router = () => {
   const location = useLocation();
@@ -27,7 +28,7 @@ const Router = () => {
   
   return (
     <div className="flex">
-      {/* Sidebar only for authenticated pages */}
+      
       {isAuthenticated && !isAuthPage && (
         <div className="fixed top-0 left-0 w-[240px] h-screen border-r bg-white z-10">
           <SidebarComponent />
@@ -48,6 +49,7 @@ const Router = () => {
           <Route path="/create-password" element={<CreatePassword />} />
           <Route path="/activate" element={<ActivationPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="notification" element={<NotificationsPage/>} />
         </Routes>
       </div>
     </div>

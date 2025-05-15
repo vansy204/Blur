@@ -19,11 +19,14 @@ import {
   Spinner,
   Textarea,
   useToast,
+  useOutsideClick,
 } from "@chakra-ui/react";
 import axios from "axios";
 import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
 import { useEffect, useRef, useState } from "react";
 import { getToken } from "../../service/LocalStorageService";
+import { BsEmojiSmile } from "react-icons/bs";
+import EmojiPicker from "emoji-picker-react";
 
 const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   const [content, setContent] = useState("");
@@ -31,11 +34,17 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   const [previewUrls, setPreviewUrls] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const cancelRef = useRef();
+  const emojiRef = useRef();
   const toast = useToast();
   const token = getToken();
 
-  // Xử lý tạo preview ảnh và video
+  useOutsideClick({
+    ref: emojiRef,
+    handler: () => setShowEmojiPicker(false),
+  });
+
   useEffect(() => {
     const newPreviewUrls = mediaFiles.map((file) => ({
       url: URL.createObjectURL(file),
@@ -44,7 +53,6 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
     setPreviewUrls(newPreviewUrls);
   }, [mediaFiles]);
 
-  // Xử lý chọn file ảnh/video
   const handleMediaChange = (e) => {
     setMediaFiles(Array.from(e.target.files));
   };
@@ -97,9 +105,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
         isClosable: true,
       });
 
-      // ✅ Gọi callback để cập nhật danh sách bài viết mà không cần reload trang
       onPostCreate(response.data);
-
       resetAndClose();
     } catch (error) {
       console.error("Error creating post:", error);
@@ -116,6 +122,10 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
     }
   };
 
+  const handleEmojiClick = (emojiData) => {
+    setContent((prev) => prev + emojiData.emoji);
+  };
+
   return (
     <>
       <Modal isOpen={isOpen} onClose={handleCloseAttempt} size="3xl" isCentered>
@@ -125,7 +135,6 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
           <ModalCloseButton onClick={handleCloseAttempt} />
           <ModalBody px={0} py={0}>
             <Box display="flex" flexDir={{ base: "column", md: "row" }} minH="400px">
-              {/* Khu vực hiển thị media */}
               <Box
                 flex="1.5"
                 bg="gray.50"
@@ -164,16 +173,43 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                 )}
               </Box>
 
-              {/* Khu vực nhập nội dung */}
-              <Box flex="1" p={4} display="flex" flexDir="column">
-                <Textarea
-                  placeholder="Write a caption..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  minH="120px"
-                  resize="none"
-                />
-                <Box mt={4}>
+              <Box flex="1" p={4} display="flex" flexDir="column" gap={4}>
+                {/* Vùng nhập nội dung có icon emoji */}
+                <Box position="relative">
+                  <Textarea
+                    placeholder="Write a caption..."
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    minH="120px"
+                    resize="none"
+                    pr="40px"
+                  />
+                  <Box
+                    position="absolute"
+                    top="10px"
+                    right="10px"
+                    cursor="pointer"
+                    color="gray.500"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  >
+                    <BsEmojiSmile size={20} />
+                  </Box>
+                  {showEmojiPicker && (
+                    <Box
+                      ref={emojiRef}
+                      position="absolute"
+                      zIndex="10"
+                      top="100%"
+                      right="0"
+                      mt={2}
+                    >
+                      <EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} />
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Upload media */}
+                <Box>
                   <label htmlFor="upload-media">
                     <Box
                       cursor="pointer"
@@ -199,7 +235,6 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
             </Box>
           </ModalBody>
 
-          {/* Footer */}
           <ModalFooter justifyContent="space-between" px={6} py={4}>
             <Button onClick={handleCloseAttempt} variant="ghost" rounded="full">
               Cancel
@@ -217,7 +252,6 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
         </ModalContent>
       </Modal>
 
-      {/* Confirm Dialog */}
       <AlertDialog
         isOpen={isConfirmOpen}
         leastDestructiveRef={cancelRef}

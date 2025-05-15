@@ -102,7 +102,7 @@ const ProfileUserDetails = () => {
         />
         <div className="space-y-4 text-center md:text-left">
           <div className="flex items-center justify-center md:justify-start gap-4">
-            <h2 className="text-xl font-semibold">{user?.firstName}</h2>
+            <h2 className="text-xl font-semibold">{user?.firstName} {user?.lastName}</h2>
             {isOwnProfile ? (
               <>
                 <button

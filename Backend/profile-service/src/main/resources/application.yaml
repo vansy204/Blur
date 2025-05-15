@@ -12,3 +12,4 @@ spring:
 app:
   services:
     identity: "http://localhost:8080/identity"
+    notification: "http://localhost:8082/notification"

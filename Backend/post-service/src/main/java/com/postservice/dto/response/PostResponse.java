@@ -17,6 +17,7 @@ import java.util.List;
 public class PostResponse {
     String id;
     String userId;
+    String profileId;
     String userName;
     String userImageUrl;
     String content;

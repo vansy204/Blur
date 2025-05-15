@@ -13,7 +13,8 @@ public enum ErrorCode {
     UNAUTHENTICATED(1011,"Unauthenticated",HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1007, "you do not have permission", HttpStatus.FORBIDDEN),
     USER_NOT_EXIST(1012, "User does not exist", HttpStatus.NOT_FOUND),
-    CANNOT_FOLLOW_YOURSELF(1013, "Can't follow yourself", HttpStatus.FORBIDDEN),;
+    CANNOT_FOLLOW_YOURSELF(1013, "Can't follow yourself", HttpStatus.FORBIDDEN),
+    ;
     private int code;
     private String message;
     private HttpStatusCode httpStatusCode;

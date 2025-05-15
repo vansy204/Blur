@@ -58,6 +58,7 @@ public class UserService {
         var profileResponse = profileMapper.toProfileCreationRequest(request);
         // mapping userid tu user vao profile
         profileResponse.setUserId(user.getId());
+        profileResponse.setEmail(user.getEmail());
         profileClient.createProfile(profileResponse);
         // build notification event
 

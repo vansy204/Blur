@@ -21,6 +21,7 @@ import { timeDifference } from "../../Config/Logic";
 import { getToken } from "../../service/LocalStorageService";
 import { fetchLikePost, deletePost } from "../../api/postApi"; // Import deletePost
 import { IoSend } from "react-icons/io5";
+import { useNavigate } from "react-router-dom";
 
 const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop for parent component update
   const [showDropdown, setShowDropdown] = useState(false);
@@ -37,6 +38,7 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
   const token = getToken();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [comment, setComment] = useState("");
+  const navigate = useNavigate();
   // Fetch likes & comments
   useEffect(() => {
     if (!post?.id || !user?.id) return;
@@ -54,6 +56,7 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
             }
           ),
           fetchLikePost(token, post.id),
+          
         ]);
 
         setComments(commentRes.data.result || []);
@@ -244,14 +247,13 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
 
   const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
   const handleClickUserName = () => {
-    console.log("User name clicked");
-  };
+    // Handle user name click here, e.g., navigate to user profile
   
+    
+    navigate(`/profile/user/?profileId=${post?.profileId}`);
+  };
   // Check if current user is the post owner
   const isCurrentUserPostOwner = post?.userId === user?.userId;
-
-  
-  
   return (
     <div className="bg-white shadow-md rounded-xl overflow-hidden mb-8 border border-gray-200">
       {/* Header */}
@@ -265,8 +267,6 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
             }
             alt="User"
           />
-          {console.log("post: ", post)}
-          
           <div className="pl-3">
             <p
               className="font-semibold text-sm cursor-pointer"
