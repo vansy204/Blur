@@ -1,6 +1,6 @@
 package com.blur.profileservice.service;
 
-import com.blur.profileservice.dto.event.FollowEvent;
+import com.blur.profileservice.dto.event.Event;
 import com.blur.profileservice.dto.request.ProfileCreationRequest;
 import com.blur.profileservice.dto.request.UserProfileUpdateRequest;
 import com.blur.profileservice.dto.response.UserProfileResponse;
@@ -14,7 +14,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.catalina.User;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 
 @Service
@@ -110,7 +108,7 @@ public class UserProfileService {
         log.info("following: {}" , followingUser);
 
         // gui notification
-        FollowEvent event = FollowEvent.builder()
+        Event event = Event.builder()
                 .senderId(requester.getId())
                 .senderName(requester.getFirstName() + " " + requester.getLastName())
                 .receiverId(followingUser.getId())

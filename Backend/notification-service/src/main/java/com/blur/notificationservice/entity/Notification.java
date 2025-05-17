@@ -1,10 +1,12 @@
 package com.blur.notificationservice.entity;
 
 
+import com.blur.notificationservice.kafka.model.Type;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.FieldName;
 
 import java.time.LocalDateTime;
 
@@ -22,6 +24,7 @@ public class Notification {
     String receiverId;
     String receiverName;
     String receiverEmail;
+    Type type;
     String content;
     LocalDateTime timestamp;
 

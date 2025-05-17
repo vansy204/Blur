@@ -84,9 +84,9 @@ public class UserService {
         return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
     }
 
-    @PostAuthorize("returnObject.username == authentication.name")
+
     public User getUserById(String userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_EXISTED));
+        return userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
     }
 
     public User updateUser(String userId, UserUpdateRequest request) {

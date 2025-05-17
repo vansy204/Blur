@@ -24,8 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 public class AppConfiguration {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
-    private final ProfileClient profileClient;
-    private final ProfileMapper profileMapper;
 
     @Bean
     ApplicationRunner runner(UserRepository userRepository) {
@@ -41,24 +39,10 @@ public class AppConfiguration {
                         .username("admin")
                         .password(passwordEncoder.encode("admin"))
                         .roles(roles)
-                        .email("blur.socialnetwork@gmail.com")
+                        .email("")
                         .emailVerified(true)
                         .build();
                 userRepository.save(user);
-                var userCreationRequest = UserCreationRequest.builder()
-                        .username(user.getUsername())
-                        .password(user.getPassword())
-                        .firstName("Admin")
-                        .lastName("Blur")
-                        .dob(LocalDate.parse("2004-02-02"))
-                        .build();
-                // tao profile tu user da nhan
-                var profileResponse = profileMapper.toProfileCreationRequest(userCreationRequest);
-                // mapping userid tu user vao profile
-                profileResponse.setUserId(user.getId());
-                profileResponse.setEmail(user.getEmail());
-                profileClient.createProfile(profileResponse);
-                // build notification event
 
                 log.info("admin user created with default password admin");
             }

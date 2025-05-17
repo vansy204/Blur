@@ -23,7 +23,8 @@ public class SecurityConfig {
             "/auth/introspect",
             "/auth/logout",
             "/auth/refresh",
-            "/auth/outbound/authentication"
+            "/auth/outbound/authentication",
+            "/users/**"
     };
 
     private final CustomJwtDecoder customJwtDecoder;

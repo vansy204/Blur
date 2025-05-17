@@ -1,5 +1,6 @@
 package com.postservice.service;
 
+import com.postservice.dto.event.Event;
 import com.postservice.dto.request.PostRequest;
 import com.postservice.dto.response.ApiResponse;
 import com.postservice.dto.response.PostResponse;
@@ -11,6 +12,8 @@ import com.postservice.exception.ErrorCode;
 import com.postservice.mapper.PostMapper;
 import com.postservice.repository.PostLikeRepository;
 import com.postservice.repository.PostRepository;
+import com.postservice.repository.httpclient.IdentityClient;
+import com.postservice.repository.httpclient.NotificationClient;
 import com.postservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,7 +37,8 @@ public class PostService {
     PostMapper postMapper;
     ProfileClient profileClient;
     PostLikeRepository postLikeRepository;
-
+    NotificationClient notificationClient;
+    IdentityClient identityClient;
     public PostResponse createPost(PostRequest postRequest) {
         // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -129,12 +134,28 @@ public class PostService {
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
-
-        postLikeRepository.save(PostLike.builder()
+        var profile = profileClient.getProfile(userId);
+        PostLike postLike = PostLike.builder()
                 .postId(postId)
                 .userId(userId)
                 .createdAt(Instant.now())
-                .build());
+                .build();
+        postLikeRepository.save(postLike);
+        Post postResponse = postRepository.findById(postLike.getPostId())
+                .orElseThrow(()->new AppException(ErrorCode.POST_NOT_FOUND));
+
+        var user = identityClient.getUser(postResponse.getUserId());
+
+        Event event = Event.builder()
+                .senderId(profile.getResult().getId())
+                .senderName(profile.getResult().getFirstName() + " " + profile.getResult().getLastName())
+                .receiverId(user.getResult().getId())
+                .receiverName(user.getResult().getUsername())
+                .receiverEmail(user.getResult().getEmail())
+                .timestamp(LocalDateTime.now())
+                .build();
+        log.info("Sending like post event: {}", event);
+        notificationClient.sendLikePostNotification(event);
         return "like";
     }
     public String unlikePost(String postId) {

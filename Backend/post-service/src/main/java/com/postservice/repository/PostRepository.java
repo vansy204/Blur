@@ -1,6 +1,7 @@
 package com.postservice.repository;
 
 
+import com.postservice.dto.response.UserProfileResponse;
 import com.postservice.entity.Post;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;

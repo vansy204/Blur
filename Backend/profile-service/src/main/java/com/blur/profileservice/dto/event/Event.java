@@ -1,4 +1,4 @@
-package com.blur.notificationservice.dto.event;
+package com.blur.profileservice.dto.event;
 
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
-public class FollowEvent {
+public class Event {
     String senderId;
     String senderName;
     String receiverId;

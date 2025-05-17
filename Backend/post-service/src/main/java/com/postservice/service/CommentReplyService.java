@@ -1,5 +1,6 @@
 package com.postservice.service;
 
+import com.postservice.dto.event.Event;
 import com.postservice.dto.request.CreateCommentRequest;
 import com.postservice.dto.response.CommentResponse;
 import com.postservice.entity.CommentReply;
@@ -8,6 +9,9 @@ import com.postservice.exception.ErrorCode;
 import com.postservice.mapper.CommentMapper;
 import com.postservice.repository.CommentReplyRepository;
 import com.postservice.repository.CommentRepository;
+import com.postservice.repository.PostRepository;
+import com.postservice.repository.httpclient.IdentityClient;
+import com.postservice.repository.httpclient.NotificationClient;
 import com.postservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -19,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,7 +36,9 @@ public class CommentReplyService {
     CommentRepository commentRepository;
     CommentMapper commentMapper;
     ProfileClient profileClient;
-
+    IdentityClient identityClient;
+    NotificationClient notificationClient;
+    PostRepository postRepository;
     public CommentResponse createCommentReply(String commentId, String parentReplyId, CreateCommentRequest commentRequest) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         var comment = commentRepository.findById(commentId)
@@ -51,7 +58,18 @@ public class CommentReplyService {
                 .commentId(comment.getId())
                 .parentReplyId(parentReplyId) // <-- thêm dòng này
                 .build();
-
+        var post = postRepository.findById(comment.getPostId())
+                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
+        var user = identityClient.getUser(post.getUserId());
+        Event event = Event.builder()
+                .senderId(commentReply.getId())
+                .senderName(commentReply.getUserName())
+                .receiverId(user.getResult().getId())
+                .receiverName(user.getResult().getUsername())
+                .receiverEmail(user.getResult().getEmail())
+                .timestamp(LocalDateTime.now())
+                .build();
+        notificationClient.sendReplyCommentNotification(event);
         return commentMapper.toCommentResponse(commentReplyRepository.save(commentReply));
     }
 

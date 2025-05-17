@@ -1,5 +1,6 @@
-package com.blur.profileservice.dto.event;
+package com.blur.notificationservice.dto.event;
 
+import com.blur.notificationservice.kafka.model.Type;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +11,7 @@ import java.time.LocalDateTime;
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
-public class FollowEvent {
+public class Event {
     String senderId;
     String senderName;
     String receiverId;

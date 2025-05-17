@@ -18,7 +18,10 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
     private static final String[] PUBLIC_ENDPOINTS = {
             "/email/send",
-            "/follow"
+            "/follow",
+            "/like-post",
+            "/comment",
+            "reply-comment"
     };
     private CustomJwtDecoder customJwtDecoder;
 
@@ -38,7 +41,6 @@ public class SecurityConfig {
                         .jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 .authenticationEntryPoint(new JWTAuthenticationEntryPoint()));
         httpSecurity.csrf(AbstractHttpConfigurer::disable);
-        httpSecurity.cors();
         return httpSecurity.build();
     }
     @Bean

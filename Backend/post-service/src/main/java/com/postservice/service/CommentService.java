@@ -1,5 +1,6 @@
 package com.postservice.service;
 
+import com.postservice.dto.event.Event;
 import com.postservice.dto.request.CreateCommentRequest;
 import com.postservice.dto.response.CommentResponse;
 import com.postservice.entity.Comment;
@@ -8,6 +9,8 @@ import com.postservice.exception.ErrorCode;
 import com.postservice.mapper.CommentMapper;
 import com.postservice.repository.CommentRepository;
 import com.postservice.repository.PostRepository;
+import com.postservice.repository.httpclient.IdentityClient;
+import com.postservice.repository.httpclient.NotificationClient;
 import com.postservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,7 +34,9 @@ public class CommentService {
     CommentRepository commentRepository;
     CommentMapper commentMapper;
     ProfileClient profileClient;
-
+    IdentityClient identityClient;
+    NotificationClient notificationClient;
+    PostRepository postRepository;
     public CommentResponse createComment(CreateCommentRequest request, String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
@@ -45,7 +51,17 @@ public class CommentService {
                 .updatedAt(Instant.now())
                 .build();
         comment = commentRepository.save(comment);
-
+        var post = postRepository.findById(postId).orElseThrow(()->new AppException(ErrorCode.POST_NOT_FOUND));
+        var fetchUser = identityClient.getUser(post.getUserId());
+        Event event = Event.builder()
+                .senderName(user.getResult().getFirstName())
+                .senderId(user.getResult().getUserId())
+                .receiverEmail(fetchUser.getResult().getEmail())
+                .receiverId(fetchUser.getResult().getId())
+                .receiverName(user.getResult().getFirstName() + " " + user.getResult().getLastName())
+                .timestamp(LocalDateTime.now())
+                .build();
+        notificationClient.sendCommentNotification(event);
         return commentMapper.toCommentResponse(comment);
     }
 
