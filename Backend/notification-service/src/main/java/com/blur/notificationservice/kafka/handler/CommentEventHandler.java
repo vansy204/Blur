@@ -4,6 +4,7 @@ import com.blur.notificationservice.dto.event.Event;
 import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
 import com.blur.notificationservice.service.NotificationService;
+import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
@@ -29,7 +30,7 @@ public class CommentEventHandler implements EventHandler<Event> {
     JavaMailSender emailSender;
     NotificationService notificationService;
     ObjectMapper objectMapper;
-
+    RedisService redisService;
     @Override
     public boolean canHandle(String topic) {
         return topic.equals("user-comment-events");
@@ -50,13 +51,14 @@ public class CommentEventHandler implements EventHandler<Event> {
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " comment on your post on Blur.")
                 .build();
-        boolean isOnline = Boolean.TRUE.equals(redisTemplate.hasKey("online" + notification.getReceiverId()));
+        boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
-        sendNewCommentNotification(notification);
+
         if(isOnline){
             simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
+
         }else{
-            log.info("Sending email to {} for follow event",notification.getReceiverEmail());
+            sendNewCommentNotification(notification);
         }
     }
     private void sendNewCommentNotification(Notification notification) {
@@ -102,7 +104,6 @@ public class CommentEventHandler implements EventHandler<Event> {
                             "</html>";
 
             helper.setText(emailContent, true); // HTML enabled
-
             emailSender.send(message);
             log.info("Comment notification email sent to {}", notification.getReceiverEmail());
         } catch (Exception e) {

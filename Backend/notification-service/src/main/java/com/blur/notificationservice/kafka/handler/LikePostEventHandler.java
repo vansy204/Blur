@@ -4,6 +4,7 @@ import com.blur.notificationservice.dto.event.Event;
 import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
 import com.blur.notificationservice.service.NotificationService;
+import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
@@ -11,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.cache.CacheProperties;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -29,7 +31,7 @@ public class LikePostEventHandler implements EventHandler<Event> {
     JavaMailSender emailSender;
     NotificationService notificationService;
     ObjectMapper objectMapper;
-
+    RedisService redisService;
 
     @Override
     public boolean canHandle(String topic) {
@@ -52,9 +54,13 @@ public class LikePostEventHandler implements EventHandler<Event> {
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " like your post on Blur.")
                 .build();
-        boolean isOnline = Boolean.TRUE.equals(redisTemplate.hasKey("online" + notification.getReceiverId()));
+        boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
-        sendLikePostNotification(notification);
+        if(isOnline) {
+            simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
+        }else{
+            sendLikePostNotification(notification);
+        }
     }
     private void sendLikePostNotification(Notification notification) {
         try {

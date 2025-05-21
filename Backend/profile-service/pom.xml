@@ -30,6 +30,8 @@
         <org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
 
         <java.version>17</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
     </properties>
     <dependencies>
         <dependency>

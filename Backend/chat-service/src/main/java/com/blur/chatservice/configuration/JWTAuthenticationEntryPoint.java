@@ -1,7 +1,7 @@
 package com.blur.chatservice.configuration;
 
-
 import com.blur.chatservice.dto.ApiResponse;
+
 import com.blur.chatservice.exception.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
@@ -19,7 +19,7 @@ public class JWTAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
             throws IOException, ServletException {
         ErrorCode errorCode = ErrorCode.UNAUTHENTICATED;
-        response.setStatus(errorCode.getHttpStatusCode().value());
+        response.setStatus(errorCode.getHttpStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         ApiResponse<?> apiResponse = ApiResponse.builder()

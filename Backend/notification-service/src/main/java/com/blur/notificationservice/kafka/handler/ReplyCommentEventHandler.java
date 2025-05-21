@@ -4,6 +4,7 @@ import com.blur.notificationservice.dto.event.Event;
 import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
 import com.blur.notificationservice.service.NotificationService;
+import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
@@ -29,6 +30,7 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
     JavaMailSender emailSender;
     NotificationService notificationService;
     ObjectMapper objectMapper;
+    RedisService redisService;
     @Override
     public boolean canHandle(String topic) {
         return topic.equals("user-reply-comment-events");
@@ -49,13 +51,13 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " reply your comment on Blur.")
                 .build();
-        boolean isOnline = Boolean.TRUE.equals(redisTemplate.hasKey("online" + notification.getReceiverId()));
+        boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
-        sendReplyCommentNotification(notification);
+
         if(isOnline){
             simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
         }else{
-            log.info("Sending email to {} for follow event",notification.getReceiverEmail());
+            sendReplyCommentNotification(notification);
         }
     }
     private void sendReplyCommentNotification(Notification notification) {
@@ -99,7 +101,6 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
                             "    </div>" +
                             "</body>" +
                             "</html>";
-
             helper.setText(emailContent, true);
 
             emailSender.send(message);

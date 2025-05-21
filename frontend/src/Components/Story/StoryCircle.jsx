@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import StoryModal from "./StoryModal";
 import AddStoryModal from "./AddStoryModal";
 
@@ -49,22 +49,18 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
       className="cursor-pointer w-28 h-48 rounded-xl overflow-hidden bg-gray-200 relative group shadow hover:shadow-lg transition-all duration-300"
     >
       <div className="absolute inset-0 bg-black bg-opacity-10 group-hover:bg-opacity-20 transition-all" />
-  
       {/* Nút + canh giữa */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-blue-500 text-3xl font-bold border-2 border-blue-500 group-hover:scale-110 transition-transform duration-200">
           +
         </div>
       </div>
-  
       {/* Dòng chữ "Tạo tin" */}
       <div className="absolute bottom-2 left-0 right-0 text-center text-sm font-semibold text-white drop-shadow">
         Tạo tin
       </div>
     </div>
   );
-  
-
   const renderStoryItem = () => (
     <div
       onClick={handleOpenStory}
@@ -80,7 +76,6 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
           playsInline
           onError={(e) => {
             console.log("Video error, fallback to placeholder");
-          
           }}
         />
       ) : (
@@ -126,13 +121,10 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
         </div>
       )}
     </div>
-  );
-  
-  
+  ); 
   return (
     <>
       {isAddNew ? renderAddStory() : renderStoryItem()}
-
       {!isAddNew && (
         <StoryModal
           isOpen={isOpen}
@@ -141,7 +133,6 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
           story={story}
         />
       )}
-
       {isAddNew && showCreateModal && (
         <AddStoryModal
           onClose={() => setShowCreateModal(false)}
@@ -151,5 +142,4 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
     </>
   );
 };
-
 export default StoryCircle;

@@ -4,6 +4,7 @@ import com.blur.notificationservice.dto.event.Event;
 import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
 import com.blur.notificationservice.service.NotificationService;
+import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
@@ -30,7 +31,7 @@ public class FollowEventHandler implements EventHandler<Event>{
     JavaMailSender emailSender;
     NotificationService notificationService;
     ObjectMapper objectMapper;
-
+    RedisService  redisService;
 
     @Override
     public boolean canHandle(String topic) {
@@ -52,13 +53,12 @@ public class FollowEventHandler implements EventHandler<Event>{
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " followed you on Blur.")
                 .build();
-        boolean isOnline = Boolean.TRUE.equals(redisTemplate.hasKey("online" + notification.getReceiverId()));
+        boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
-        sendFollowNotification(notification);
         if(isOnline){
             simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
         }else{
-            log.info("Sending email to {} for follow event",notification.getReceiverEmail());
+            sendFollowNotification(notification);
         }
     }
     private void sendFollowNotification(Notification notification) {

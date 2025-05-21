@@ -45,8 +45,8 @@ public class AuthenticationService {
     InvalidatedTokenRepository tokenRepository;
     OutboundIdentityClient outboundIdentityClient;
     OutboundUserClient outboundUserClient;
-    private final ProfileClient profileClient;
-
+     ProfileClient profileClient;
+    RedisService redisService;
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -68,6 +68,7 @@ public class AuthenticationService {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
         var token = generateToken(user);
+        redisService.setOnline(user.getId());
         return AuthResponse.builder().token(token).authenticated(true).build();
     }
 
@@ -112,6 +113,7 @@ public class AuthenticationService {
             InvalidatedToken invalidatedToken =
                     InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
             tokenRepository.save(invalidatedToken);
+            redisService.setOffline(signToken.getJWTClaimsSet().getSubject());
         } catch (AppException e) {
             log.error("Token already expired");
         }
