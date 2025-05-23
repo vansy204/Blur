@@ -22,7 +22,7 @@ public class EventListener {
     private final List<EventHandler<?>> handlers;
 
     @KafkaListener(
-            topics = {"user-follow-events", "user-like-events", "user-comment-events","user-reply-comment-events"},
+            topics = {"user-follow-events", "user-like-events", "user-comment-events","user-reply-comment-events","user-like-story-events"},
             groupId = "notification-service")
     public void listen(ConsumerRecord<String, String> record,
                        @Header(KafkaHeaders.RECEIVED_TOPIC) String topic)

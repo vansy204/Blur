@@ -1,10 +1,14 @@
 package com.example.storyservice.service;
 
+import com.example.storyservice.dto.event.Event;
 import com.example.storyservice.entity.StoryLike;
 import com.example.storyservice.exception.AppException;
 import com.example.storyservice.exception.ErrorCode;
 import com.example.storyservice.repository.StoryLikeRepository;
 import com.example.storyservice.repository.StoryRepository;
+import com.example.storyservice.repository.httpclient.IdentityClient;
+import com.example.storyservice.repository.httpclient.NotificationClient;
+import com.example.storyservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -14,6 +18,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -21,7 +27,8 @@ import org.springframework.stereotype.Service;
 public class StoryLikeService {
     StoryLikeRepository storyLikeRepository;
     StoryRepository storyRepository;
-
+    IdentityClient identityClient;
+    NotificationClient notificationClient;
     public String likeStory(String storyId){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
@@ -34,6 +41,16 @@ public class StoryLikeService {
                 .updatedAt(story.getUpdatedAt())
                 .build();
         storyLikeRepository.save(storyLike);
+        var user = identityClient.getUser(story.getAuthorId());
+        Event event = Event.builder()
+                .senderName(story.getFirstName() + " " + story.getLastName())
+                .senderId(userId)
+                .receiverEmail(user.getResult().getEmail())
+                .receiverId(user.getResult().getId())
+                .receiverName(user.getResult().getUsername())
+                .timestamp(LocalDateTime.now())
+                .build();
+        notificationClient.sendLikeStoryNotification(event);
         return "Like story successfully";
     }
     public String unlikeStory(String storyId){

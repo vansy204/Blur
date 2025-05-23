@@ -47,7 +47,7 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
                 .receiverId(event.getReceiverId())
                 .receiverName(event.getReceiverName())
                 .receiverEmail(event.getReceiverEmail())
-                .type(Type.Follow)
+                .type(Type.Reply)
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " reply your comment on Blur.")
                 .build();

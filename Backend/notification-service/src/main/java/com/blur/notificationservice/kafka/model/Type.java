@@ -5,4 +5,7 @@ public enum Type {
     LikePost,
     CommentPost,
     LikeComment,
+    LikeStory,
+    Message,
+    Reply
 }

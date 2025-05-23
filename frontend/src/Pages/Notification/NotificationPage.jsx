@@ -6,7 +6,7 @@ import {
   UserPlus,
   Bell
 } from 'lucide-react';
-
+import { getToken } from '../../service/LocalStorageService'; // Adjust the import path as necessary
 // Notification icon component
 const NotificationIcon = ({ type, className = '' }) => {
   const iconProps = { size: 16 };
@@ -91,7 +91,7 @@ const Header = () => (
 // Page component
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState(initialNotifications);
-
+  const token = getToken();
   useEffect(() => {
     document.body.style.margin = '0';
     document.body.style.padding = '0';
