@@ -36,7 +36,7 @@ const Router = () => {
       )}
       
       {/* Adjust main content based on whether sidebar is present */}
-      <div className={`${isAuthenticated && !isAuthPage ? "pl-3 ml-[240px] w-[calc(100%-240px)]" : "w-full"}`}>
+      <div className={`${isAuthenticated && !isAuthPage ? "pl-3 ml-[240px] w-[calc(100%-240px)]" : "w-screen"}`}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/profile" element={<Profile />} />

@@ -8,13 +8,13 @@ const NotificationIcon = ({ type, className = '' }) => {
   const baseClass = `${className} p-1 rounded-full border-2 border-white shadow-sm`;
 
   switch (type) {
-    case 'like':
+    case 'likePost':
       return (
         <div className={`${baseClass} bg-red-500`}>
           <Heart {...iconProps} className="text-white fill-white" />
         </div>
       );
-    case 'comment':
+    case 'CommentPost':
       return (
         <div className={`${baseClass} bg-blue-500`}>
           <MessageCircle {...iconProps} className="text-white" />

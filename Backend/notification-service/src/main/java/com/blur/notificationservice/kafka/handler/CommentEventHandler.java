@@ -3,6 +3,7 @@ package com.blur.notificationservice.kafka.handler;
 import com.blur.notificationservice.dto.event.Event;
 import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
+import com.blur.notificationservice.repository.httpclient.ProfileClient;
 import com.blur.notificationservice.service.NotificationService;
 import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -31,6 +32,7 @@ public class CommentEventHandler implements EventHandler<Event> {
     NotificationService notificationService;
     ObjectMapper objectMapper;
     RedisService redisService;
+    ProfileClient profileClient;
     @Override
     public boolean canHandle(String topic) {
         return topic.equals("user-comment-events");
@@ -40,20 +42,22 @@ public class CommentEventHandler implements EventHandler<Event> {
     public void handleEvent(String jsonEvent) throws JsonProcessingException {
         Event event = objectMapper.readValue(jsonEvent, Event.class);
         event.setTimestamp(LocalDateTime.now());
-
+        var profile = profileClient.getProfile(event.getSenderId());
+        log.info("profile: {}", profile);
         Notification notification = Notification.builder()
                 .senderId(event.getSenderId())
                 .senderName(event.getSenderName())
                 .receiverId(event.getReceiverId())
                 .receiverName(event.getReceiverName())
                 .receiverEmail(event.getReceiverEmail())
+                .senderImageUrl(profile.getResult().getImageUrl())
+                .read(false)
                 .type(Type.CommentPost)
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " comment on your post on Blur.")
                 .build();
         boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
-
         if(isOnline){
             simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
 

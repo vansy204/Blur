@@ -61,4 +61,16 @@ public class NotificationController {
                 .result(notificationService.getForUser(userId))
                 .build();
     }
+    @PutMapping("/markAsRead/{notificationId}")
+    public ApiResponse<String> markAsRead(@PathVariable("notificationId") String notificationId){
+        return ApiResponse.<String>builder()
+                .result(notificationService.markAsRead(notificationId))
+                .build();
+    }
+    @PutMapping("/markAllAsRead")
+    public ApiResponse<String> markAllAsRead(){
+        return ApiResponse.<String>builder()
+                .result(notificationService.markAllAsRead())
+                .build();
+    }
 }

@@ -1,50 +1,41 @@
 import {
-  AiFillCompass,
-  AiFillHeart,
-  AiFillHome,
-  AiFillMessage,
-  AiFillPlusCircle,
-  AiOutlineCompass,
-  AiOutlineHeart,
-  AiOutlineHome,
-  AiOutlineMessage,
-  AiOutlinePlusCircle,
-  AiOutlineSearch,
-} from "react-icons/ai";
-import { CgProfile } from "react-icons/cg";
-import { RiVideoFill, RiVideoLine } from "react-icons/ri";
+  Home,
+  Search,
+  MessageCircle,
+  Bell,
+  PlusCircle,
+  User,
+} from "lucide-react";
 
 export const menuItems = [
   {
     title: "Home",
-    icon: <AiOutlineHome className="text-2xl mr-5" />,
-    activeIcon: <AiFillHome className="text-2xl mr-5" />,
+    icon: <Home className="text-gray-600" />,
+    activeIcon: <Home fill="currentColor" className="text-blue-500" />,
   },
   {
     title: "Search",
-    icon: <AiOutlineSearch className="text-2xl mr-5" />,
-    activeIcon: <AiOutlineSearch className="text-2xl mr-5" />,
+    icon: <Search className="text-gray-600" />,
+    activeIcon: <Search fill="currentColor" className="text-blue-500" />,
   },
-
-
   {
     title: "Message",
-    icon: <AiOutlineMessage className="text-2xl mr-5" />,
-    activeIcon: <AiFillMessage className="text-2xl mr-5" />,
+    icon: <MessageCircle className="text-gray-600" />,
+    activeIcon: <MessageCircle fill="currentColor" className="text-blue-500" />,
   },
   {
     title: "Notification",
-    icon: <AiOutlineHeart className="text-2xl mr-5" />,
-    activeIcon: <AiFillHeart className="text-2xl mr-5" />,
+    icon: <Bell className="text-gray-600" />,
+    activeIcon: <Bell fill="currentColor" className="text-red-500" />,
   },
   {
     title: "Create",
-    icon: <AiOutlinePlusCircle className="text-2xl mr-5" />,
-    activeIcon: <AiFillPlusCircle className="text-2xl mr-5" />,
+    icon: <PlusCircle className="text-gray-600" />,
+    activeIcon: <PlusCircle fill="currentColor" className="text-green-500" />,
   },
   {
     title: "Profile",
-    icon: <CgProfile className="text-2xl mr-5" />,
-    activeIcon: <CgProfile className="text-2xl mr-5" />,
+    icon: <User className="text-gray-600" />,
+    activeIcon: <User fill="currentColor" className="text-purple-500" />,
   },
 ];

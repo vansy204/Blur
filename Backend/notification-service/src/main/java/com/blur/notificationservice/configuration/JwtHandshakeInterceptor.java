@@ -1,6 +1,7 @@
 package com.blur.notificationservice.configuration;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -15,6 +16,7 @@ import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
 import java.util.Map;
+@Slf4j
 @Component
 public class JwtHandshakeInterceptor implements HandshakeInterceptor {
     private final CustomJwtDecoder customJwtDecoder;
@@ -34,7 +36,6 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 token = authHeader.substring(7);
             } else {
-                // Có thể lấy từ query param nếu không có header
                 token = req.getParameter("token");
             }
         }
@@ -48,7 +49,7 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             Jwt jwt = customJwtDecoder.decode(token);
             Authentication authentication = new JwtAuthenticationToken(jwt);
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            attributes.put("user", authentication.getName()); // lưu tên người dùng nếu cần
+            attributes.put("userId", authentication.getName());
             return true;
         } catch (JwtException e) {
             response.setStatusCode(HttpStatus.UNAUTHORIZED);

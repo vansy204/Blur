@@ -35,5 +35,8 @@ spring:
           auth: true
           starttls:
             enable: true
-
+app:
+  service:
+    profile:
+      url: "http://localhost:8081/profile"
 

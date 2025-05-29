@@ -24,8 +24,10 @@ public class Notification {
     String receiverId;
     String receiverName;
     String receiverEmail;
+    String senderImageUrl;
     Type type;
     String content;
     LocalDateTime timestamp;
+    Boolean read = false;
 
 }

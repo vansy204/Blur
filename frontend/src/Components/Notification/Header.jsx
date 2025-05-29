@@ -11,14 +11,7 @@ const Header = ({ unreadCount, onMarkAllRead, searchTerm, setSearchTerm }) => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-            {unreadCount > 0 && (
-              <div className="flex items-center mt-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                <span className="text-sm text-blue-600 font-medium">
-                  {unreadCount} new notification{unreadCount !== 1 ? 's' : ''}
-                </span>
-              </div>
-            )}
+          
           </div>
           
           {unreadCount > 0 && (

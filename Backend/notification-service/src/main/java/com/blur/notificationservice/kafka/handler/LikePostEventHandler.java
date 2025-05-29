@@ -3,6 +3,7 @@ package com.blur.notificationservice.kafka.handler;
 import com.blur.notificationservice.dto.event.Event;
 import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
+import com.blur.notificationservice.repository.httpclient.ProfileClient;
 import com.blur.notificationservice.service.NotificationService;
 import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,7 +33,7 @@ public class LikePostEventHandler implements EventHandler<Event> {
     NotificationService notificationService;
     ObjectMapper objectMapper;
     RedisService redisService;
-
+    ProfileClient profileClient;
     @Override
     public boolean canHandle(String topic) {
         return topic.equals("user-like-events");
@@ -42,7 +43,7 @@ public class LikePostEventHandler implements EventHandler<Event> {
     public void handleEvent(String jsonEvent) throws JsonProcessingException {
         Event event = objectMapper.readValue(jsonEvent, Event.class);
         event.setTimestamp(LocalDateTime.now());
-
+        var profile = profileClient.getProfile(event.getSenderId());
 
         Notification notification = Notification.builder()
                 .senderId(event.getSenderId())
@@ -50,6 +51,8 @@ public class LikePostEventHandler implements EventHandler<Event> {
                 .receiverId(event.getReceiverId())
                 .receiverName(event.getReceiverName())
                 .receiverEmail(event.getReceiverEmail())
+                .read(false)
+                .senderImageUrl(profile.getResult().getImageUrl())
                 .type(Type.LikePost)
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " like your post on Blur.")

@@ -3,6 +3,7 @@ package com.blur.notificationservice.kafka.handler;
 import com.blur.notificationservice.dto.event.Event;
 import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
+import com.blur.notificationservice.repository.httpclient.ProfileClient;
 import com.blur.notificationservice.service.NotificationService;
 import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,7 +33,7 @@ public class FollowEventHandler implements EventHandler<Event>{
     NotificationService notificationService;
     ObjectMapper objectMapper;
     RedisService  redisService;
-
+    ProfileClient profileClient;
     @Override
     public boolean canHandle(String topic) {
         return topic.equals("user-follow-events");
@@ -42,6 +43,7 @@ public class FollowEventHandler implements EventHandler<Event>{
     public void handleEvent(String jsonEvent) throws JsonProcessingException {
         Event event = objectMapper.readValue(jsonEvent, Event.class);
         event.setTimestamp(LocalDateTime.now());
+        var profile = profileClient.getProfile(event.getSenderId());
 
         Notification notification = Notification.builder()
                 .senderId(event.getSenderId())
@@ -49,8 +51,11 @@ public class FollowEventHandler implements EventHandler<Event>{
                 .receiverId(event.getReceiverId())
                 .receiverName(event.getReceiverName())
                 .receiverEmail(event.getReceiverEmail())
+                .read(false)
+
                 .type(Type.Follow)
                 .timestamp(event.getTimestamp())
+                .senderImageUrl(profile.getResult().getImageUrl())
                 .content(event.getSenderName() + " followed you on Blur.")
                 .build();
         boolean isOnline = redisService.isOnline(event.getReceiverId());
