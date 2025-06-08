@@ -107,7 +107,7 @@ export const deleteStory = async (storyId) => {
 };
 
 // Like story
-export const likeStory = async (storyId) => {
+export const likeStory = async (storyId,token) => {
   try {
     const res = await axios.put(
       `${STORY_API}/like/${storyId}`,

@@ -13,7 +13,3 @@ app:
   service:
     profile:
       url: "http://localhost:8081/profile"
-logging:
-  level:
-    org.springframework.web.socket: DEBUG
-    org.springframework.messaging: DEBUG

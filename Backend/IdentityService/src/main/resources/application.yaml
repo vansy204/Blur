@@ -13,7 +13,6 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: update
-    show-sql: true
   data:
     redis:
       host: localhost

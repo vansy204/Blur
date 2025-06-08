@@ -47,14 +47,14 @@ public class UserProfileService {
     }
 
     public UserProfile getUserProfile(String id) {
-        return userProfileRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
+        return userProfileRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
     }
     public List<UserProfileResponse> findUserProfileByFirstName(String firstName) {
         return userProfileRepository.findAllByFirstNameContainingIgnoreCase(firstName)
                 .stream()
                 .map(userProfileMapper::toUserProfileResponse)
                 .toList();
-
     }
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserProfileResponse> getAllUserProfiles() {

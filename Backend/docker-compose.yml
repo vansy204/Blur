@@ -16,8 +16,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_ROOT_USERNAME=root # không thực sự cần, MySQL chỉ cần MYSQL_ROOT_PASSWORD
-    volumes:
-      - mysql_data:/var/lib/mysql
+
 
   mongo:
     image: mongo:latest

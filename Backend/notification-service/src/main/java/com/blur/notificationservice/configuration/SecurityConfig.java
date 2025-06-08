@@ -22,6 +22,7 @@ public class SecurityConfig {
             "/like-post",
             "/comment",
             "/reply-comment",
+            "/like-story"
 
     };
     private CustomJwtDecoder customJwtDecoder;

@@ -52,12 +52,13 @@ public class CommentService {
                 .build();
         comment = commentRepository.save(comment);
         var post = postRepository.findById(postId).orElseThrow(()->new AppException(ErrorCode.POST_NOT_FOUND));
-        var fetchUser = identityClient.getUser(post.getUserId());
+        var sender = identityClient.getUser(userId);
+        var receiver = identityClient.getUser(post.getUserId());
         Event event = Event.builder()
-                .senderName(user.getResult().getFirstName())
-                .senderId(user.getResult().getUserId())
-                .receiverEmail(fetchUser.getResult().getEmail())
-                .receiverId(fetchUser.getResult().getId())
+                .senderName(sender.getResult().getUsername())
+                .senderId(sender.getResult().getId())
+                .receiverEmail(receiver.getResult().getEmail())
+                .receiverId(receiver.getResult().getId())
                 .receiverName(user.getResult().getFirstName() + " " + user.getResult().getLastName())
                 .timestamp(LocalDateTime.now())
                 .build();

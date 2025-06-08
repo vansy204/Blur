@@ -39,6 +39,7 @@ public class PostService {
     PostLikeRepository postLikeRepository;
     NotificationClient notificationClient;
     IdentityClient identityClient;
+
     public PostResponse createPost(PostRequest postRequest) {
         // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -134,7 +135,7 @@ public class PostService {
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
-        var profile = profileClient.getProfile(userId);
+
         PostLike postLike = PostLike.builder()
                 .postId(postId)
                 .userId(userId)
@@ -144,14 +145,14 @@ public class PostService {
         Post postResponse = postRepository.findById(postLike.getPostId())
                 .orElseThrow(()->new AppException(ErrorCode.POST_NOT_FOUND));
 
-        var user = identityClient.getUser(postResponse.getUserId());
-
+        var sender = identityClient.getUser(postLike.getUserId());
+        var receiver = identityClient.getUser(postResponse.getUserId());
         Event event = Event.builder()
-                .senderId(profile.getResult().getId())
-                .senderName(profile.getResult().getFirstName() + " " + profile.getResult().getLastName())
-                .receiverId(user.getResult().getId())
-                .receiverName(user.getResult().getUsername())
-                .receiverEmail(user.getResult().getEmail())
+                .senderId(sender.getResult().getId())
+                .senderName(sender.getResult().getUsername())
+                .receiverId(receiver.getResult().getId())
+                .receiverName(receiver.getResult().getUsername())
+                .receiverEmail(receiver.getResult().getEmail())
                 .timestamp(LocalDateTime.now())
                 .build();
         log.info("Sending like post event: {}", event);
@@ -175,5 +176,4 @@ public class PostService {
                 .map(postMapper::toPostResponse)
                 .collect(Collectors.toList());
     }
-
 }

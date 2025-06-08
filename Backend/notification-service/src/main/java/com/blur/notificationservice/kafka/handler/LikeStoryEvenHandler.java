@@ -16,12 +16,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+@Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class LikeStoryEvenHandler implements EventHandler<Event> {
-    RedisTemplate<String,String> redisTemplate;
     SimpMessagingTemplate simpMessagingTemplate;
     JavaMailSender emailSender;
     NotificationService notificationService;
