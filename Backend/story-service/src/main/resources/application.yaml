@@ -7,7 +7,7 @@ spring:
     name: story-service
   data:
     mongodb:
-      uri: mongodb://root:root@localhost:27017/story-service?authSource=admin
+      uri: mongodb://root:root@host.docker.internal:27017/story-service?authSource=admin
 
 app:
   service:
