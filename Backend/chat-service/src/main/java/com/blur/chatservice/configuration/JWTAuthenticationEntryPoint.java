@@ -1,17 +1,18 @@
 package com.blur.chatservice.configuration;
 
-import com.blur.chatservice.dto.ApiResponse;
+import java.io.IOException;
 
-import com.blur.chatservice.exception.ErrorCode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 
-import java.io.IOException;
+import com.blur.chatservice.dto.ApiResponse;
+import com.blur.chatservice.exception.ErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class JWTAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override

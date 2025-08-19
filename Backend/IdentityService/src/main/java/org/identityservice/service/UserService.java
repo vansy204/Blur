@@ -17,7 +17,6 @@ import org.identityservice.repository.RoleRepository;
 import org.identityservice.repository.UserRepository;
 import org.identityservice.repository.httpclient.ProfileClient;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -56,6 +55,7 @@ public class UserService {
         }
         // tao profile tu user da nhan
         var profileResponse = profileMapper.toProfileCreationRequest(request);
+        profileResponse.setUsername(user.getUsername());
         // mapping userid tu user vao profile
         profileResponse.setUserId(user.getId());
         profileResponse.setEmail(user.getEmail());
@@ -69,8 +69,7 @@ public class UserService {
         var context = SecurityContextHolder.getContext();
         String username = context.getAuthentication().getName();
         User user =
-                userRepository.findByUsername(username)
-                        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+                userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         if (!StringUtils.hasText(request.getPassword())) {
             throw new AppException(ErrorCode.PASSWORD_EXISTED);
         }
@@ -83,7 +82,6 @@ public class UserService {
         log.info("Getting users");
         return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
     }
-
 
     public User getUserById(String userId) {
         return userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));

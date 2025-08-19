@@ -1,17 +1,19 @@
 package com.blur.chatservice.service;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
 import com.blur.chatservice.dto.ApiResponse;
 import com.blur.chatservice.dto.response.UserProfileResponse;
 import com.blur.chatservice.exception.AppException;
 import com.blur.chatservice.exception.ErrorCode;
 import com.blur.chatservice.repository.httpclient.ProfileClient;
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
 
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -44,6 +46,7 @@ public class UserProfileService {
         }
         throw new AppException(ErrorCode.USER_NOT_AUTHENTICATED);
     }
+
     public UserProfileResponse getUserProfileByProfileId(String profileId) {
         ApiResponse<UserProfileResponse> response = profileClient.getProfileById(profileId);
         return response.getResult();

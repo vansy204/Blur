@@ -1,5 +1,6 @@
 server:
   port: 8081
+  address: 0.0.0.0
   servlet:
     context-path: /profile
 spring:
@@ -8,6 +9,8 @@ spring:
     authentication:
       username: "neo4j"
       password: "12345678"
+  application:
+    name: profile-service
 
 app:
   services:

@@ -1,6 +1,6 @@
 server:
   port: 8888
-
+  address: 0.0.0.0
 app:
   api-prefix: /api
 
@@ -10,6 +10,8 @@ spring:
 
   cloud:
     gateway:
+
+
       routes:
         - id: identity_service
           uri: http://localhost:8080
@@ -35,19 +37,20 @@ spring:
             - RewritePath=/api/notification(?<segment>/?.*), /ws${segment}
 
         - id: chat_service
-          uri: ws://localhost:8083
+          uri: http://localhost:8083
           predicates:
-            - Path=${app.api-prefix}/chat/ws/**
+            - Path=${app.api-prefix}/chat/**
           filters:
-            - RewritePath=/api/chat/(?<segment>/?.*), /chat/ws${segment}
+            - StripPrefix=1
+
+
+
         - id: post_service
           uri: http://localhost:8084
           predicates:
             - Path=${app.api-prefix}/post/**
           filters:
             - StripPrefix=1
-
-
         - id: story_service
           uri: http://localhost:8086
           predicates:

@@ -37,7 +37,6 @@ public class WebClientConfiguration {
         configuration.setAllowedOrigins(List.of("http://localhost:3000")); // ❌ KHÔNG DÙNG '*'
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
@@ -50,5 +49,4 @@ public class WebClientConfiguration {
                         .uri("ws://localhost:8083/mess")) // Địa chỉ WebSocket service
                 .build();
     }
-
 }

@@ -14,5 +14,5 @@ public interface NotificationClient {
     @PostMapping(value = "/follow",  produces = MediaType.APPLICATION_JSON_VALUE)
     ApiResponse<?> sendFollowNotification(@RequestBody Event event);
     @PutMapping(value = "/like-post", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiResponse<?> sendLikePostNotification(@RequestBody Event event);
+    ApiResponse<?> sendLikePostNotification(@RequestBody Event event);
 }

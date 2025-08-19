@@ -2,6 +2,7 @@ server:
   port: 8080
   servlet:
     context-path: /identity
+  address: 0.0.0.0
 spring:
   datasource:
     url: "jdbc:mysql://localhost:3306/Identity_service"
@@ -17,6 +18,8 @@ spring:
     redis:
       host: localhost
       port: 6379
+  application:
+    name: identity-service
 outbound:
   identity:
     client-id: "948254557534-ca906iu2s6s1a33hcuvhv1pdhp9qmoti.apps.googleusercontent.com"

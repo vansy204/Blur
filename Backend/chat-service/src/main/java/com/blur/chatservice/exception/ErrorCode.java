@@ -1,8 +1,10 @@
 package com.blur.chatservice.exception;
 
+import org.springframework.http.HttpStatus;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.springframework.http.HttpStatus;
+
 @Getter
 @AllArgsConstructor
 public enum ErrorCode {
@@ -17,6 +19,4 @@ public enum ErrorCode {
     private final int code;
     private final String message;
     final HttpStatus httpStatus;
-
-
 }

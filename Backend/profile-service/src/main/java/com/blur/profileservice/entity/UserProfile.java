@@ -22,6 +22,7 @@ public class UserProfile {
     String id;
     @Property("user_id") // tuong nhu nhu column ben dbms khac
     String userId;
+    String username;
     String firstName;
     String lastName;
     String bio;

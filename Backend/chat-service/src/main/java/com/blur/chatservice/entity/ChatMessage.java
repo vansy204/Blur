@@ -1,14 +1,15 @@
 package com.blur.chatservice.entity;
 
-import com.blur.chatservice.enums.MessageStatus;
-import lombok.Builder;
-import lombok.Data;
-import lombok.experimental.FieldDefaults;
+import java.time.LocalDateTime;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
-import java.util.Date;
+import com.blur.chatservice.enums.MessageStatus;
+
+import lombok.Builder;
+import lombok.Data;
+import lombok.experimental.FieldDefaults;
 
 @Document(collection = "chat_messages")
 @Builder
@@ -17,6 +18,7 @@ import java.util.Date;
 public class ChatMessage {
     @Id
     String id;
+
     String senderId;
     String receiverId;
     String content;

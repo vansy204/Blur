@@ -1,17 +1,16 @@
 package com.blur.chatservice.exception;
 
-
-import com.blur.chatservice.dto.ApiResponse;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.blur.chatservice.dto.ApiResponse;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice
-
 @SuppressWarnings("rawtypes")
 public class GlobalExceptionHandler {
     private static final String MIN_ATTRIBUTE = "min";
@@ -46,5 +45,4 @@ public class GlobalExceptionHandler {
                         .message(errorCode.getMessage())
                         .build());
     }
-
 }
