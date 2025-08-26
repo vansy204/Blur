@@ -1,3 +1,4 @@
+
 server:
   port: 8888
   address: 0.0.0.0
@@ -59,4 +60,3 @@ spring:
             - StripPrefix=1
       httpclient:
         websocket:
-          max-frame-payload-length: 65536
