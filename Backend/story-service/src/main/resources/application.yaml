@@ -1,5 +1,7 @@
+
 server:
   port: 8086
+  address: 0.0.0.0
   servlet:
     context-path: /stories
 spring:
@@ -7,7 +9,7 @@ spring:
     name: story-service
   data:
     mongodb:
-      uri: mongodb://root:root@host.docker.internal:27017/story-service?authSource=admin
+      uri: mongodb://root:root@localhost:27017/story-service?authSource=admin
 
 app:
   service:
@@ -16,4 +18,3 @@ app:
     notification:
       url: "http://localhost:8082/notification"
     identity:
-      url: "http://localhost:8080/identity"

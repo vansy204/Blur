@@ -10,6 +10,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserProfileUpdateRequest {
+    String username;
     String firstName;
     String lastName;
     String bio;

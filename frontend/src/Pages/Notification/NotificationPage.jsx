@@ -114,7 +114,6 @@ const NotificationsPage = () => {
         position: "top-right",
       });
     }
-   
   };
 
 const filteredNotifications = notifications.filter(notification =>

@@ -45,8 +45,9 @@ public class AuthenticationService {
     InvalidatedTokenRepository tokenRepository;
     OutboundIdentityClient outboundIdentityClient;
     OutboundUserClient outboundUserClient;
-     ProfileClient profileClient;
+    ProfileClient profileClient;
     RedisService redisService;
+
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -80,7 +81,6 @@ public class AuthenticationService {
                 .issueTime(new Date())
                 .expirationTime(new Date(
                         Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()))
-
                 .jwtID(UUID.randomUUID().toString())
                 .claim("scope", buildScope(user))
                 .build();
@@ -141,11 +141,11 @@ public class AuthenticationService {
 
         Date expirationDate = (isRefresh)
                 ? new Date(signedJWT
-                .getJWTClaimsSet()
-                .getIssueTime()
-                .toInstant()
-                .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS)
-                .toEpochMilli())
+                        .getJWTClaimsSet()
+                        .getIssueTime()
+                        .toInstant()
+                        .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS)
+                        .toEpochMilli())
                 : signedJWT.getJWTClaimsSet().getExpirationTime();
         var verified = signedJWT.verify(verifier);
         if (!verified && expirationDate.after(new Date())) {

@@ -1,6 +1,5 @@
 package com.blur.chatservice.configuration;
 
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -41,14 +40,6 @@ public class SecurityConfig {
                         .jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 .authenticationEntryPoint(new JWTAuthenticationEntryPoint()));
         httpSecurity.csrf(AbstractHttpConfigurer::disable);
-        httpSecurity.cors(cors -> cors.configurationSource(request -> {
-            CorsConfiguration config = new CorsConfiguration();
-            config.addAllowedOrigin("http://localhost:3000"); // Frontend URL
-            config.addAllowedMethod("*");
-            config.addAllowedHeader("*");
-            return config;
-        }));
-
         return httpSecurity.build();
     }
 

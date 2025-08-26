@@ -2,6 +2,7 @@ package com.blur.profileservice.service;
 
 import com.blur.profileservice.dto.event.Event;
 import com.blur.profileservice.dto.request.ProfileCreationRequest;
+import com.blur.profileservice.dto.request.SearchUserRequest;
 import com.blur.profileservice.dto.request.UserProfileUpdateRequest;
 import com.blur.profileservice.dto.response.UserProfileResponse;
 import com.blur.profileservice.entity.UserProfile;
@@ -36,6 +37,7 @@ public class UserProfileService {
 
     public UserProfileResponse createProfile(ProfileCreationRequest request) {
         UserProfile userProfile = userProfileMapper.toUserProfile(request);
+        userProfile.setUsername(request.getUsername());
         userProfile.setCreatedAt(LocalDate.now());
         userProfile.setEmail(request.getEmail());
         try {
@@ -152,4 +154,12 @@ public class UserProfileService {
 
 
 
+    public List<UserProfileResponse> search(SearchUserRequest request){
+        var userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        List<UserProfile>  userProfiles = userProfileRepository.findAllByUsernameLike(request.getKeyword());
+        return  userProfiles.stream()
+                .filter(userProfile -> !userId.equals(userProfile.getUserId()))
+                .map(userProfileMapper::toUserProfileResponse)
+                .toList();
+    }
 }

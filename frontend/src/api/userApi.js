@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getToken } from "../service/LocalStorageService";
 
 const BASE_URL = "http://localhost:8888/api/profile";
 
@@ -121,6 +122,21 @@ export const searchUsersByFirstName = async (firstName, token) => {
     throw error;
   }
 };
+export const searchUsersByUserName = async (userName) => {
+  try{
+    const response = await axios.post(`${BASE_URL}/users/search`,{keyword: userName}, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+      "Content-Type": "application/json",
+    },    
+  });
+  return response.data?.result;
+  }catch (error) {
+    console.log("Error: ", error);
+    throw error;
+  }
+  
+}
 // Lấy thông tin user theo profileId
 export const fetchUserProfileById = async (profileId, token) => {
   try {

@@ -1,5 +1,6 @@
 package com.blur.profileservice.controller;
 
+import com.blur.profileservice.dto.request.SearchUserRequest;
 import com.blur.profileservice.dto.request.UserProfileUpdateRequest;
 import com.blur.profileservice.dto.response.ApiResponse;
 import com.blur.profileservice.dto.response.UserProfileResponse;
@@ -98,6 +99,12 @@ public class UserProfileController {
         var result = userProfileService.getFollowing(profileId);
         return ApiResponse.<List<UserProfileResponse>>builder()
                 .result(result)
+                .build();
+    }
+    @PostMapping("/users/search")
+    ApiResponse<List<UserProfileResponse>> search(@RequestBody SearchUserRequest request) {
+        return ApiResponse.<List<UserProfileResponse>>builder()
+                .result(userProfileService.search(request))
                 .build();
     }
 

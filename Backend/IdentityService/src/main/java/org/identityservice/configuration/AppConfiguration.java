@@ -1,15 +1,11 @@
 package org.identityservice.configuration;
 
-import java.time.LocalDate;
 import java.util.HashSet;
 
-import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.entity.Role;
 import org.identityservice.entity.User;
-import org.identityservice.mapper.ProfileMapper;
 import org.identityservice.repository.RoleRepository;
 import org.identityservice.repository.UserRepository;
-import org.identityservice.repository.httpclient.ProfileClient;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -1,5 +1,6 @@
 package com.blur.profileservice.repository;
 
+import com.blur.profileservice.dto.response.UserProfileResponse;
 import com.blur.profileservice.entity.UserProfile;
 import feign.Param;
 import org.apache.catalina.User;
@@ -39,5 +40,6 @@ public interface UserProfileRepository extends Neo4jRepository<UserProfile, Stri
             """)
     void unfollow(@Param("fromId") String fromId, @Param("toId") String toId);
 
+    List<UserProfile> findAllByUsernameLike(String username);
 
 }
