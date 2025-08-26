@@ -65,33 +65,36 @@ public class ConversationService {
         var sortedIds = userIds.stream().sorted().toList(); // sap xep lai theo thu tu de dam bao Hash la duy nhat
 
         String userIdHash = generateParticipantHash(sortedIds);
+        var conversation = conversationRepository.findByParticipantsHash(userIdHash)
+                .orElseGet(() ->{
+                    List<ParticipantInfo> participantInfos = List.of(
+                            ParticipantInfo.builder()
+                                    .userId(userInfo.getId())
+                                    .username(userInfo.getUsername())
+                                    .firstName(userInfo.getFirstName())
+                                    .lastName(userInfo.getLastName())
+                                    .avatar(userInfo.getImageUrl())
+                                    .build(),
+                            ParticipantInfo.builder()
+                                    .userId(participantInfo.getId())
+                                    .username(participantInfo.getUsername())
+                                    .firstName(participantInfo.getFirstName())
+                                    .lastName(participantInfo.getLastName())
+                                    .avatar(participantInfo.getImageUrl())
+                                    .build());
+                    // build conversation info
+                    Conversation newConversation = Conversation.builder()
+                            .type(request.getType())
+                            .participantsHash(userIdHash)
+                            .createdDate(Instant.now())
+                            .modifiedDate(Instant.now())
+                            .participants(participantInfos)
+                            .build();
+                    return conversationRepository.save(newConversation);
 
-        List<ParticipantInfo> participantInfos = List.of(
-                ParticipantInfo.builder()
-                        .userId(userInfo.getId())
-                        .username(userInfo.getUsername())
-                        .firstName(userInfo.getFirstName())
-                        .lastName(userInfo.getLastName())
-                        .avatar(userInfo.getImageUrl())
-                        .build(),
-                ParticipantInfo.builder()
-                        .userId(participantInfo.getId())
-                        .username(participantInfo.getUsername())
-                        .firstName(participantInfo.getFirstName())
-                        .lastName(participantInfo.getLastName())
-                        .avatar(participantInfo.getImageUrl())
-                        .build());
-        // build conversation info
-        Conversation conversation = Conversation.builder()
-                .type(request.getType())
-                .participantsHash(userIdHash)
-                .createdDate(Instant.now())
-                .modifiedDate(Instant.now())
-                .participants(participantInfos)
-                .build();
-       conversation = conversationRepository.save(conversation);
 
-        return toConversationResponse(conversation);
+                });
+            return toConversationResponse(conversation);
     }
 
     private String generateParticipantHash(List<String> ids) {

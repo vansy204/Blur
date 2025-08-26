@@ -23,3 +23,14 @@ export const createConversation = async (data) => {
     }
   );
 };
+export const createChatMessage =  async (data) =>{
+  return await httpClient.post(API.CREATE_CHATMESSAGE,{
+    conversationId: data.conversationId,
+    message: data.message
+  },{
+    headers:{
+      Authorization:`Bearer ${getToken()}`,
+      "Content-Type": "application/json"
+    },
+  }
+)};

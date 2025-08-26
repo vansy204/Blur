@@ -27,141 +27,12 @@ import {
   InputGroup,
   InputLeftElement,
 } from "@chakra-ui/react";
-import {
-  Plus,
-  Send,
-  RefreshCw,
-  MessageCircle,
-  Search,
-  Trophy,
-} from "lucide-react";
-import { createConversation, getMyConversations } from "../../api/messageAPi";
+import { Plus, Send, RefreshCw, MessageCircle, Search } from "lucide-react";
+import { getMyConversations } from "../../api/messageAPi";
 import { searchUsersByUserName } from "../../api/userApi";
 import axios from "axios";
 import { getToken } from "../../service/LocalStorageService";
-
-// Mock data và services
-const mockUsers = [
-  {
-    userId: "1",
-    name: "John Doe",
-    avatar:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
-  },
-  {
-    userId: "2",
-    name: "Jane Smith",
-    avatar:
-      "https://images.unsplash.com/photo-1494790108755-2616b9c56e28?w=150",
-  },
-  {
-    userId: "3",
-    name: "Mike Johnson",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-  },
-  {
-    userId: "4",
-    name: "Sarah Wilson",
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150",
-  },
-  {
-    userId: "5",
-    name: "David Brown",
-    avatar:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-  },
-  {
-    userId: "6",
-    name: "Emily Davis",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150",
-  },
-];
-
-const mockMessages = {
-  1: [
-    {
-      id: "1",
-      message: "Hi there! How are you?",
-      createdDate: new Date(Date.now() - 3600000).toISOString(),
-      me: false,
-      sender: {
-        avatar:
-          "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
-      },
-    },
-    {
-      id: "2",
-      message: "I'm doing great, thanks for asking!",
-      createdDate: new Date(Date.now() - 3000000).toISOString(),
-      me: true,
-    },
-    {
-      id: "3",
-      message: "That's wonderful to hear!",
-      createdDate: new Date(Date.now() - 1800000).toISOString(),
-      me: false,
-      sender: {
-        avatar:
-          "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
-      },
-    },
-  ],
-  2: [
-    {
-      id: "4",
-      message: "Are you free tomorrow?",
-      createdDate: new Date(Date.now() - 86400000).toISOString(),
-      me: false,
-      sender: {
-        avatar:
-          "https://images.unsplash.com/photo-1494790108755-2616b9c56e28?w=150",
-      },
-    },
-    {
-      id: "5",
-      message: "Yes, what time works for you?",
-      createdDate: new Date(Date.now() - 86300000).toISOString(),
-      me: true,
-    },
-  ],
-  3: [
-    {
-      id: "6",
-      message: "Thanks for helping me with the project!",
-      createdDate: new Date(Date.now() - 172800000).toISOString(),
-      me: false,
-      sender: {
-        avatar:
-          "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-      },
-    },
-  ],
-};
-
-const getMessages = async (conversationId) => {
-  return new Promise((resolve) => {
-    setTimeout(
-      () => resolve({ data: { result: mockMessages[conversationId] || [] } }),
-      300
-    );
-  });
-};
-
-const createMessage = async ({ conversationId, message }) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const newMessage = {
-        id: Date.now().toString(),
-        message,
-        createdDate: new Date().toISOString(),
-        me: true,
-      };
-      resolve({ data: { result: newMessage } });
-    }, 500);
-  });
-};
+import { io } from "socket.io-client";
 
 export default function MessagePage() {
   const [message, setMessage] = useState("");
@@ -174,12 +45,57 @@ export default function MessagePage() {
   const messageContainerRef = useRef(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  // Helpers xử lý ngày giờ
+  const normalizeDate = (dateStr) => {
+    if (!dateStr) return dateStr;
+    // Nếu backend trả YYYY-MM-DD -> thêm time để tránh Invalid Date
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return `${dateStr}T00:00:00Z`;
+    }
+    return dateStr;
+  };
+ useEffect(() => {
+    // Initialize socket connection
+    console.log("Initializing socket connection...");
+
+    const connectionUrl = "http://localhost:8099?token=" + getToken();
+
+    const socket = new io(connectionUrl);
+    
+    socket.on("connect", () => {
+      console.log("Socket connected");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
+
+    socket.on("message", (message) => {
+      console.log("New message received:", message);
+    });
+
+    // Cleanup function - disconnect socket when component unmounts
+    return () => {
+      console.log("Disconnecting socket...");
+      socket.disconnect();
+    };
+  }, []);
+  const formatMessageDate = (dateStr) => {
+    if (!dateStr) return "";
+    const normalized = normalizeDate(dateStr);
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleString("vi-VN", { hour12: false });
+  };
+
   const [filteredUsers, setFilteredUsers] = useState([]);
   const searchUsers = async (query) => {
+    setSearchQuery(query);
     const res = await searchUsersByUserName(query);
     console.log("Search results:", res);
     setFilteredUsers(res || []);
   };
+
   const scrollToBottom = useCallback(() => {
     if (messageContainerRef.current) {
       messageContainerRef.current.scrollTop =
@@ -193,6 +109,63 @@ export default function MessagePage() {
       }, 100);
     }
   }, []);
+
+  // GET messages theo conversationId (API bạn cung cấp)
+  const getMessages = async (conversationId) => {
+    try {
+      const res = await axios.get(`http://localhost:8888/api/chat/messages`, {
+        params: { conversationId },
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = res.data;
+      if (data?.code !== 1000) {
+        throw new Error(data?.message || "Failed to fetch messages");
+      }
+
+      const messages = (data?.result || [])
+        .map((m) => ({ ...m, createdDate: normalizeDate(m.createdDate) }))
+        .sort((a, b) => new Date(a.createdDate) - new Date(b.createdDate));
+
+      return messages; // mảng message đã chuẩn hóa
+    } catch (err) {
+      console.error("getMessages error:", err);
+      throw err;
+    }
+  };
+
+  // Tạo message mới
+  const createMessage = async ({ conversationId, message }) => {
+    try {
+      const response = await axios.post(
+        `http://localhost:8888/api/chat/messages/create`,
+        {
+          conversationId: conversationId,
+          message: message,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const data = response.data;
+      if (data.code !== 1000) {
+        throw new Error(data.message || "Failed to send message");
+      }
+      // Chuẩn hóa createdDate ngay khi trả về
+      return {
+        ...data.result,
+        createdDate: normalizeDate(data.result?.createdDate),
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
 
   const handleSelectNewChatUser = async (user) => {
     const data = {
@@ -227,12 +200,12 @@ export default function MessagePage() {
       setConversations((prev) => [newConversation, ...prev]);
       setSelectedConversation(newConversation);
     }
-    setSearchQuery(""); // Clear search when closing
+    setSearchQuery("");
     onClose();
   };
 
   const handleModalClose = () => {
-    setSearchQuery(""); // Clear search when closing
+    setSearchQuery("");
     onClose();
   };
 
@@ -264,15 +237,11 @@ export default function MessagePage() {
     const fetchMessages = async (conversationId) => {
       try {
         if (!messagesMap[conversationId]) {
-          const response = await getMessages(conversationId);
-          if (response?.data?.result) {
-            const sortedMessages = [...response.data.result].sort(
-              (a, b) => new Date(a.createdDate) - new Date(b.createdDate)
-            );
-
+          const messages = await getMessages(conversationId);
+          if (messages && Array.isArray(messages)) {
             setMessagesMap((prev) => ({
               ...prev,
-              [conversationId]: sortedMessages,
+              [conversationId]: messages,
             }));
           }
         }
@@ -315,7 +284,7 @@ export default function MessagePage() {
     if (!message.trim() || !selectedConversation) return;
 
     const tempId = `temp-${Date.now()}`;
-    const newMessage = {
+    const newMessageObj = {
       id: tempId,
       message: message,
       createdDate: new Date().toISOString(),
@@ -323,14 +292,16 @@ export default function MessagePage() {
       pending: true,
     };
 
+    // Optimistic UI
     setMessagesMap((prev) => ({
       ...prev,
       [selectedConversation.id]: [
         ...(prev[selectedConversation.id] || []),
-        newMessage,
+        newMessageObj,
       ],
     }));
 
+    // Update lastMessage
     setConversations((prev) =>
       prev.map((conv) =>
         conv.id === selectedConversation.id
@@ -347,30 +318,33 @@ export default function MessagePage() {
     setMessage("");
 
     try {
-      const response = await createMessage({
+      const sentMessage = await createMessage({
         conversationId: selectedConversation.id,
         message: messageToSend,
       });
 
-      if (response?.data?.result) {
-        setMessagesMap((prev) => {
-          const updatedMessages = prev[selectedConversation.id].filter(
+      // Thay thế tin nhắn tạm bằng tin nhắn thật
+      setMessagesMap((prev) => {
+        const updatedMessages =
+          (prev[selectedConversation.id] || []).filter(
             (msg) => msg.id !== tempId
           );
-          return {
-            ...prev,
-            [selectedConversation.id]: [
-              ...updatedMessages,
-              response.data.result,
-            ].sort((a, b) => new Date(a.createdDate) - new Date(b.createdDate)),
-          };
-        });
-      }
+        return {
+          ...prev,
+          [selectedConversation.id]: [...updatedMessages, sentMessage].sort(
+            (a, b) => new Date(a.createdDate) - new Date(b.createdDate)
+          ),
+        };
+      });
     } catch (error) {
       console.error("Failed to send message:", error);
+      // Đánh dấu lỗi cho tin nhắn tạm
       setMessagesMap((prev) => {
-        const updatedMessages = prev[selectedConversation.id].map((msg) =>
-          msg.id === tempId ? { ...msg, failed: true, pending: false } : msg
+        const updatedMessages = (prev[selectedConversation.id] || []).map(
+          (msg) =>
+            msg.id === tempId
+              ? { ...msg, failed: true, pending: false }
+              : msg
         );
         return {
           ...prev,
@@ -396,6 +370,7 @@ export default function MessagePage() {
                 icon={<Plus size={16} />}
                 onClick={onOpen}
                 borderRadius="full"
+                aria-label="new-chat"
               />
             </div>
 
@@ -559,7 +534,7 @@ export default function MessagePage() {
                               </Text>
                             )}
                             <Text fontSize="xs" color="gray.500">
-                              {new Date(msg.createdDate).toLocaleString()}
+                              {formatMessageDate(msg.createdDate)}
                             </Text>
                           </Stack>
                         </Box>
@@ -598,6 +573,7 @@ export default function MessagePage() {
                     onClick={handleSendMessage}
                     isDisabled={!message.trim()}
                     borderRadius="full"
+                    aria-label="send"
                   />
                 </div>
               </>
@@ -630,6 +606,7 @@ export default function MessagePage() {
                 placeholder="Search users..."
                 onChange={(e) => searchUsers(e.target.value)}
                 borderRadius="full"
+                value={searchQuery}
               />
             </InputGroup>
 
@@ -649,7 +626,7 @@ export default function MessagePage() {
                       borderRadius="md"
                       cursor="pointer"
                       _hover={{ bg: "gray.50" }}
-                      onClick={(e) => handleSelectNewChatUser(user)}
+                      onClick={() => handleSelectNewChatUser(user)}
                     >
                       <Avatar src={user.imageUrl} size="sm" mr={3} />
                       <Text>
