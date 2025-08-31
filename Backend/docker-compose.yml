@@ -16,14 +16,11 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_ROOT_USERNAME=root # không thực sự cần, MySQL chỉ cần MYSQL_ROOT_PASSWORD
-    networks:
-      - backend
-    volumes:
-      - mysql_data:/var/lib/mysql
+
 
   mongo:
     image: mongo:latest
-    container_name: mongodb
+    container_name: mongo-container
     ports:
       - "27017:27017"
     environment:
@@ -31,8 +28,6 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=root
     volumes:
       - mongo_data:/data/db
-    networks:
-      - backend
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -41,127 +36,27 @@ services:
       - "2181:2181"
     environment:
       - ZOOKEEPER_CLIENT_PORT=2181
-    networks:
-      - backend
+
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: bitnami/kafka:3.9.0
     container_name: kafka
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
     ports:
       - "9092:9092"
     depends_on:
       - zookeeper
-    environment:
-      - KAFKA_BROKER_ID=1
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-    networks:
-      - backend
+
+
   redis:
     image: redis:alpine
     container_name: redis
     ports:
       - "6379:6379"
-    networks:
-      - backend
 
-  api-gateway:
-    build: ./api-gateway
-    ports:
-      - "8888:8888"
-    command: [ "./wait-for.sh", "java", "-jar", "api-gateway.jar" ]
-    networks:
-      - backend
-
-  identity-service:
-    build: ./IdentityService
-    ports:
-      - "8080:8080"
-    depends_on:
-      - mysql
-    command: [ "./wait-for.sh", "mysql", "3306", "java", "-jar", "IdentityService.jar" ]
-    volumes:
-      - ./wait-for.sh:/wait-for.sh
-    networks:
-      - backend
-
-
-  chat-service:
-    build: ./chat-service
-    ports:
-      - "8083:8083"
-    depends_on:
-      - mongo
-    command: [ "./wait-for.sh", "mongodb", "27017", "java", "-jar", "chat-service.jar" ]
-    volumes:
-      - ./wait-for.sh:/wait-for.sh
-    networks:
-      - backend
-
-
-  notification-service:
-    build: ./notification-service
-    ports:
-      - "8082:8082"
-    depends_on:
-      - mongo
-      - zookeeper
-      - kafka
-      - redis
-    command: [ "./wait-for.sh", "mongodb", "27017",
-               "zookeeper","2181",
-               "kafka","9092",
-               "redis","6379",
-               "java", "-jar", "notification-service.jar" ]
-    volumes:
-      - ./wait-for.sh:/wait-for.sh
-    networks:
-      - backend
-  post-service:
-    build: ./post-service
-    ports:
-      - "8084:8084"
-    depends_on:
-      - mongo
-
-    command: [ "./wait-for.sh", "mongodb", "27017",
-               "java", "-jar", "post-service.jar" ]
-    volumes:
-      - ./wait-for.sh:/wait-for.sh
-    networks:
-      - backend
-  story-service:
-    build: ./story-service
-    ports:
-      - "8086:8086"
-    depends_on:
-      - mongo
-
-    command: [ "./wait-for.sh", "mongodb", "27017",
-               "java", "-jar", "story-service.jar" ]
-    volumes:
-      - ./wait-for.sh:/wait-for.sh
-    networks:
-      - backend
-  profile-service:
-    build: ./profile-service
-    ports:
-      - "8081:8081"
-    depends_on:
-      - neo4j
-    command: [ "./wait-for.sh", "neo4j", "7474",
-               "java", "-jar", "profile-service.jar" ]
-
-    volumes:
-      - neo4j_data:/data
-      - ./wait-for.sh:/wait-for.sh
-    networks:
-      - backend
 volumes:
   neo4j_data:
   mysql_data:
   mongo_data:
-
-networks:
-  backend:
-    driver: bridge
