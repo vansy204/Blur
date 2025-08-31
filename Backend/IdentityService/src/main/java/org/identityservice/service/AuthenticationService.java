@@ -97,12 +97,18 @@ public class AuthenticationService {
     public IntrospecResponse introspect(IntrospectRequest introspecRequest) throws JOSEException, ParseException {
         var token = introspecRequest.getToken();
         boolean isValid = true;
+        SignedJWT signedJWT = null;
         try {
-            verifyToken(token, false);
+            signedJWT =verifyToken(token, false);
         } catch (AppException e) {
             isValid = false;
         }
-        return IntrospecResponse.builder().valid(isValid).build();
+        return IntrospecResponse.builder()
+                .userId(
+                        Objects.nonNull(signedJWT) ?
+                                signedJWT.getJWTClaimsSet().getSubject() : null
+                )
+                .valid(isValid).build();
     }
 
     public void logout(LogoutRequest request) throws ParseException, JOSEException {

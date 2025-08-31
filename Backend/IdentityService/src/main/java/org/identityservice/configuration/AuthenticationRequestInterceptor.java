@@ -10,14 +10,17 @@ import feign.RequestInterceptor;
 import feign.RequestTemplate;
 
 public class AuthenticationRequestInterceptor implements RequestInterceptor {
+
     @Override
-    public void apply(RequestTemplate requestTemplate) {
+    public void apply(RequestTemplate template) {
         ServletRequestAttributes servletRequestAttributes =
                 (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        var authHeader =
-                Objects.requireNonNull(servletRequestAttributes).getRequest().getHeader("Authorization");
-        if (StringUtils.hasText(authHeader)) {
-            requestTemplate.header("Authorization", authHeader);
+        String authHeader = null;
+        if(servletRequestAttributes != null) {
+             authHeader = servletRequestAttributes.getRequest().getHeader("Authorization");
         }
+
+        if (StringUtils.hasText(authHeader))
+            template.header("Authorization", authHeader);
     }
 }
