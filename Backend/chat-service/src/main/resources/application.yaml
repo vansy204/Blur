@@ -8,14 +8,17 @@ spring:
     name: chat-service
   data:
     mongodb:
+
       uri: mongodb://root:root@localhost:27017/chat-service?authSource=admin
       auto-index-creation: true
+
   websocket:
     # Enable WebSocket support
     enabled: true
 app:
   services:
     profile:
+
       url: http://localhost:8081/profile
 
     identity:
