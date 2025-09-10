@@ -7,13 +7,13 @@
       name: post-service
     data:
       mongodb:
-        uri: mongodb://root:root@host.docker.internal:27017/post-service?authSource=admin
+        uri: mongodb://root:root@localhost:27017/post-service?authSource=admin
 
   app:
     service:
       profile:
-        url: "http://profile-service:8081/profile"
+        url: "http://localhost:8081/profile"
       notification:
-        url: "http://notification-service:8082/notification"
+        url: "http://localhost:8082/notification"
       identity:
-        url: "http://identity-service:8080/identity"
+        url: "http://localhost:8080/identity"

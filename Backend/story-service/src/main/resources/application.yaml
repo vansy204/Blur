@@ -18,3 +18,4 @@ app:
     notification:
       url: "http://localhost:8082/notification"
     identity:
+      url: "http://localhost:8080/identity"
