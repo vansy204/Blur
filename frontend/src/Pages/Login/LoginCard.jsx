@@ -8,8 +8,9 @@ import {
   Image,
   Stack,
   useToast,
+  Checkbox,
 } from "@chakra-ui/react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaGoogle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { OAuthConfig } from "../../Config/configuration";
@@ -20,8 +21,21 @@ const LoginCard = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+
+  // Load saved credentials khi component mount
+  useEffect(() => {
+    const savedCredentials = localStorage.getItem("rememberedCredentials");
+    if (savedCredentials) {
+      const { username: savedUsername, password: savedPassword } = JSON.parse(savedCredentials);
+      setUsername(savedUsername);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
+  }, []);
+
   const showToast = (title, description, status) => {
     toast({
       title,
@@ -33,8 +47,8 @@ const LoginCard = () => {
     });
   };
 
-  const handleSubmit = async (even) => {
-    even.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     const user = {
       username: username,
       password: password,
@@ -42,16 +56,30 @@ const LoginCard = () => {
     try { 
       const response = await axios.post("http://localhost:8888/api/identity/auth/token", user);
 
-      if( response.data.code !== 1000){
+      if(response.data.code !== 1000){
         throw new Error("Invalid username or password");
       }
+
+      // Xử lý ghi nhớ đăng nhập
+      if (rememberMe) {
+        // Lưu thông tin đăng nhập vào localStorage
+        localStorage.setItem("rememberedCredentials", JSON.stringify({
+          username: username,
+          password: password
+        }));
+      } else {
+        // Xóa thông tin đăng nhập đã lưu nếu không tick remember me
+        localStorage.removeItem("rememberedCredentials");
+      }
+
       setToken(response.data.result?.token);
-      showToast("Loggin success", "", "success")
+      showToast("Login success", "", "success");
       navigate("/");
     } catch (error) {
       showToast("Login Error", error.message, "error");
     }
   };
+
   const handleClick = () => {
     const callBackUrl = OAuthConfig.redirectUri;
     const authUrl = OAuthConfig.authUri;
@@ -63,6 +91,14 @@ const LoginCard = () => {
     console.log(targetUrl);
 
     window.location.href = targetUrl;
+  };
+
+  const handleRememberMeChange = (e) => {
+    setRememberMe(e.target.checked);
+    // Nếu uncheck remember me, xóa thông tin đã lưu
+    if (!e.target.checked) {
+      localStorage.removeItem("rememberedCredentials");
+    }
   };
 
   return (
@@ -79,12 +115,12 @@ const LoginCard = () => {
             src="../blur.jpg"
             alt="blur"
             style={{
-              objectFit: "cover", // Đảm bảo ảnh lấp đầy không gian
+              objectFit: "cover",
               width: "100%",
               height: "100%",
-              margin: 0, // Loại bỏ khoảng trắng
-              padding: 0, // Loại bỏ khoảng cách
-              border: "none", // Loại bỏ viền
+              margin: 0,
+              padding: 0,
+              border: "none",
             }}
           />
         </div>
@@ -104,21 +140,37 @@ const LoginCard = () => {
                   placeholder="Username"
                   required
                   autoFocus
+                  value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="mb-3">
                 <input
                   name="password"
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
+                  value={password}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+              
+              {/* Checkbox Remember Me */}
+              <div className="mb-3 flex items-center">
+                <Checkbox
+                  id="rememberMe"
+                  isChecked={rememberMe}
+                  onChange={handleRememberMeChange}
+                  colorScheme="blue"
+                  size="sm"
+                >
+                  <span className="text-sm text-gray-600">Remember me</span>
+                </Checkbox>
+              </div>
             </div>
-            <div className="font-thin mt-5 text-left">
+            
+            <div className="font-thin mt-3 text-left">
               <p>
                 You don't have an account?{" "}
                 <button

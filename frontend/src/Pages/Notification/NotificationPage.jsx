@@ -45,23 +45,7 @@ const NotificationsPage = () => {
     }
     getNotifications();
   },[token,notifications]);
-  useEffect(() => {
-    connectNotificationSocket((newNotification) => {
-      setNotifications(prev => [newNotification, ...prev]);
-      toast({
-        title: "New notification received",
-        description: newNotification.content,
-        status: "info",
-        duration: 3000,
-        isClosable: true,
-        position: "top-right",
-      });
-    }
-  );
-    return () => {
-      disconnectNotificationSocket();
-    };
-  }, [token]);
+ 
   const unreadCount = notifications.filter(n => !n.seen).length;
 
   const handleMarkRead = (id) => {

@@ -29,7 +29,6 @@ const SearchPage = () => {
       if (response?.data.code !== 1000) {
         throw new Error(response?.data.message);
       }
-
       setResults(response?.data.result);
       
     } catch (error) {
