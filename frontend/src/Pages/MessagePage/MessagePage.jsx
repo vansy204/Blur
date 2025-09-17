@@ -55,7 +55,7 @@ export default function MessagePage() {
 
   const getCurrentUser = useCallback(async () => {
     try {
-      const response = await axios.get("http://localhost:8888/api/user/profile", {
+      const response = await axios.get("/api/user/profile", {
         headers: {
           Authorization: `Bearer ${getToken()}`,
           "Content-Type": "application/json",
@@ -85,7 +85,7 @@ export default function MessagePage() {
         socketRef.current.disconnect();
       }
 
-      const connectionUrl = `http://localhost:8099?token=${token}`;
+      const connectionUrl = `http://www.blur.io.vn:8099?token=${token}`;
       socketRef.current = io(connectionUrl, {
         autoConnect: true,
         reconnection: true,
@@ -293,7 +293,7 @@ export default function MessagePage() {
   const createMessage = async ({ conversationId, message, clientId }) => {
     try {
       const response = await axios.post(
-        `http://localhost:8888/api/chat/messages/create`,
+        `/api/chat/messages/create`,
         { conversationId, message, clientId },
         {
           headers: {
@@ -485,7 +485,7 @@ export default function MessagePage() {
 
   const getMessages = async (conversationId) => {
     try {
-      const res = await axios.get(`http://localhost:8888/api/chat/messages`, {
+      const res = await axios.get(`/api/chat/messages`, {
         params: { conversationId },
         headers: {
           Authorization: `Bearer ${getToken()}`,
@@ -514,7 +514,7 @@ export default function MessagePage() {
         participantsIds: [user.userId],
       };
       const response = await axios.post(
-        "http://localhost:8888/api/chat/conversations/create",
+        "/api/chat/conversations/create",
         {
           type: data.type,
           participantIds: data.participantsIds,

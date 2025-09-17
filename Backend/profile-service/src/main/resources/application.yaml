@@ -3,9 +3,10 @@ server:
   address: 0.0.0.0
   servlet:
     context-path: /profile
+
 spring:
   neo4j:
-    uri: bolt://localhost:7687
+    uri: bolt://neo4j:7687
     authentication:
       username: "neo4j"
       password: "12345678"
@@ -14,5 +15,5 @@ spring:
 
 app:
   services:
-    identity: "http://localhost:8080/identity"
-    notification: "http://localhost:8082/notification"
+    identity: "http://identity-service:8080/identity"
+    notification: "http://notification-service:8082/notification"

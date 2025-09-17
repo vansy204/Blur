@@ -87,7 +87,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
 
       const newPost = { content, mediaUrls };
       const response = await axios.post(
-        "http://localhost:8888/api/post/create",
+        "/api/post/create",
         newPost,
         {
           headers: {

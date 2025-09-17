@@ -1,7 +1,6 @@
 package com.blur.chatservice.dto.request;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import jakarta.validation.constraints.Size;
 

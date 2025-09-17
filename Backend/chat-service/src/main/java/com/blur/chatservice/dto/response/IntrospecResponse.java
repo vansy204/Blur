@@ -11,5 +11,4 @@ import lombok.experimental.FieldDefaults;
 public class IntrospecResponse {
     boolean valid;
     String userId;
-
 }

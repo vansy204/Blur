@@ -19,7 +19,7 @@ public class WebClientConfiguration {
     @Bean
     public WebClient webClient() {
         return WebClient.builder()
-                .baseUrl("http://localhost:8080/identity")
+                .baseUrl("http://identity-service:8080/identity")
                 .build();
     }
 
@@ -34,7 +34,7 @@ public class WebClientConfiguration {
     CorsWebFilter corsWebFilter() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowCredentials(true); // 🔥 QUAN TRỌNG
-        configuration.setAllowedOrigins(List.of("http://localhost:3000")); // ❌ KHÔNG DÙNG '*'
+        configuration.setAllowedOrigins(List.of("http://www.blur.io.vn")); // ❌ KHÔNG DÙNG '*'
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

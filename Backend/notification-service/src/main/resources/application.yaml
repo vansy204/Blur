@@ -3,28 +3,26 @@ server:
   servlet:
     context-path: /notification
   address: 0.0.0.0
+
 spring:
   application:
     name: notification-service
   data:
     mongodb:
-      uri: mongodb://root:root@localhost:27017/notification-service?authSource=admin
+      uri: mongodb://root:root@mongo:27017/notification-service?authSource=admin
     redis:
-      host: localhost
+      host: redis
       port: 6379
-  #api key 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
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: kafka:9092
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-
     producer:
-        key-serializer: org.apache.kafka.common.serialization.StringSerializer
-        value-serializer: org.apache.kafka.common.serialization.StringSerializer
-
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   mail:
     host: smtp.gmail.com
     port: 587
@@ -36,8 +34,8 @@ spring:
           auth: true
           starttls:
             enable: true
+
 app:
   service:
     profile:
-      url: "http://localhost:8081/profile"
-
+      url: "http://profile-service:8081/profile"

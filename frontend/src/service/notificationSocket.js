@@ -10,7 +10,7 @@ export const connectNotificationSocket = (onMessageReceived) => {
   stompClient = new Client({
     webSocketFactory: () =>
       new SockJS(
-        `http://localhost:8888/api/notification/ws/ws-notification?token=${token}`
+        `/api/notification/ws/ws-notification?token=${token}`
       ),
     onConnect: () => {
       console.log("Connected to notification socket");

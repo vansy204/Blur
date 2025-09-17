@@ -7,7 +7,6 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +23,7 @@ import com.blur.chatservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -37,11 +37,10 @@ public class ConversationService {
     public List<ConversationResponse> myConversations() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         var userResponse = profileClient.getProfile(userId);
-        List<Conversation> conversations = conversationRepository.findAllByParticipantIdsContains(userResponse.getResult().getId());
+        List<Conversation> conversations = conversationRepository.findAllByParticipantIdsContains(
+                userResponse.getResult().getId());
 
-        return conversations.stream()
-                .map(this::toConversationResponse)
-                .collect(Collectors.toList());
+        return conversations.stream().map(this::toConversationResponse).collect(Collectors.toList());
     }
 
     public ConversationResponse createConversation(ConversationRequest request) {
@@ -65,8 +64,9 @@ public class ConversationService {
         var sortedIds = userIds.stream().sorted().toList(); // sap xep lai theo thu tu de dam bao Hash la duy nhat
 
         String userIdHash = generateParticipantHash(sortedIds);
-        var conversation = conversationRepository.findByParticipantsHash(userIdHash)
-                .orElseGet(() ->{
+        var conversation = conversationRepository
+                .findByParticipantsHash(userIdHash)
+                .orElseGet(() -> {
                     List<ParticipantInfo> participantInfos = List.of(
                             ParticipantInfo.builder()
                                     .userId(userInfo.getId())
@@ -91,10 +91,8 @@ public class ConversationService {
                             .participants(participantInfos)
                             .build();
                     return conversationRepository.save(newConversation);
-
-
                 });
-            return toConversationResponse(conversation);
+        return toConversationResponse(conversation);
     }
 
     private String generateParticipantHash(List<String> ids) {
@@ -102,15 +100,21 @@ public class ConversationService {
         ids.forEach(joiner::add);
         return joiner.toString();
     }
+
     private ConversationResponse toConversationResponse(Conversation conversation) {
-        String currentUserId = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUserId =
+                SecurityContextHolder.getContext().getAuthentication().getName();
         var profileResponse = profileClient.getProfile(currentUserId);
         ConversationResponse conversationResponse = conversationMapper.toConversationResponse(conversation);
 
         conversation.getParticipants().stream()
-                .filter(participantInfo -> !participantInfo.getUserId().equals(profileResponse.getResult().getId()))
-                .findFirst().ifPresent(participantInfo -> {
-                    conversationResponse.setConversationName(participantInfo.getFirstName() + " " + participantInfo.getLastName()) ;
+                .filter(participantInfo -> !participantInfo
+                        .getUserId()
+                        .equals(profileResponse.getResult().getId()))
+                .findFirst()
+                .ifPresent(participantInfo -> {
+                    conversationResponse.setConversationName(
+                            participantInfo.getFirstName() + " " + participantInfo.getLastName());
                     conversationResponse.setConversationAvatar(participantInfo.getAvatar());
                 });
 

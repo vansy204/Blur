@@ -1,21 +1,21 @@
-
 server:
   port: 8086
   address: 0.0.0.0
   servlet:
     context-path: /stories
+
 spring:
   application:
     name: story-service
   data:
     mongodb:
-      uri: mongodb://root:root@localhost:27017/story-service?authSource=admin
+      uri: mongodb://root:root@mongo:27017/story-service?authSource=admin
 
 app:
   service:
     profile:
-      url: "http://localhost:8081/profile"
+      url: "http://profile-service:8081/profile"
     notification:
-      url: "http://localhost:8082/notification"
+      url: "http://notification-service:8082/notification"
     identity:
-      url: "http://localhost:8080/identity"
+      url: "http://identity-service:8080/identity"

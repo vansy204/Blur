@@ -1,7 +1,5 @@
 package org.identityservice.configuration;
 
-import java.util.Objects;
-
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -16,11 +14,10 @@ public class AuthenticationRequestInterceptor implements RequestInterceptor {
         ServletRequestAttributes servletRequestAttributes =
                 (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         String authHeader = null;
-        if(servletRequestAttributes != null) {
-             authHeader = servletRequestAttributes.getRequest().getHeader("Authorization");
+        if (servletRequestAttributes != null) {
+            authHeader = servletRequestAttributes.getRequest().getHeader("Authorization");
         }
 
-        if (StringUtils.hasText(authHeader))
-            template.header("Authorization", authHeader);
+        if (StringUtils.hasText(authHeader)) template.header("Authorization", authHeader);
     }
 }

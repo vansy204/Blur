@@ -25,7 +25,7 @@ export default function Authenticate() {
     if (isMatch) {
       const authCode = isMatch[1];
       fetch(
-        `http://localhost:8888/api/identity/auth/outbound/authentication?code=${authCode}`,
+        `/api/identity/auth/outbound/authentication?code=${authCode}`,
         {
           method: "POST",
         }
@@ -42,7 +42,7 @@ export default function Authenticate() {
   const getUserDetails = async (accessToken) => {
     try {
       const response = await fetch(
-        "http://localhost:8888/api/identity/users/",
+        "/api/identity/users/",
         {
           method: "GET",
           headers: {

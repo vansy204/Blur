@@ -1,11 +1,12 @@
 package com.blur.chatservice.entity;
 
-import lombok.*;
-import lombok.experimental.FieldDefaults;
+import java.time.Instant;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.Instant;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 
 @Data
 @NoArgsConstructor
@@ -16,8 +17,8 @@ import java.time.Instant;
 public class WebsocketSession {
     @Id
     String id;
+
     String socketSessionId;
     String userId;
     Instant createdAt;
-
 }

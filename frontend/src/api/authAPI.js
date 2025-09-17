@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL  = "http://localhost:8888/identity/users";
+const BASE_URL  = "/identity/users";
 
 const config = (token) => ({
   headers: {

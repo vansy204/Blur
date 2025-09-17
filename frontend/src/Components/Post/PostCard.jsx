@@ -47,7 +47,7 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
       try {
         const [commentRes, likeRes] = await Promise.all([
           axios.get(
-            `http://localhost:8888/api/post/comment/${post.id}/comments`,
+            `/api/post/comment/${post.id}/comments`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -115,7 +115,7 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
   const handleCreateComment = async (comment) => {
     try {
       const res = await axios.post(
-        `http://localhost:8888/api/post/comment/${post.id}/create`,
+        `/api/post/comment/${post.id}/create`,
         {
           content: comment,
         },
@@ -158,7 +158,7 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
   const handlePostLike = async () => {
     try {
       const res = await axios.put(
-        `http://localhost:8888/api/post/${post.id}/like`,
+        `/api/post/${post.id}/like`,
         {},
         {
           headers: {
@@ -191,7 +191,7 @@ const PostCard = ({ post, user, onPostDeleted }) => { // Add onPostDeleted prop 
   const handlePostUnLike = async () => {
     try {
       const res = await axios.put(
-        `http://localhost:8888/api/post/${post.id}/unlike`,
+        `/api/post/${post.id}/unlike`,
         {},
         {
           headers: {
