@@ -54,7 +54,7 @@ const LoginCard = () => {
       password: password,
     };
     try { 
-      const response = await axios.post("http://localhost:8888/api/identity/auth/token", user);
+      const response = await axios.post("/api/identity/auth/token", user);
 
       if(response.data.code !== 1000){
         throw new Error("Invalid username or password");

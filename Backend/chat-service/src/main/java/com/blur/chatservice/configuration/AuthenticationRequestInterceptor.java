@@ -1,12 +1,11 @@
 package com.blur.chatservice.configuration;
 
-import feign.RequestInterceptor;
-import feign.RequestTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.util.Objects;
+import feign.RequestInterceptor;
+import feign.RequestTemplate;
 
 public class AuthenticationRequestInterceptor implements RequestInterceptor {
     @Override
@@ -14,11 +13,10 @@ public class AuthenticationRequestInterceptor implements RequestInterceptor {
         ServletRequestAttributes servletRequestAttributes =
                 (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         String authHeader = null;
-        if(servletRequestAttributes != null) {
+        if (servletRequestAttributes != null) {
             authHeader = servletRequestAttributes.getRequest().getHeader("Authorization");
         }
 
-        if (StringUtils.hasText(authHeader))
-            template.header("Authorization", authHeader);
+        if (StringUtils.hasText(authHeader)) template.header("Authorization", authHeader);
     }
 }

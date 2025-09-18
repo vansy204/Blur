@@ -1,6 +1,15 @@
 package com.blur.chatservice.controller;
 
+
 import com.blur.chatservice.dto.request.ChatMessageRequest;
+
+import java.time.Instant;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+
+import org.springframework.stereotype.Component;
+
 import com.blur.chatservice.dto.request.IntrospectRequest;
 import com.blur.chatservice.dto.response.ChatMessageResponse;
 import com.blur.chatservice.entity.ParticipantInfo;
@@ -18,6 +27,7 @@ import com.corundumstudio.socketio.annotation.OnDisconnect;
 import com.corundumstudio.socketio.annotation.OnEvent;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -32,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+
 @Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -40,61 +51,42 @@ public class SocketHandler {
     SocketIOServer socketIOServer;
     IdentityService identityService;
     WebsocketSessionService websocketSessionService;
+
     ProfileClient profileClient;
     ChatMessageService chatMessageService;
     ConversationRepository conversationRepository;
     WebsocketSessionRepository websocketSessionRepository;
 
+ 
+
     @OnConnect
     public void clientConnected(SocketIOClient client) {
-        try {
-            // get token from request params
-            String token = client.getHandshakeData().getSingleUrlParam("token");
-            log.info("Client attempting to connect with token: {}", token != null ? "exists" : "null");
+        // get token from request params
+        String token = client.getHandshakeData().getSingleUrlParam("token");
 
-            if (token == null || token.isEmpty()) {
-                log.error("No token provided in connection request");
-                client.sendEvent("auth_error", Map.of("message", "No authentication token provided"));
-                client.disconnect();
-                return;
-            }
-
-            // verify
-            var introspectRes = identityService.introspect(IntrospectRequest.builder()
-                    .token(token).build());
-
-            // if token is invalid => disconnect
-            if (introspectRes.isValid()) {
-                log.info("Client connected successfully with userId: {}", introspectRes.getUserId());
-
-                // persist websocket session
-                WebsocketSession websocketSession = WebsocketSession.builder()
-                        .socketSessionId(client.getSessionId().toString())
-                        .userId(introspectRes.getUserId())
-                        .createdAt(Instant.now())
-                        .build();
-                websocketSessionService.createWebsocketSession(websocketSession);
-                log.info("Websocket session created: {}", websocketSession.getSocketSessionId());
-
-                // Send connection success event
-                client.sendEvent("connection_success", Map.of(
-                        "message", "Connected successfully",
-                        "userId", introspectRes.getUserId()
-                ));
-            } else {
-                log.error("Authentication failed for socket connection - invalid token");
-                client.sendEvent("auth_error", Map.of("message", "Invalid or expired token"));
-                client.disconnect();
-            }
-        } catch (Exception e) {
-            log.error("Error during client connection: ", e);
-            client.sendEvent("connection_error", Map.of("message", "Connection failed: " + e.getMessage()));
+        // verify
+        var introspectRes = identityService.introspect(
+                IntrospectRequest.builder().token(token).build());
+        // if token is invalid => disconnect
+        if (introspectRes.isValid()) {
+            log.info("client connected");
+            // persist websocket session
+            WebsocketSession websocketSession = WebsocketSession.builder()
+                    .socketSessionId(client.getSessionId().toString())
+                    .userId(introspectRes.getUserId())
+                    .createdAt(Instant.now())
+                    .build();
+            websocketSessionService.createWebsocketSession(websocketSession);
+            log.info("websocket session created: {}", websocketSession.getSocketSessionId());
+        } else {
+            log.error("authentication failed");
             client.disconnect();
         }
     }
 
     @OnDisconnect
     public void clientDisconnected(SocketIOClient client) {
+
         log.info("Client disconnected: {}", client.getSessionId());
         try {
             websocketSessionService.deleteSession(client.getSessionId().toString());
@@ -102,6 +94,15 @@ public class SocketHandler {
             log.error("Error during client disconnection cleanup: ", e);
         }
     }
+
+        log.info("client disconnected: {}", client.getSessionId());
+        websocketSessionService.deleteSession(client.getSessionId().toString());
+    }
+
+    @PostConstruct
+    public void startServer() {
+        socketIOServer.start();
+        socketIOServer.addListeners(this);
 
     @OnEvent("send_message")
     public void onSendMessage(SocketIOClient client, ChatMessageRequest data) {
@@ -243,25 +244,11 @@ public class SocketHandler {
         }
     }
 
-    @PostConstruct
-    public void startServer() {
-        try {
-            socketIOServer.start();
-            socketIOServer.addListeners(this);
-            log.info("SocketIOServer started successfully");
-        } catch (Exception e) {
-            log.error("Failed to start SocketIOServer: ", e);
-            throw e;
-        }
-    }
 
     @PreDestroy
     public void stopServer() {
-        try {
-            socketIOServer.stop();
-            log.info("SocketIOServer stopped");
-        } catch (Exception e) {
-            log.error("Error stopping SocketIOServer: ", e);
-        }
+        socketIOServer.stop();
+        log.info("SocketIOServer stopped");
+
     }
 }

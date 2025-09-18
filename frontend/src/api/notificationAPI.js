@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:8888";
+const BASE_URL = "";
 const NOTIFICATION_API = `${BASE_URL}/api/notification`;
 const config = (token) => ({
   headers: {

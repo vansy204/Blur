@@ -35,7 +35,7 @@ const CreatePassword = () => {
   const checkPassword = () => password === confirmPassword;
 
   const getUserDetails = async (accessToken) => {
-    const response = await fetch("http://localhost:8888/api/identity/users/", {
+    const response = await fetch("/api/identity/users/", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -49,7 +49,7 @@ const CreatePassword = () => {
     event.preventDefault();
     if (checkPassword()) {
       const body = { password };
-      fetch("http://localhost:8888/api/identity/users/create-password", {
+      fetch("/api/identity/users/create-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

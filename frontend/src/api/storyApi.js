@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getToken } from "../service/LocalStorageService";
 
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:8888";
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 const STORY_API = `${BASE_URL}/api/stories`;
 
 // Helper function to get the authorization headers

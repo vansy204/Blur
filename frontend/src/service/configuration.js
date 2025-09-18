@@ -1,5 +1,5 @@
 export const CONFIG ={
-    API_GATEWAY: "http://localhost:8888/api"
+    API_GATEWAY: "/api"
 };
 export const API ={
     MY_CONVERSATIONS: "chat/conversations/my-conversations",

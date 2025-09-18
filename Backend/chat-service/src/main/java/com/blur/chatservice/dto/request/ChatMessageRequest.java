@@ -1,6 +1,7 @@
 package com.blur.chatservice.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +16,7 @@ import lombok.experimental.FieldDefaults;
 public class ChatMessageRequest {
     @NotBlank
     String conversationId;
+
     @NotBlank
     String message;
-
 }
