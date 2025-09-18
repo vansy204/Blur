@@ -1,0 +1,123 @@
+/* styles/darkmode.css */
+
+/* Dark mode cho React DatePicker */
+.date-picker-wrapper.dark .react-datepicker {
+  background-color: #1f2937;
+  border: 1px solid #4b5563;
+  color: white;
+}
+
+.date-picker-wrapper.dark .react-datepicker__header {
+  background-color: #374151;
+  border-bottom: 1px solid #4b5563;
+}
+
+.date-picker-wrapper.dark .react-datepicker__current-month {
+  color: white;
+}
+
+.date-picker-wrapper.dark .react-datepicker__day-name {
+  color: #9ca3af;
+}
+
+.date-picker-wrapper.dark .react-datepicker__day {
+  color: white;
+}
+
+.date-picker-wrapper.dark .react-datepicker__day:hover {
+  background-color: #4b5563;
+}
+
+.date-picker-wrapper.dark .react-datepicker__day--selected {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.date-picker-wrapper.dark .react-datepicker__day--keyboard-selected {
+  background-color: #1d4ed8;
+}
+
+.date-picker-wrapper.dark .react-datepicker__navigation {
+  border: 0.45rem solid transparent;
+}
+
+.date-picker-wrapper.dark .react-datepicker__navigation--previous {
+  border-right-color: #9ca3af;
+}
+
+.date-picker-wrapper.dark .react-datepicker__navigation--next {
+  border-left-color: #9ca3af;
+}
+
+.date-picker-wrapper.dark .react-datepicker__navigation:hover {
+  border-right-color: white;
+}
+
+.date-picker-wrapper.dark .react-datepicker__navigation--next:hover {
+  border-left-color: white;
+}
+
+.date-picker-wrapper.dark .react-datepicker__month-dropdown,
+.date-picker-wrapper.dark .react-datepicker__year-dropdown {
+  background-color: #1f2937;
+  border: 1px solid #4b5563;
+}
+
+.date-picker-wrapper.dark .react-datepicker__month-option,
+.date-picker-wrapper.dark .react-datepicker__year-option {
+  color: white;
+}
+
+.date-picker-wrapper.dark .react-datepicker__month-option:hover,
+.date-picker-wrapper.dark .react-datepicker__year-option:hover {
+  background-color: #4b5563;
+}
+
+/* Base styles cho dark mode */
+.dark {
+  color-scheme: dark;
+}
+
+/* Scrollbar styles cho dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Animation cho transitions */
+.dark-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Base component classes cho dark mode */
+.card-dark {
+  @apply bg-gray-800 border-gray-700;
+}
+
+.input-dark {
+  @apply bg-gray-800 border-gray-600 text-white placeholder-gray-400;
+}
+
+.button-dark {
+  @apply bg-gray-700 hover:bg-gray-600 text-white;
+}
+
+.text-dark {
+  @apply text-white;
+}
+
+.border-dark {
+  @apply border-gray-600;
+}

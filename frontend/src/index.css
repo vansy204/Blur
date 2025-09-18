@@ -3,3 +3,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* desktop */
+.container {
+  width: 1200px;
+  margin: auto;
+}
+
+/* responsive nhanh */
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    padding: 0 10px;
+  }
+  .sidebar {
+    display: none; /* ẩn sidebar trên mobile */
+  }
+  .card {
+    width: 100%; /* full width card */
+  }
+}
