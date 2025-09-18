@@ -118,7 +118,7 @@ const Router = () => {
         className={`
           flex-1 min-h-screen w-full max-w-full overflow-x-hidden
           ${shouldShowSidebar && isMobile ? 'pt-16 px-4' : ''}
-          ${shouldShowSidebar && !isMobile ? 'pl-3' : ''}
+          ${shouldShowSidebar && !isMobile ? 'pl-3' : ''} 
           ${!shouldShowSidebar ? 'px-4 md:px-0' : ''}
         `}
       >
