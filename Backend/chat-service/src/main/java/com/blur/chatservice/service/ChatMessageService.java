@@ -20,6 +20,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -45,9 +46,9 @@ public class  ChatMessageService {
     WebsocketSessionRepository websocketSessionRepository;
     ObjectMapper objectMapper;
 
-    public ChatMessageResponse create(ChatMessageRequest chatMessageRequest) throws JsonProcessingException {
+    public ChatMessageResponse create(ChatMessageRequest chatMessageRequest, String userId) throws JsonProcessingException {
         // validated conversationId
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+      //Authentication userId = SecurityContextHolder.getContext().getAuthentication();
         var userResponse = profileClient.getProfile(userId);
         var conversation = conversationRepository.findById(chatMessageRequest.getConversationId())
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
@@ -56,8 +57,6 @@ public class  ChatMessageService {
                 .filter(participantInfo -> userResponse.getResult().getId().equals(participantInfo.getUserId()))
                 .findAny()
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-
         // buid chatmessage info
         var userInfo = userResponse.getResult();
 

@@ -76,7 +76,7 @@ const LoginCard = () => {
       showToast("Login success", "", "success");
       navigate("/");
     } catch (error) {
-      showToast("Login Error", error.message, "error");
+      showToast("Login Error", "Invalid username or password", "error");
     }
   };
 
@@ -88,7 +88,7 @@ const LoginCard = () => {
     const targetUrl = `${authUrl}?redirect_uri=${encodeURIComponent(
       callBackUrl
     )}&response_type=code&client_id=${googleClientId}&scope=openid%20email%20profile`;
-    console.log(targetUrl);
+ 
 
     window.location.href = targetUrl;
   };
