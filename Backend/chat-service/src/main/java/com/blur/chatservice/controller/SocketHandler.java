@@ -7,14 +7,18 @@ import jakarta.annotation.PreDestroy;
 
 import org.springframework.stereotype.Component;
 
+import com.blur.chatservice.dto.request.ChatMessageRequest;
 import com.blur.chatservice.dto.request.IntrospectRequest;
 import com.blur.chatservice.entity.WebsocketSession;
+import com.blur.chatservice.service.ChatMessageService;
 import com.blur.chatservice.service.IdentityService;
 import com.blur.chatservice.service.WebsocketSessionService;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.annotation.OnConnect;
 import com.corundumstudio.socketio.annotation.OnDisconnect;
+import com.corundumstudio.socketio.annotation.OnEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,7 @@ public class SocketHandler {
     SocketIOServer socketIOServer;
     IdentityService identityService;
     WebsocketSessionService websocketSessionService;
+    ChatMessageService chatMessageService;
 
     @OnConnect
     public void clientConnected(SocketIOClient client) {
@@ -52,6 +57,19 @@ public class SocketHandler {
         } else {
             log.error("authentication failed");
             client.disconnect();
+        }
+    }
+
+    @OnEvent("send_message")
+    public void onSendMessage(SocketIOClient client, ChatMessageRequest request) {
+        try {
+            log.info("Received send_message from client {}: {}", client.getSessionId(), request);
+            // Tạo tin nhắn và tự động publish cho những người tham gia
+            chatMessageService.create(request);
+            // Không cần tự sendEvent ở đây vì create() đã publish
+        } catch (JsonProcessingException e) {
+            log.error("Error while sending message: {}", e.getMessage(), e);
+            client.sendEvent("error", "Cannot send message");
         }
     }
 
