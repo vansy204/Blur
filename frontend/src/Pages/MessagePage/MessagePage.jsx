@@ -1,199 +1,166 @@
-// MessagePage.js (Main Component)
-import React, { useState, useEffect, useCallback } from "react";
-import { useToast } from "@chakra-ui/react";
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import axios from "axios";
+import { io } from "socket.io-client";
+import { getToken } from "../../service/LocalStorageService";
 import { getMyConversations } from "../../api/messageAPi";
 import { searchUsersByUserName } from "../../api/userApi";
-import axios from "axios";
-import { getToken } from "../../service/LocalStorageService";
-import { useSocket } from "../../hooks/useSocket";
-import Sidebar from "../../Components/Message/Sidebar";
-import ChatArea from "../../Components/Message/ChatArea"
+
+import ConnectionStatus from "./../../Components/Message/ConnectionStatus";
+import ConversationList from "./../../Components/Message/ConversationList";
+import MessageList from "./../../Components/Message/MessageList";
+import MessageInput from "./../../Components/Message/MessageInput";
+
+
 
 export default function MessagePage() {
   const [message, setMessage] = useState("");
   const [conversations, setConversations] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [messagesMap, setMessagesMap] = useState({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [showUserSearch, setShowUserSearch] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
-  const toast = useToast();
 
-  // Check if device is mobile
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const maxReconnectAttempts = 5;
+
+
+  const socketRef = useRef(null);
+
+  /** Kết nối socket.io */
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      // On desktop, always show sidebar
-      if (window.innerWidth >= 768) {
-        setShowSidebar(true);
-      }
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    const token = getToken();
+    if (!token) return;
 
-  // Handle mobile conversation selection
-  const handleConversationSelect = (conversation) => {
-    setSelectedConversation(conversation);
-    if (isMobile) {
-      setShowSidebar(false); // Hide sidebar on mobile when conversation is selected
-    }
-  };
-
-  // Handle back to conversations list on mobile
-  const handleBackToConversations = () => {
-    if (isMobile) {
-      setShowSidebar(true);
-      setSelectedConversation(null);
-    }
-  };
-
-  const normalizeDate = (dateStr) => dateStr || new Date().toISOString();
-
-  // Get current user
-  const getCurrentUser = useCallback(async () => {
-    try {
-      const response = await axios.get("/api/user/profile", {
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (response.data?.result?.userId) {
-        setCurrentUserId(response.data.result.userId);
-        console.log("Current user ID:", response.data.result.userId);
-      }
-    } catch (error) {
-      console.error("Failed to get current user:", error);
-    }
-  }, []);
-
-
-  // Lưu tham chiếu hàm handler để off/on listener đúng cách
-  const messageHandlerRef = useRef(null);
-
-  useEffect(() => {
-    const initializeSocket = () => {
-      const token = getToken();
-      if (!token) return;
-
-      // Nếu socket trước đó tồn tại, gỡ hết listener rồi disconnect
-      if (socketRef.current) {
-        try {
-          socketRef.current.removeAllListeners?.();
-        } catch (_) {}
-        socketRef.current.disconnect();
-      }
-
-      const connectionUrl = `http://www.blur.io.vn:8099?token=${token}`;
-      socketRef.current = io(connectionUrl, {
-        autoConnect: true,
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
-        timeout: 20000,
-        forceNew: true,
-      });
-
-      const socket = socketRef.current;
-
-      messageHandlerRef.current = (messageData) => {
-        try {
-          const msgObj = typeof messageData === "string" ? JSON.parse(messageData) : messageData;
-          if (msgObj && msgObj.conversationId && (msgObj.message || msgObj.text)) {
-            const normalized = {
-              ...msgObj,
-              message: msgObj.message ?? msgObj.text,
-            };
-            handleIncomingMessage(normalized);
-          }
-        } catch (err) {
-          console.error("Error processing incoming message:", err);
-        }
-      };
-
-      socket.on("connect", () => {
-        setIsConnected(true);
-        toast({
-          title: "Connected",
-          description: "Real-time messaging is active",
-          status: "success",
-          duration: 2000,
-          isClosable: true,
-        });
-        socket.off("message", messageHandlerRef.current);
-        socket.on("message", messageHandlerRef.current);
-      });
-
-      socket.on("disconnect", (reason) => {
-        setIsConnected(false);
-        if (reason === "io server disconnect") {
-          socket.connect();
-        }
-      });
-
-      socket.on("connect_error", () => {
-        setIsConnected(false);
-        toast({
-          title: "Connection Error",
-          description: "Failed to connect to real-time messaging",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-      });
-
-      socket.on("reconnect", () => {
-        setIsConnected(true);
-        toast({
-          title: "Reconnected",
-          description: "Real-time messaging restored",
-          status: "success",
-          duration: 2000,
-          isClosable: true,
-        });
-        socket.off("message", messageHandlerRef.current);
-        socket.on("message", messageHandlerRef.current);
-      });
-
-      // Các sự kiện khác có thể xử lý...
-      socket.on("user_typing", () => {});
-      socket.on("message_status", () => {});
-    };
-
-    initializeSocket();
-    getCurrentUser();
-
-    return () => {
-      if (socketRef.current) {
-        try {
-          socketRef.current.removeAllListeners?.();
-        } catch (_) {}
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [getCurrentUser, toast]);
-
-  // Cập nhật lại cờ me khi có currentUserId mới
-  useEffect(() => {
-    if (!currentUserId) return;
-    setMessagesMap((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((cid) => {
-        next[cid] = (next[cid] || []).map((m) => ({
-          ...m,
-          me: m.senderId ? m.senderId === currentUserId : !!m.me,
-        }));
-      });
-      return next;
+    const socket = io(`http://www.blur.io.vn:8099?token=${token}`, {
+      autoConnect: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: maxReconnectAttempts,
+      timeout: 20000,
     });
+
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      setIsConnected(true);
+      setConnectionError("");
+      setReconnectAttempts(0);
+    });
+
+    socket.on("disconnect", () => {
+      setIsConnected(false);
+    });
+
+    socket.on("connect_error", () => {
+      setIsConnected(false);
+      setConnectionError("Failed to connect to real-time messaging");
+    });
+
+    socket.on("reconnect_attempt", (attempt) => {
+      setReconnectAttempts(attempt);
+    });
+
+    socket.on("message", (data) => {
+      const msg = typeof data === "string" ? JSON.parse(data) : data;
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
+  /** Lấy danh sách hội thoại */
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getMyConversations();
+        setConversations(res?.data?.result || []);
+      } catch (err) {
+        setConnectionError("Failed to load conversations");
+      }
+    })();
+  }, []);
+
+  /** Lấy tin nhắn của cuộc trò chuyện */
+  useEffect(() => {
+    if (!selectedChat) return;
+    (async () => {
+      try {
+        const res = await axios.get(`/api/chat/messages`, {
+          params: { conversationId: selectedChat.id },
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        const list = (res.data?.result || []).map((m) => ({
+          id: m.id,
+          sender: m.me ? "me" : "other",
+          text: m.message,
+        }));
+        setMessages(list);
+      } catch {
+        setConnectionError("Failed to load messages");
+      }
+    })();
+  }, [selectedChat]);
+
+  /** Gửi tin nhắn */
+  const sendMessage = async () => {
+    if (!message.trim() || !selectedChat) return;
+    const newMsg = {
+      sender: "me",
+      text: message,
+      conversationId: selectedChat.id,
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    setMessage("");
+
+    try {
+      await axios.post(
+        `/api/chat/messages/create`,
+        { conversationId: selectedChat.id, message },
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      socketRef.current?.emit("send_message", {
+        conversationId: selectedChat.id,
+        message,
+      });
+    } catch {
+      setConnectionError("Failed to send message");
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  return (
+    <div className="flex h-screen">
+      <ConnectionStatus
+        connectionError={connectionError}
+        reconnectAttempts={reconnectAttempts}
+        maxReconnectAttempts={maxReconnectAttempts}
+      />
+      <ConversationList
+        conversations={conversations.map((c) => ({
+          ...c,
+          name: c.conversationName,
+          avatar: c.conversationAvatar,
+        }))}
+        selectedChat={selectedChat}
+        setSelectedChat={setSelectedChat}
+      />
+      <div className="flex flex-col flex-1">
+        <MessageList messages={messages} />
+        <MessageInput
+          message={message}
+          setMessage={setMessage}
+          sendMessage={sendMessage}
+          handleKeyPress={handleKeyPress}
+        />
+      </div>
+=======
   }, [currentUserId]);
 
 
@@ -524,6 +491,7 @@ export default function MessagePage() {
           </div>
         </>
       )}
+
     </div>
   );
 }
