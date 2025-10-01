@@ -1,10 +1,10 @@
 import { API } from "../service/configuration";
 import httpClient from "../service/httpClient";
 import { getToken } from "../service/LocalStorageService";
-export const getMyConversations = async () => {
+export const getMyConversations = async (token) => {
   return await httpClient.get(API.MY_CONVERSATIONS, {
     headers: {
-      Authorization: `Bearer ${getToken()}`,
+      Authorization: `Bearer ${token}`,
     },
   });
 };

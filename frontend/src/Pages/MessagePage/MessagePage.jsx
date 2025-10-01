@@ -21,13 +21,13 @@ export default function MessagePage() {
   const maxReconnectAttempts = 5;
 
   const socketRef = useRef(null);
-
+const token = getToken();
   /** Kết nối socket.io */
   useEffect(() => {
-    const token = getToken();
+    
     if (!token) return;
 
-    const socket = io(`http://www.blur.io.vn:8099?token=${token}`, {
+    const socket = io(`http://localhost:8099?token=${token}`, {
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1000,
@@ -64,10 +64,11 @@ export default function MessagePage() {
   }, []);
 
   /** Lấy danh sách hội thoại */
+  
   useEffect(() => {
     (async () => {
       try {
-        const res = await getMyConversations();
+        const res = await getMyConversations(token);
         setConversations(res?.data?.result || []);
       } catch (err) {
         setConnectionError("Failed to load conversations");
@@ -80,9 +81,9 @@ export default function MessagePage() {
     if (!selectedChat) return;
     (async () => {
       try {
-        const res = await axios.get(`/api/chat/messages`, {
+        const res = await axios.get(`http://localhost:8888/api/chat/messages`, {
           params: { conversationId: selectedChat.id },
-          headers: { Authorization: `Bearer ${getToken()}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         const list = (res.data?.result || []).map((m) => ({
           id: m.id,
@@ -109,7 +110,7 @@ export default function MessagePage() {
 
     try {
       await axios.post(
-        `/api/chat/messages/create`,
+        `http://localhost:8888/api/chat/messages/create`,
         { conversationId: selectedChat.id, message },
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );

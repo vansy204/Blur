@@ -49,7 +49,7 @@ const CreatePassword = () => {
     event.preventDefault();
     if (checkPassword()) {
       const body = { password };
-      fetch("/api/identity/users/create-password", {
+      fetch("http://localhost:8888/api/identity/users/create-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -17,7 +17,7 @@ public class SocketIOConfig {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
         config.setHostname("0.0.0.0");
         config.setPort(8099);
-        config.setOrigin("http://www.blur.io.vn");
+        config.setOrigin("http://localhost:3000");
         return new SocketIOServer(config);
     }
 
@@ -25,7 +25,7 @@ public class SocketIOConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(List.of("http://www.blur.io.vn"));
+        config.setAllowedOrigins(List.of("http://localhost:3000"));
 
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

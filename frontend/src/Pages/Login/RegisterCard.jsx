@@ -34,7 +34,7 @@ const RegisterCard = () => {
     };
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const res = await axios.post('/api/identity/users/registration', formData);
+    const res = await axios.post('http://localhost:8888/api/identity/users/registration', formData);
     if(res.data?.code !== 1000){
         showToast("Registration Error", res.data?.message, "error");
     }

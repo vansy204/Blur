@@ -3,7 +3,7 @@ import axios from "axios";
 export const fetchUserPosts = async (token) => {
   try {
     const response = await axios.get(
-      "/api/post/my-posts",
+      "http://localhost:8888/api/post/my-posts",
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -24,7 +24,7 @@ export const fetchUserPosts = async (token) => {
 };
 export const fetchAllPost = async (token) => {
   try {
-    const response = await axios.get("/api/post/all", {
+    const response = await axios.get("http://localhost:8888/api/post/all", {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -42,7 +42,7 @@ export const fetchAllPost = async (token) => {
 };
 export const fetchLikePost = async (token,postId) =>{
   try {
-    const response = await axios.get(`/api/post/${postId}/likes`, {
+    const response = await axios.get(`http://localhost:8888/api/post/${postId}/likes`, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
