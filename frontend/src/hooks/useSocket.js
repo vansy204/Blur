@@ -3,9 +3,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { getToken } from '../service/LocalStorageService';
 
-
-export const useSocket = (currentUserId, onMessageReceived) => {
+export const useSocket = () => {
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const maxReconnectAttempts = 5;
   const socketRef = useRef(null);
 
   const initializeSocket = useCallback(() => {
@@ -17,35 +19,37 @@ export const useSocket = (currentUserId, onMessageReceived) => {
       socketRef.current.disconnect();
     }
 
-    const connectionUrl = `http://localhost:8099?token=${token}`;
-    socketRef.current = io(connectionUrl, {
+    const socket = io(`http://localhost:8099?token=${token}`, {
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: maxReconnectAttempts,
       timeout: 20000,
-      forceNew: true,
     });
 
-    const socket = socketRef.current;
+    socketRef.current = socket;
 
     socket.on("connect", () => {
       setIsConnected(true);
-      console.log("Socket connected:", socket.id);
+      setConnectionError("");
+      setReconnectAttempts(0);
     });
 
     socket.on("disconnect", () => {
       setIsConnected(false);
-      console.log("Socket disconnected");
     });
 
-    socket.on("message_received", (messageData) => {
-      console.log("Received message:", messageData);
-      onMessageReceived(messageData);
+    socket.on("connect_error", () => {
+      setIsConnected(false);
+      setConnectionError("Failed to connect to real-time messaging");
+    });
+
+    socket.on("reconnect_attempt", (attempt) => {
+      setReconnectAttempts(attempt);
     });
 
     return socket;
-  }, [onMessageReceived]);
+  }, []);
 
   useEffect(() => {
     const socket = initializeSocket();
@@ -64,5 +68,25 @@ export const useSocket = (currentUserId, onMessageReceived) => {
     }
   };
 
-  return { isConnected, emit };
+  const onMessage = (callback) => {
+    if (socketRef.current) {
+      socketRef.current.on("message", callback);
+    }
+  };
+
+  const offMessage = () => {
+    if (socketRef.current) {
+      socketRef.current.off("message");
+    }
+  };
+
+  return {
+    isConnected,
+    connectionError,
+    reconnectAttempts,
+    maxReconnectAttempts,
+    emit,
+    onMessage,
+    offMessage
+  };
 };

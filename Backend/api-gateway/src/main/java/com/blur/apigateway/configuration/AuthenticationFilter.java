@@ -41,7 +41,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     String[] publicEnpoints = {
             "/identity/auth/.*",
             "/identity/users/registration",
-            "/notification/email/send"
+            "/notification/email/send",
+            "/chat/.*"
     };
 
 

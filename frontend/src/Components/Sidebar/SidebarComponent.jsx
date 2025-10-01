@@ -68,7 +68,7 @@ export const SidebarComponent = ({ onPostCreate }) => {
       if (!userData) return;
       try {
         const response = await axios.get(
-          "/api/profile/users/myInfo",
+          "http://localhost:8888/api/profile/users/myInfo",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -90,7 +90,7 @@ export const SidebarComponent = ({ onPostCreate }) => {
       e.preventDefault();
       const token = getToken();
       const response = await axios.post(
-        "/api/identity/auth/logout",
+        "http://localhost:8888/api/identity/auth/logout",
         { token }
       );
       if (response.data.code !== 1000) throw new Error("Invalid token");
