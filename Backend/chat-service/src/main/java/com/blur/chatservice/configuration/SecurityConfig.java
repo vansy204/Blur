@@ -28,20 +28,18 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity
                 // Cho phép OPTIONS requests (CORS preflight)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/ws/websocket/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll() // Health check
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                        .permitAll()
+                        .requestMatchers("/ws/websocket/**")
+                        .permitAll()
+                        .requestMatchers("/actuator/**")
+                        .permitAll() // Health check
+                        .anyRequest()
+                        .authenticated())
                 // OAuth2 Resource Server với JWT
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt
-                                .decoder(customJwtDecoder)
-                                .jwtAuthenticationConverter(jwtAuthenticationConverter())
-                        )
-                        .authenticationEntryPoint(new JWTAuthenticationEntryPoint())
-                )
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt ->
+                                jwt.decoder(customJwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .authenticationEntryPoint(new JWTAuthenticationEntryPoint()))
                 // Disable CSRF cho REST API
                 .csrf(AbstractHttpConfigurer::disable);
 

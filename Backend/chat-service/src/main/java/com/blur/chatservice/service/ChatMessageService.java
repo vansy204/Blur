@@ -2,10 +2,6 @@ package com.blur.chatservice.service;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -14,7 +10,6 @@ import com.blur.chatservice.dto.request.ChatMessageRequest;
 import com.blur.chatservice.dto.response.ChatMessageResponse;
 import com.blur.chatservice.entity.ChatMessage;
 import com.blur.chatservice.entity.ParticipantInfo;
-import com.blur.chatservice.entity.WebsocketSession;
 import com.blur.chatservice.exception.AppException;
 import com.blur.chatservice.exception.ErrorCode;
 import com.blur.chatservice.mapper.ChatMessageMapper;
@@ -31,20 +26,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -58,22 +39,26 @@ public class ChatMessageService {
     WebsocketSessionRepository websocketSessionRepository;
     ObjectMapper objectMapper;
 
-    public ChatMessageResponse create(ChatMessageRequest chatMessageRequest, String userId) throws JsonProcessingException {
-        // validated conversationId
-      //Authentication userId = SecurityContextHolder.getContext().getAuthentication();
+    public ChatMessageResponse create(ChatMessageRequest chatMessageRequest, String userId)
+            throws JsonProcessingException {
+        log.info(
+                "📝 Creating message for conversation: {} by user: {}", chatMessageRequest.getConversationId(), userId);
+
+        // Validate user profile
         var userResponse = profileClient.getProfile(userId);
+
+        // Validate conversation
         var conversation = conversationRepository
                 .findById(chatMessageRequest.getConversationId())
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
         conversation.getParticipants().stream()
                 .filter(participantInfo -> userResponse.getResult().getId().equals(participantInfo.getUserId()))
                 .findAny()
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
-
-        // buid chatmessage info
+        // Build chat message
         var userInfo = userResponse.getResult();
-
         ChatMessage chatMessage = chatMessageMapper.toChatMessage(chatMessageRequest);
         chatMessage.setSender(ParticipantInfo.builder()
                 .userId(userInfo.getUserId())
@@ -82,54 +67,57 @@ public class ChatMessageService {
                 .lastName(userInfo.getLastName())
                 .avatar(userInfo.getImageUrl())
                 .build());
-
         chatMessage.setCreatedDate(Instant.now());
-        // create chat message
+
+        // Save to database
         chatMessage = chatMessageRepository.save(chatMessage);
-        // publish socket event to client
-        // get participants Ids
-        List<String> userIds = conversation.getParticipants().stream()
-                .map(ParticipantInfo::getUserId)
-                .toList();
-        Map<String, WebsocketSession> websocketSessions = websocketSessionRepository.findALlByUserIdIn(userIds).stream()
-                .collect(Collectors.toMap(WebsocketSession::getSocketSessionId, Function.identity()));
-        ChatMessageResponse chatMessageResponse = chatMessageMapper.toChatMessageResponse(chatMessage);
-        socketIOServer.getAllClients().forEach(client -> {
-            var websocketSession = websocketSessions.get(client.getSessionId().toString());
-            if (Objects.nonNull(websocketSession)) {
-                String message = null;
-                try {
-                    chatMessageResponse.setMe(websocketSession.getUserId().equals(userId));
-                    message = objectMapper.writeValueAsString(chatMessageResponse);
-                    client.sendEvent("message", message);
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-        return toChatMessageResponse(chatMessage);
+
+        log.info("✅ Message saved with ID: {}", chatMessage.getId());
+
+        // ✅ Return response WITHOUT setting 'me' flag
+        // SocketHandler sẽ lo việc này khi broadcast
+        return toChatMessageResponse(chatMessage, null);
     }
 
-    private ChatMessageResponse toChatMessageResponse(ChatMessage chatMessage) {
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+    // ✅ Overload method với userId parameter
+    private ChatMessageResponse toChatMessageResponse(ChatMessage chatMessage, String currentUserId) {
         var chatMessageResponse = chatMessageMapper.toChatMessageResponse(chatMessage);
-        chatMessageResponse.setMe(userId.equals(chatMessage.getSender().getUserId()));
+
+        // Chỉ set 'me' flag nếu currentUserId được cung cấp
+        if (currentUserId != null) {
+            chatMessageResponse.setMe(
+                    currentUserId.equals(chatMessage.getSender().getUserId()));
+        }
+
         return chatMessageResponse;
     }
 
     public List<ChatMessageResponse> getMessages(String conversationId) {
-        // validate conversation
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        // ✅ Lấy userId từ SecurityContext (vì đây là REST API call)
+        String userId = null;
+        try {
+            userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        } catch (Exception e) {
+            log.warn("⚠️ No authentication context, 'me' flag will not be set");
+        }
+
         var userResponse = profileClient.getProfile(userId);
+
+        // Validate conversation
         var conversation = conversationRepository
                 .findById(conversationId)
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
         conversation.getParticipants().stream()
                 .filter(participantInfo -> userResponse.getResult().getId().equals(participantInfo.getUserId()))
                 .findAny()
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
         var messages = chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
 
-        return messages.stream().map(this::toChatMessageResponse).toList();
+        final String finalUserId = userId;
+        return messages.stream()
+                .map(msg -> toChatMessageResponse(msg, finalUserId))
+                .toList();
     }
 }

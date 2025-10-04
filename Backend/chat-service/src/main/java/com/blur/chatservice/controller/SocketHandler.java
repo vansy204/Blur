@@ -1,34 +1,32 @@
 package com.blur.chatservice.controller;
 
-import com.blur.chatservice.repository.ConversationRepository;
-import com.blur.chatservice.repository.WebsocketSessionRepository;
-import com.blur.chatservice.service.ChatMessageService;
-import com.corundumstudio.socketio.annotation.OnEvent;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import org.springframework.stereotype.Component;
 
+import com.blur.chatservice.dto.request.ChatMessageRequest;
 import com.blur.chatservice.dto.request.IntrospectRequest;
+import com.blur.chatservice.dto.response.ChatMessageResponse;
 import com.blur.chatservice.entity.ParticipantInfo;
 import com.blur.chatservice.entity.WebsocketSession;
-
+import com.blur.chatservice.repository.ConversationRepository;
+import com.blur.chatservice.repository.WebsocketSessionRepository;
+import com.blur.chatservice.service.ChatMessageService;
 import com.blur.chatservice.service.IdentityService;
 import com.blur.chatservice.service.WebsocketSessionService;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
+import com.corundumstudio.socketio.annotation.OnEvent;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @RequiredArgsConstructor
@@ -42,13 +40,11 @@ public class SocketHandler {
     ChatMessageService chatMessageService;
     ConversationRepository conversationRepository;
 
-    // Cache để tracking messages đã gửi (tránh duplicate)
-    private final ConcurrentHashMap<String, Long> sentMessages = new ConcurrentHashMap<>();
-    private static final long MESSAGE_CACHE_TTL = 5000; // 5 seconds
+    private final ConcurrentHashMap<String, Long> processedMessages = new ConcurrentHashMap<>();
+    private static final long CACHE_TTL = 10000;
 
-    // Remove annotation, use manual registration
     public void clientConnected(SocketIOClient client) {
-        log.info("Client connecting: {}", client.getSessionId());
+        log.info("🔌 Client connecting: {}", client.getSessionId());
 
         String token = client.getHandshakeData().getSingleUrlParam("token");
 
@@ -70,12 +66,10 @@ public class SocketHandler {
                 return;
             }
 
-            // Store user info in client session
             String userId = introspectRes.getUserId();
             client.set("userId", userId);
             client.set("token", token);
 
-            // Persist websocket session
             WebsocketSession websocketSession = WebsocketSession.builder()
                     .socketSessionId(client.getSessionId().toString())
                     .userId(userId)
@@ -84,14 +78,14 @@ public class SocketHandler {
 
             websocketSessionService.createWebsocketSession(websocketSession);
 
-            log.info("✅ User {} connected successfully with session {}", userId, client.getSessionId());
+            log.info("✅ User {} connected (session: {})", userId, client.getSessionId());
 
-            // Send connection confirmation
-            client.sendEvent("connected", Map.of(
-                    "userId", userId,
-                    "sessionId", client.getSessionId().toString(),
-                    "timestamp", Instant.now().toString()
-            ));
+            client.sendEvent(
+                    "connected",
+                    Map.of(
+                            "userId", userId,
+                            "sessionId", client.getSessionId().toString(),
+                            "timestamp", Instant.now().toString()));
 
         } catch (Exception e) {
             log.error("❌ Authentication failed: ", e);
@@ -100,10 +94,9 @@ public class SocketHandler {
         }
     }
 
-    // Remove annotation, use manual registration
     public void clientDisconnected(SocketIOClient client) {
         String userId = client.get("userId");
-        log.info("Client disconnected: {} (User: {})", client.getSessionId(), userId);
+        log.info("🔌 Client disconnected: {} (User: {})", client.getSessionId(), userId);
 
         try {
             websocketSessionService.deleteSession(client.getSessionId().toString());
@@ -116,193 +109,181 @@ public class SocketHandler {
     @OnEvent("send_message")
     public void onSendMessage(SocketIOClient senderClient, Map<String, Object> data) {
         long startTime = System.currentTimeMillis();
-        log.info("📨 === Processing message ===");
+        log.info("📨 ========== Processing Message ==========");
 
         try {
-            // Validate client session
             String senderId = senderClient.get("userId");
             if (senderId == null) {
-                log.error("❌ No user session found");
-                senderClient.sendEvent("message_error", Map.of(
-                        "message", "Session expired",
-                        "code", "SESSION_EXPIRED"
-                ));
+                log.error("❌ No user session");
+                senderClient.sendEvent(
+                        "message_error",
+                        Map.of(
+                                "message", "Session expired",
+                                "code", "SESSION_EXPIRED"));
                 return;
             }
 
-            // Extract and validate message data
             String conversationId = (String) data.get("conversationId");
             String message = (String) data.get("message");
-            String messageId = (String) data.get("messageId");
-            String clientId = (String) data.get("clientId");
+            String tempMessageId = (String) data.get("messageId");
 
             if (conversationId == null || message == null || message.trim().isEmpty()) {
-                senderClient.sendEvent("message_error", Map.of(
-                        "message", "Invalid message data",
-                        "code", "INVALID_DATA"
-                ));
+                senderClient.sendEvent(
+                        "message_error",
+                        Map.of(
+                                "message", "Invalid message data",
+                                "code", "INVALID_DATA"));
                 return;
             }
 
-            // Check duplicate message trong cache
-            String cacheKey = conversationId + ":" + messageId;
-            Long lastSent = sentMessages.get(cacheKey);
-            if (lastSent != null && (System.currentTimeMillis() - lastSent) < MESSAGE_CACHE_TTL) {
-                log.warn("⚠️ Duplicate message detected, ignoring: {}", messageId);
+            String cacheKey = conversationId + ":" + senderId + ":" + message.hashCode();
+            Long lastProcessed = processedMessages.get(cacheKey);
+            if (lastProcessed != null && (System.currentTimeMillis() - lastProcessed) < CACHE_TTL) {
+                log.warn("⚠️ Duplicate message detected, skipping");
                 return;
             }
 
-            log.info("📝 Message details:");
-            log.info("   ConversationId: {}", conversationId);
-            log.info("   MessageId: {}", messageId);
-            log.info("   SenderId: {}", senderId);
-            log.info("   ClientId: {}", clientId);
+            log.info("📝 Message Info:");
+            log.info("   Conversation: {}", conversationId);
+            log.info("   Sender: {}", senderId);
+            log.info("   TempId: {}", tempMessageId);
 
-            // Get conversation participants
-            var conversation = conversationRepository.findById(conversationId)
+            ChatMessageRequest chatMessageRequest = ChatMessageRequest.builder()
+                    .conversationId(conversationId)
+                    .message(message)
+                    .build();
+
+            ChatMessageResponse savedMessage;
+            try {
+                savedMessage = chatMessageService.create(chatMessageRequest, senderId);
+            } catch (Exception e) {
+                log.error("❌ Failed to save message: ", e);
+                senderClient.sendEvent(
+                        "message_error",
+                        Map.of(
+                                "message", "Failed to save message",
+                                "error", e.getMessage(),
+                                "code", "DB_ERROR"));
+                return;
+            }
+
+            log.info("💾 Message saved to DB with ID: {}", savedMessage.getId());
+
+            var conversation = conversationRepository
+                    .findById(conversationId)
                     .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
             List<ParticipantInfo> participants = conversation.getParticipants();
 
             if (participants.size() != 2) {
                 log.error("❌ Invalid conversation - participants: {}", participants.size());
-                senderClient.sendEvent("message_error", Map.of(
-                        "message", "Invalid conversation",
-                        "code", "INVALID_CONVERSATION"
-                ));
+                senderClient.sendEvent(
+                        "message_error",
+                        Map.of(
+                                "message", "Invalid conversation",
+                                "code", "INVALID_CONVERSATION"));
                 return;
             }
 
-            // Find receiver
             String receiverId = participants.stream()
                     .map(ParticipantInfo::getUserId)
                     .filter(id -> !id.equals(senderId))
                     .findFirst()
-                    .orElse(null);
+                    .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
-            if (receiverId == null) {
-                log.error("❌ Receiver not found");
-                senderClient.sendEvent("message_error", Map.of(
-                        "message", "Receiver not found",
-                        "code", "RECEIVER_NOT_FOUND"
-                ));
-                return;
+            log.info("👥 Sender: {} → Receiver: {}", senderId, receiverId);
+
+            Map<String, Object> messageResponse = buildMessageResponse(savedMessage, tempMessageId);
+
+            log.info("🔍 Looking for sessions of users: [{}, {}]", senderId, receiverId);
+            List<WebsocketSession> allSessions =
+                    websocketSessionRepository.findALlByUserIdIn(List.of(senderId, receiverId));
+
+            log.info("🔍 Found {} active sessions:", allSessions.size());
+            for (WebsocketSession session : allSessions) {
+                log.info(
+                        "   Session {} → UserId: {}",
+                        session.getSocketSessionId().substring(0, 8) + "...",
+                        session.getUserId());
             }
 
-            log.info("👤 Sender: {} → Receiver: {}", senderId, receiverId);
+            int successCount = broadcastMessage(allSessions, messageResponse, senderId);
 
-            // Get sender info for display
-            ParticipantInfo senderInfo = participants.stream()
-                    .filter(p -> p.getUserId().equals(senderId))
-                    .findFirst()
-                    .orElse(null);
-
-            // Get all active sessions for BOTH users
-            List<WebsocketSession> activeSessions = websocketSessionRepository
-                    .findALlByUserIdIn(List.of(senderId, receiverId));
-
-            log.info("🔍 Found {} active sessions", activeSessions.size());
-
-            // Build message response
-            Map<String, Object> messageResponse = new HashMap<>();
-            messageResponse.put("id", messageId);
-            messageResponse.put("messageId", messageId);
-            messageResponse.put("conversationId", conversationId);
-            messageResponse.put("message", message);
-            messageResponse.put("senderId", senderId);
-            messageResponse.put("clientId", clientId);
-            messageResponse.put("createdDate", Instant.now().toString());
-
-            // Add sender info
-            if (senderInfo != null) {
-                Map<String, Object> sender = new HashMap<>();
-                sender.put("userId", senderInfo.getUserId());
-                sender.put("username", senderInfo.getUsername());
-                sender.put("firstName", senderInfo.getFirstName());
-                sender.put("lastName", senderInfo.getLastName());
-                sender.put("avatar", senderInfo.getAvatar());
-                messageResponse.put("sender", sender);
-            }
-
-            // Broadcast to ALL active sessions of BOTH users
-            int successCount = 0;
-            int failCount = 0;
-
-            for (WebsocketSession session : activeSessions) {
-                try {
-                    UUID sessionUUID = UUID.fromString(session.getSocketSessionId());
-                    SocketIOClient targetClient = socketIOServer.getClient(sessionUUID);
-
-                    if (targetClient != null && targetClient.isChannelOpen()) {
-                        // Clone message và set flag 'me' dựa trên userId
-                        Map<String, Object> msgToSend = new HashMap<>(messageResponse);
-                        boolean isMe = session.getUserId().equals(senderId);
-                        msgToSend.put("me", isMe);
-
-                        // Send to client
-                        targetClient.sendEvent("message_received", msgToSend);
-                        successCount++;
-
-                        log.info("✅ Sent to user {} (session: {}, me: {})",
-                                session.getUserId(),
-                                session.getSocketSessionId().substring(0, 8) + "...",
-                                isMe);
-                    } else {
-                        log.warn("⚠️ Client not connected or channel closed: {}",
-                                session.getSocketSessionId());
-                        failCount++;
-                    }
-                } catch (IllegalArgumentException e) {
-                    log.error("❌ Invalid session UUID: {}", session.getSocketSessionId());
-                    failCount++;
-                } catch (Exception e) {
-                    log.error("❌ Failed to send to session {}: {}",
-                            session.getSocketSessionId(), e.getMessage());
-                    failCount++;
-                }
-            }
-
-            // Cache message để tránh duplicate
-            sentMessages.put(cacheKey, System.currentTimeMillis());
-
-            // Cleanup old cache entries
-            cleanupMessageCache();
+            processedMessages.put(cacheKey, System.currentTimeMillis());
+            cleanupCache();
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("🎉 Message broadcast complete:");
-            log.info("   ✅ Success: {} clients", successCount);
-            log.info("   ❌ Failed: {} clients", failCount);
-            log.info("   ⏱️  Duration: {}ms", duration);
-
-            // Optional: Send delivery confirmation to sender
-            senderClient.sendEvent("message_sent", Map.of(
-                    "messageId", messageId,
-                    "conversationId", conversationId,
-                    "timestamp", Instant.now().toString(),
-                    "delivered", successCount > 0
-            ));
+            log.info("✅ Message broadcast complete:");
+            log.info("   Delivered: {} clients", successCount);
+            log.info("   Duration: {}ms", duration);
+            log.info("==========================================");
 
         } catch (Exception e) {
-            log.error("❌ Fatal error processing message: ", e);
-            senderClient.sendEvent("message_error", Map.of(
-                    "message", "Failed to send message",
-                    "error", e.getMessage(),
-                    "code", "INTERNAL_ERROR"
-            ));
+            log.error("❌ Fatal error: ", e);
+            senderClient.sendEvent(
+                    "message_error",
+                    Map.of(
+                            "message", "Failed to send message",
+                            "error", e.getMessage(),
+                            "code", "INTERNAL_ERROR"));
         }
     }
 
-    /**
-     * Cleanup old message cache entries to prevent memory leak
-     */
-    private void cleanupMessageCache() {
-        long now = System.currentTimeMillis();
-        sentMessages.entrySet().removeIf(entry ->
-                (now - entry.getValue()) > MESSAGE_CACHE_TTL
-        );
+    private Map<String, Object> buildMessageResponse(ChatMessageResponse savedMessage, String tempMessageId) {
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", savedMessage.getId());
+        response.put("messageId", savedMessage.getId());
+        response.put("tempMessageId", tempMessageId);
+        response.put("conversationId", savedMessage.getConversationId());
+        response.put("message", savedMessage.getMessage());
+        response.put("createdDate", savedMessage.getCreatedDate().toString());
+
+        if (savedMessage.getSender() != null) {
+            ParticipantInfo sender = savedMessage.getSender();
+            Map<String, Object> senderMap = new HashMap<>();
+            senderMap.put("userId", sender.getUserId());
+            senderMap.put("username", sender.getUsername());
+            senderMap.put("firstName", sender.getFirstName());
+            senderMap.put("lastName", sender.getLastName());
+            senderMap.put("avatar", sender.getAvatar());
+            response.put("sender", senderMap);
+            response.put("senderId", sender.getUserId());
+        }
+
+        return response;
     }
 
-    // Remove annotation, use manual registration
+    private int broadcastMessage(
+            List<WebsocketSession> sessions, Map<String, Object> messageResponse, String senderId) {
+
+        int successCount = 0;
+
+        for (WebsocketSession session : sessions) {
+            try {
+                UUID sessionUUID = UUID.fromString(session.getSocketSessionId());
+                SocketIOClient client = socketIOServer.getClient(sessionUUID);
+
+                if (client != null && client.isChannelOpen()) {
+                    Map<String, Object> msg = new HashMap<>(messageResponse);
+                    msg.put("me", session.getUserId().equals(senderId));
+
+                    client.sendEvent("message_received", msg);
+                    successCount++;
+
+                    log.info("   ✅ Sent to user {} (me: {})", session.getUserId(), msg.get("me"));
+                } else {
+                    log.warn("   ⚠️ Client not found or channel closed for session: {}", session.getSocketSessionId());
+                }
+            } catch (Exception e) {
+                log.error("   ❌ Failed to send to session {}: {}", session.getSocketSessionId(), e.getMessage());
+            }
+        }
+
+        return successCount;
+    }
+
+    @OnEvent("typing")
     public void onTyping(SocketIOClient client, Map<String, Object> data) {
         try {
             String senderId = client.get("userId");
@@ -311,13 +292,9 @@ public class SocketHandler {
 
             if (senderId == null || conversationId == null) return;
 
-            // Get conversation participants
-            var conversation = conversationRepository.findById(conversationId)
-                    .orElse(null);
-
+            var conversation = conversationRepository.findById(conversationId).orElse(null);
             if (conversation == null) return;
 
-            // Find receiver
             String receiverId = conversation.getParticipants().stream()
                     .map(ParticipantInfo::getUserId)
                     .filter(id -> !id.equals(senderId))
@@ -326,75 +303,54 @@ public class SocketHandler {
 
             if (receiverId == null) return;
 
-            // Get receiver's sessions
-            List<WebsocketSession> receiverSessions = websocketSessionRepository
-                    .findByUserId(receiverId);
+            List<WebsocketSession> receiverSessions = websocketSessionRepository.findByUserId(receiverId);
 
-            // Broadcast typing status to receiver
             Map<String, Object> typingData = Map.of(
                     "conversationId", conversationId,
                     "userId", senderId,
-                    "isTyping", isTyping
-            );
+                    "isTyping", isTyping);
 
             for (WebsocketSession session : receiverSessions) {
                 try {
-                    SocketIOClient targetClient = socketIOServer.getClient(
-                            UUID.fromString(session.getSocketSessionId())
-                    );
+                    SocketIOClient targetClient =
+                            socketIOServer.getClient(UUID.fromString(session.getSocketSessionId()));
                     if (targetClient != null && targetClient.isChannelOpen()) {
                         targetClient.sendEvent("user_typing", typingData);
                     }
                 } catch (Exception e) {
-                    log.debug("Failed to send typing status: {}", e.getMessage());
+                    log.debug("Failed to send typing: {}", e.getMessage());
                 }
             }
-
         } catch (Exception e) {
-            log.error("Error handling typing event: ", e);
+            log.error("Error handling typing: ", e);
         }
+    }
+
+    private void cleanupCache() {
+        long now = System.currentTimeMillis();
+        processedMessages.entrySet().removeIf(entry -> (now - entry.getValue()) > CACHE_TTL);
     }
 
     @PostConstruct
     public void startServer() {
-        log.info("Starting SocketIO Server...");
+        log.info("🚀 Starting SocketIO Server...");
 
         socketIOServer.start();
 
-        // Đăng ký event listeners
-        socketIOServer.addConnectListener(client -> {
-            log.info("Connect event triggered for: {}", client.getSessionId());
-            clientConnected(client);
-        });
+        socketIOServer.addConnectListener(this::clientConnected);
+        socketIOServer.addDisconnectListener(this::clientDisconnected);
 
-        socketIOServer.addDisconnectListener(client -> {
-            log.info("Disconnect event triggered for: {}", client.getSessionId());
-            clientDisconnected(client);
-        });
+        socketIOServer.addEventListener("send_message", Map.class, (client, data, ack) -> onSendMessage(client, data));
 
-        // ⚠️ CRITICAL: Đăng ký send_message event
-        socketIOServer.addEventListener("send_message", Map.class, (client, data, ackRequest) -> {
-            log.info("send_message event triggered!");
-            log.info("   Client: {}", client.getSessionId());
-            log.info("   Data: {}", data);
-            onSendMessage(client, data);
-        });
+        socketIOServer.addEventListener("typing", Map.class, (client, data, ack) -> onTyping(client, data));
 
-        socketIOServer.addEventListener("typing", Map.class, (client, data, ackRequest) -> {
-            log.info("typing event triggered");
-            onTyping(client, data);
-        });
-
-        log.info("SocketIO Server started successfully");
-        log.info("   Port: 8099");
-        log.info("   Registered events: connect, disconnect, send_message, typing");
+        log.info("✅ SocketIO Server started on port 8099");
     }
 
     @PreDestroy
     public void stopServer() {
-        log.info("Stopping SocketIO Server...");
-        sentMessages.clear();
+        log.info("🛑 Stopping SocketIO Server...");
+        processedMessages.clear();
         socketIOServer.stop();
-        log.info("SocketIO Server stopped");
     }
 }

@@ -5,7 +5,24 @@ const API_BASE = "http://localhost:8888/api/chat";
 const SOCKET_URL = "http://localhost:8099";
 
 const getToken = () => localStorage.getItem("token");
-const getUserId = () => localStorage.getItem("userId");
+
+// ✅ Decode JWT token để lấy userId
+const getUserId = () => {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  
+  try {
+    // JWT format: header.payload.signature
+    const payload = token.split('.')[1];
+    const decoded = JSON.parse(atob(payload));
+    
+    // Backend có thể lưu userId trong các field khác nhau
+    return decoded.sub || decoded.userId || decoded.user_id || decoded.id;
+  } catch (error) {
+    console.error("❌ Cannot decode token:", error);
+    return null;
+  }
+};
 
 const apiCall = async (endpoint, options = {}) => {
   const token = getToken();
@@ -245,14 +262,24 @@ export default function MessagePage() {
 
   useEffect(() => {
     const userId = getUserId();
+    console.log("🔍 DEBUG - Decoded userId from token:", userId);
     setCurrentUserId(userId);
   }, []);
 
   // Socket.IO connection
   useEffect(() => {
     const token = getToken();
+    const userId = getUserId();
+    
+    console.log("🔍 DEBUG - Token:", token ? "✅ Có" : "❌ Không có");
+    console.log("🔍 DEBUG - UserId:", userId);
+    
+    // Set currentUserId ngay lập tức
+    setCurrentUserId(userId);
+    
     if (!token) {
       setError("Vui lòng đăng nhập để sử dụng chat");
+      console.error("❌ Không có token, không thể kết nối socket");
       return;
     }
 
@@ -271,16 +298,17 @@ export default function MessagePage() {
       });
 
       socketRef.current = socket;
-      window.socketRef = socket;
 
       socket.on("connect", () => {
         console.log("✅ Socket connected:", socket.id);
+        console.log("🔍 DEBUG - Socket transport:", socket.io.engine.transport.name);
         setIsConnected(true);
         setError("");
       });
 
       socket.on("disconnect", (reason) => {
         console.log("❌ Socket disconnected:", reason);
+        console.log("🔍 DEBUG - Disconnect reason:", reason);
         setIsConnected(false);
       });
       
@@ -289,49 +317,77 @@ export default function MessagePage() {
         setError("Không thể kết nối tới server");
       });
 
-      // ✅ CRITICAL: Xử lý message_received
+      // ✅ XỬ LÝ MESSAGE_RECEIVED - LOGIC TỐI ƯU
       socket.on("message_received", (data) => {
         console.log("📨 MESSAGE RECEIVED:", data);
         
-        // ✅ Chỉ hiển thị nếu đúng conversation
-        if (data.conversationId !== currentConversationRef.current) {
-          console.log("⚠️ Wrong conversation, ignoring");
-          return;
-        }
-        
         setMessages((prev) => {
-          // ✅ Case 1: Replace pending message
+          // Check đúng conversation TRƯỚC
+          if (data.conversationId !== currentConversationRef.current) {
+            console.log("⚠️ Wrong conversation, ignoring");
+            return prev;
+          }
+          
+          // ✅ Lấy currentUserId từ trong callback
+          const currentUser = getUserId();
+          const messageSenderId = data.senderId || data.sender?.userId;
+          const isMe = messageSenderId === currentUser;
+          
+          console.log("🔍 COMPARE:");
+          console.log("   messageSenderId:", messageSenderId);
+          console.log("   currentUser:", currentUser);
+          console.log("   isMe:", isMe);
+          
+          // ✅ CHECK DUPLICATE NGAY - Trước khi xử lý
+          const isDuplicate = prev.some(m => 
+            (m.id === data.id) || 
+            (m.id === data.tempMessageId) ||
+            (data.tempMessageId && m.id === data.tempMessageId && !m.isPending)
+          );
+          
+          if (isDuplicate && !data.tempMessageId) {
+            console.log("⚠️ Duplicate message (no tempId), ignoring:", data.id);
+            return prev;
+          }
+          
+          const processedData = {
+            ...data,
+            me: isMe,
+            senderId: messageSenderId
+          };
+          
+          // ✅ CASE 1: Replace pending message bằng tempMessageId
           if (data.tempMessageId) {
-            const hasPending = prev.some(m => m.id === data.tempMessageId && m.isPending);
-            if (hasPending) {
-              console.log("🔄 Replacing pending message:", data.tempMessageId);
-              return prev.map(m => 
-                m.id === data.tempMessageId && m.isPending
-                  ? { ...data, me: data.me } 
-                  : m
-              );
+            const pendingIndex = prev.findIndex(
+              m => m.id === data.tempMessageId && m.isPending
+            );
+            
+            if (pendingIndex !== -1) {
+              console.log("🔄 Replacing pending message:", data.tempMessageId, "→", data.id);
+              const updated = [...prev];
+              updated[pendingIndex] = {
+                ...processedData,
+                isPending: false
+              };
+              return updated;
+            }
+            
+            // Nếu không tìm thấy pending message, check duplicate với real ID
+            const existsById = prev.some(m => m.id === data.id);
+            if (existsById) {
+              console.log("⚠️ Duplicate message (with tempId), ignoring:", data.id);
+              return prev;
             }
           }
 
-          // ✅ Case 2: Check duplicate bằng real DB ID
-          const isDuplicate = prev.some(m => m.id === data.id);
-          if (isDuplicate) {
-            console.log("⚠️ Duplicate message ignored:", data.id);
-            return prev;
-          }
-
-          // ✅ Case 3: Message mới từ người khác hoặc tab khác
-          console.log("✅ Adding new message:", data.id);
-          return [...prev, data];
+          // ✅ CASE 2: Message mới từ người khác hoặc tab khác
+          console.log("✅ Adding new message with isMe =", isMe);
+          return [...prev, processedData];
         });
       });
 
       socket.on("connected", (data) => {
         console.log("✅ Connection confirmed:", data);
-      });
-
-      socket.on("message_sent", (data) => {
-        console.log("✅ Message sent confirmation:", data);
       });
 
       socket.on("auth_error", (data) => {
@@ -376,21 +432,27 @@ export default function MessagePage() {
     fetchConversations();
   }, []);
 
-  // Fetch messages for selected conversation
+  // Fetch messages khi chọn conversation
   useEffect(() => {
     if (!selectedChat) return;
 
-    // ✅ Update current conversation ref NGAY LẬP TỨC
+    // ✅ Update conversation ref NGAY
     currentConversationRef.current = selectedChat.id;
 
     const fetchMessages = async () => {
       try {
         const data = await apiCall(`/messages?conversationId=${selectedChat.id}`);
-        const fetchedMessages = (data.result || []).map(msg => ({
-          ...msg,
-          senderId: msg.senderId || msg.sender?.userId,
-          me: msg.senderId === currentUserId // ✅ Set flag me
-        }));
+        const fetchedMessages = (data.result || []).map(msg => {
+          const senderId = msg.sender?.userId;
+          return {
+            ...msg,
+            senderId: senderId,
+            me: senderId === currentUserId // ✅ Tự set dựa trên currentUserId
+          };
+        });
+        
+        console.log("📥 Loaded messages:", fetchedMessages.length);
+        console.log("   CurrentUserId:", currentUserId);
         
         setMessages(fetchedMessages);
       } catch (err) {
@@ -402,13 +464,19 @@ export default function MessagePage() {
     fetchMessages();
   }, [selectedChat, currentUserId]);
 
-  // ✅ Send message handler - CHỈ EMIT SOCKET, KHÔNG GỌI API
+  // ✅ Send message handler
   const handleSendMessage = (text) => {
-    if (!text.trim() || !selectedChat || !currentUserId) return;
+    if (!text.trim() || !selectedChat || !currentUserId) {
+      console.warn("⚠️ Cannot send message:");
+      console.warn("   Text:", text.trim() ? "✅" : "❌ Empty");
+      console.warn("   Chat selected:", selectedChat ? "✅" : "❌ No");
+      console.warn("   User ID:", currentUserId ? "✅" : "❌ No");
+      return;
+    }
 
     const tempMessageId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    // ✅ Tạo tin nhắn tạm để hiển thị ngay (Optimistic UI)
+    // ✅ Tạo tin nhắn tạm (Optimistic UI)
     const tempMsg = {
       id: tempMessageId,
       message: text,
@@ -416,31 +484,35 @@ export default function MessagePage() {
       me: true,
       createdDate: new Date().toISOString(),
       conversationId: selectedChat.id,
-      isPending: true // ✅ Flag để biết đây là tin nhắn tạm
+      isPending: true
     };
     
-    console.log("📤 SENDING MESSAGE");
+    console.log("📤 SENDING MESSAGE:");
     console.log("   TempId:", tempMessageId);
     console.log("   ConversationId:", selectedChat.id);
-    console.log("   Text:", text);
+    console.log("   Message:", text);
+    console.log("   Socket connected:", socketRef.current?.connected);
     
-    // ✅ Add tin nhắn tạm vào UI ngay lập tức
+    // ✅ Thêm tin nhắn tạm vào UI ngay
     setMessages((prev) => [...prev, tempMsg]);
 
-    // ✅ CHỈ EMIT SOCKET - Backend sẽ lo save DB
+    // ✅ Emit qua socket
     if (socketRef.current?.connected) {
-      socketRef.current.emit("send_message", {
+      const payload = {
         conversationId: selectedChat.id,
         message: text,
-        messageId: tempMessageId, // ✅ Gửi tempId để server biết cần replace
-        clientId: socketRef.current.id
-      });
+        messageId: tempMessageId
+      };
+      console.log("📤 Emitting payload:", payload);
+      socketRef.current.emit("send_message", payload);
       console.log("✅ Message emitted via socket");
     } else {
       console.error("❌ Socket not connected!");
+      console.error("   Socket exists:", !!socketRef.current);
+      console.error("   Socket connected:", socketRef.current?.connected);
       setError("Mất kết nối. Đang thử kết nối lại...");
       
-      // ✅ Remove tin nhắn tạm nếu socket không connect
+      // Remove tin nhắn tạm nếu không gửi được
       setMessages((prev) => prev.filter(m => m.id !== tempMessageId));
     }
   };
