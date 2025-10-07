@@ -27,7 +27,6 @@ import reactor.core.publisher.Mono;
 import java.util.Arrays;
 import java.util.List;
 
-
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -36,15 +35,14 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     IdentityService identityService;
     ObjectMapper objectMapper;
 
-    // define list endpoint ko can authen
     @NonFinal
     String[] publicEnpoints = {
             "/identity/auth/.*",
             "/identity/users/registration",
             "/notification/email/send",
-            "/chat/.*"
+            "/chat/messages.*",              // Match: /chat/messages, /chat/messages/create
+            "/chat/conversations.*"           // Match: /chat/conversations/my-conversations
     };
-
 
     @Value("${app.api-prefix}")
     @NonFinal
@@ -52,35 +50,62 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        if (isPublicEndpoint(exchange.getRequest())) {
-            return chain.filter(exchange);
+        String path = exchange.getRequest().getURI().getPath();
+        log.info("=== Incoming Request ===");
+        log.info("Path: {}", path);
+        log.info("Method: {}", exchange.getRequest().getMethod());
 
+        if (isPublicEndpoint(exchange.getRequest())) {
+            log.info("✅ Public endpoint - Allowing request");
+            return chain.filter(exchange);
         }
-        // su dung jwt token thuc hien authen
-        // get token from authorization header
+
+        // Get token from authorization header
         List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
+
         if (CollectionUtils.isEmpty(authHeader)) {
+            log.warn("❌ No Authorization header found");
             return unauthenticated(exchange.getResponse());
         }
+
         String token = authHeader.get(0).replace("Bearer ", "");
-        //verify token - do identity_service dam nhiem
-        return identityService.introspect(token).flatMap(introspecResponseApiResponse ->
-        {
-            if (introspecResponseApiResponse.getResult().isValid()) {
+        log.info("🔑 Token found, verifying...");
+
+        // Verify token
+        return identityService.introspect(token).flatMap(introspectResponse -> {
+            if (introspectResponse.getResult().isValid()) {
+                log.info("✅ Token valid - Allowing request");
                 return chain.filter(exchange);
             } else {
+                log.warn("❌ Token invalid");
                 return unauthenticated(exchange.getResponse());
             }
-        }).onErrorResume(throwable -> unauthenticated(exchange.getResponse()));
+        }).onErrorResume(throwable -> {
+            log.error("❌ Token verification error: {}", throwable.getMessage());
+            return unauthenticated(exchange.getResponse());
+        });
     }
 
     @Override
     public int getOrder() {
-        return -1; //dam bao filter dc chay chinh
+        return -1; // Ensure filter runs first
     }
 
     private boolean isPublicEndpoint(ServerHttpRequest request) {
-        return Arrays.stream(publicEnpoints).anyMatch(s -> request.getURI().getPath().matches(apiPrefix + s));
+        String path = request.getURI().getPath();
+
+        boolean isPublic = Arrays.stream(publicEnpoints).anyMatch(pattern -> {
+            String fullPattern = apiPrefix + pattern;
+            boolean matches = path.matches(fullPattern);
+
+            log.debug("Checking: '{}' against pattern: '{}' → {}",
+                    path, fullPattern, matches);
+
+            return matches;
+        });
+
+        log.info("Is public endpoint: {}", isPublic);
+        return isPublic;
     }
 
     Mono<Void> unauthenticated(ServerHttpResponse response) {
@@ -88,15 +113,17 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                 .code(1401)
                 .message("Unauthenticated")
                 .build();
-        String body = null;
+
+        String body;
         try {
             body = objectMapper.writeValueAsString(apiResponse);
         } catch (JsonProcessingException e) {
             throw new JsonParseException(e);
         }
+
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+
         return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
     }
-
 }

@@ -17,11 +17,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-    private static final String[] PUBLIC_ENDPOINTS = {
-        "/ws/websocket/**",
-            "/**"
-
-    };
 
     private final CustomJwtDecoder customJwtDecoder;
 
@@ -31,15 +26,23 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity.authorizeHttpRequests(request -> request.requestMatchers( PUBLIC_ENDPOINTS)
-                .permitAll()
-                .anyRequest()
-                .authenticated());
-        httpSecurity.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwtConfigurer -> jwtConfigurer
-                        .decoder(customJwtDecoder)
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter()))
-                .authenticationEntryPoint(new JWTAuthenticationEntryPoint()));
-        httpSecurity.csrf(AbstractHttpConfigurer::disable);
+        httpSecurity
+                // Cho phép OPTIONS requests (CORS preflight)
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                        .permitAll()
+                        .requestMatchers("/ws/websocket/**")
+                        .permitAll()
+                        .requestMatchers("/actuator/**")
+                        .permitAll() // Health check
+                        .anyRequest()
+                        .authenticated())
+                // OAuth2 Resource Server với JWT
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt ->
+                                jwt.decoder(customJwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .authenticationEntryPoint(new JWTAuthenticationEntryPoint()))
+                // Disable CSRF cho REST API
+                .csrf(AbstractHttpConfigurer::disable);
+
         return httpSecurity.build();
     }
 
@@ -47,8 +50,11 @@ public class SecurityConfig {
     JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
         grantedAuthoritiesConverter.setAuthorityPrefix("");
+        grantedAuthoritiesConverter.setAuthoritiesClaimName("scope");
+
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
+
         return converter;
     }
 

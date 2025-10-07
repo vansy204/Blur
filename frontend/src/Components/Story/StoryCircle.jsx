@@ -1,8 +1,9 @@
+// ============= StoryCircle.jsx =============
 import React, { useState } from "react";
 import StoryModal from "./StoryModal";
 import AddStoryModal from "./AddStoryModal";
 
-const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,user}) => {
+const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -15,8 +16,6 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
   };
 
   const handleStoryCreated = (newStory) => {
-    // Make sure onStoryCreated is called with the complete newStory object
-    // which should include the thumbnailUrl if it's a video
     if (onStoryCreated && typeof onStoryCreated === 'function') {
       onStoryCreated(newStory);
     }
@@ -34,94 +33,103 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
 
   const isVideo = story?.mediaType === "video";
 
-  // Function to get the right media preview URL
   const getMediaPreview = () => {
-    // For videos, prioritize thumbnailUrl
     if (isVideo && story?.thumbnailUrl) {
       return story.thumbnailUrl;
     }
-    // Fall back to mediaUrl or placeholder
     return story?.thumbnailUrl;
   };
+
   const renderAddStory = () => (
     <div
       onClick={handleOpenStory}
-      className="cursor-pointer w-28 h-48 rounded-xl overflow-hidden bg-gray-200 relative group shadow hover:shadow-lg transition-all duration-300"
+      className="cursor-pointer w-28 h-48 rounded-2xl overflow-hidden bg-gradient-to-br from-sky-50 to-blue-50 relative group shadow-md hover:shadow-xl transition-all duration-300 border border-sky-100"
     >
-      <div className="absolute inset-0 bg-black bg-opacity-10 group-hover:bg-opacity-20 transition-all" />
-      {/* Nút + canh giữa */}
+      {/* Subtle gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-sky-100/30 to-transparent group-hover:from-sky-200/40 transition-all duration-300" />
+      
+      {/* Plus icon with animated ring */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-blue-500 text-3xl font-bold border-2 border-blue-500 group-hover:scale-110 transition-transform duration-200">
-          +
+        <div className="relative">
+          {/* Animated ring */}
+          <div className="absolute inset-0 w-16 h-16 rounded-full bg-sky-400/20 animate-ping" />
+          {/* Main button */}
+          <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white text-3xl font-light shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
+            <span className="transform group-hover:rotate-90 transition-transform duration-300">+</span>
+          </div>
         </div>
       </div>
-      {/* Dòng chữ "Tạo tin" */}
-      <div className="absolute bottom-2 left-0 right-0 text-center text-sm font-semibold text-white drop-shadow">
-        Tạo tin
+      
+      {/* Label with gradient text */}
+      <div className="absolute bottom-3 left-0 right-0 text-center">
+        <span className="text-sm font-semibold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent drop-shadow">
+          Tạo tin
+        </span>
       </div>
     </div>
   );
+
   const renderStoryItem = () => (
     <div
       onClick={handleOpenStory}
-      className="cursor-pointer w-28 h-48 rounded-xl overflow-hidden relative group"
+      className="cursor-pointer w-28 h-48 rounded-2xl overflow-hidden relative group shadow-md hover:shadow-xl transition-all duration-300"
     >
+      {/* Media content */}
       {isVideo ? (
         <video
           src={story?.mediaUrl}
-          className="w-full h-full object-cover group-hover:brightness-75 transition"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           muted
           loop
           autoPlay
           playsInline
-          onError={(e) => {
-            console.log("Video error, fallback to placeholder");
-          }}
         />
       ) : (
         <img
           src={getMediaPreview()}
           alt="story"
-          className="w-full h-full object-cover group-hover:brightness-75 transition"
-          onError={(e) => {
-            console.log("Image error, falling back to placeholder");
-          }}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
       )}
-  
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-  
-      <div className="absolute top-2 left-2 w-10 h-10 rounded-full border-4 border-blue-500 overflow-hidden">
-        <img
-          src={user?.imageUrl ||"https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"}
-          alt="avatar"
-          className="w-full h-full object-cover" 
-        />
+
+      {/* Gradient overlays */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+      <div className="absolute inset-0 bg-sky-500/0 group-hover:bg-sky-500/10 transition-colors duration-300" />
+
+      {/* Avatar with sky blue ring */}
+      <div className="absolute top-3 left-3 w-11 h-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 p-0.5 shadow-lg">
+        <div className="w-full h-full rounded-full overflow-hidden bg-white p-0.5">
+          <img
+            src={user?.imageUrl || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"}
+            alt="avatar"
+            className="w-full h-full object-cover rounded-full"
+          />
+        </div>
       </div>
-      <div className="absolute bottom-2 left-2 right-2 text-sm font-semibold text-white line-clamp-1">
-        {getDisplayName()}
+
+      {/* Username with better readability */}
+      <div className="absolute bottom-3 left-3 right-3">
+        <p className="text-sm font-semibold text-white line-clamp-1 drop-shadow-lg">
+          {getDisplayName()}
+        </p>
       </div>
-  
+
+      {/* Video indicator */}
       {isVideo && (
-        <div className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1">
+        <div className="absolute top-3 right-3 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full p-1.5 shadow-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-white"
-            fill="none"
+            className="h-4 w-4 text-white"
+            fill="currentColor"
             viewBox="0 0 24 24"
-            stroke="currentColor"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M14.752 11.168l-4.586-2.663A1 1 0 009 9.337v5.326a1 1 0 001.166.832l4.586-2.663a1 1 0 000-1.664z"
-            />
+            <path d="M8 5v14l11-7z" />
           </svg>
         </div>
       )}
     </div>
-  ); 
+  );
+
   return (
     <>
       {isAddNew ? renderAddStory() : renderStoryItem()}
@@ -142,4 +150,5 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated ,us
     </>
   );
 };
+
 export default StoryCircle;

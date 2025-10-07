@@ -40,7 +40,9 @@ public class ConversationService {
         List<Conversation> conversations = conversationRepository.findAllByParticipantIdsContains(
                 userResponse.getResult().getId());
 
-        return conversations.stream().map(this::toConversationResponse).collect(Collectors.toList());
+        return conversations.stream()
+                .map(this::toConversationResponse)
+                .collect(Collectors.toList());
     }
 
     public ConversationResponse createConversation(ConversationRequest request) {
@@ -69,14 +71,14 @@ public class ConversationService {
                 .orElseGet(() -> {
                     List<ParticipantInfo> participantInfos = List.of(
                             ParticipantInfo.builder()
-                                    .userId(userInfo.getId())
+                                    .userId(userInfo.getUserId())
                                     .username(userInfo.getUsername())
                                     .firstName(userInfo.getFirstName())
                                     .lastName(userInfo.getLastName())
                                     .avatar(userInfo.getImageUrl())
                                     .build(),
                             ParticipantInfo.builder()
-                                    .userId(participantInfo.getId())
+                                    .userId(participantInfo.getUserId())
                                     .username(participantInfo.getUsername())
                                     .firstName(participantInfo.getFirstName())
                                     .lastName(participantInfo.getLastName())

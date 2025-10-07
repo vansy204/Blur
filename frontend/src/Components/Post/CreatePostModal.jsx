@@ -20,12 +20,14 @@ import {
   Textarea,
   useToast,
   useOutsideClick,
+  Text,
 } from "@chakra-ui/react";
 import axios from "axios";
 import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
 import { useEffect, useRef, useState } from "react";
 import { getToken } from "../../service/LocalStorageService";
-import { BsEmojiSmile } from "react-icons/bs";
+import { BsEmojiSmile, BsImage, BsCameraVideo } from "react-icons/bs";
+import { MdClose } from "react-icons/md";
 import EmojiPicker from "emoji-picker-react";
 
 const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
@@ -126,70 +128,171 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
     setContent((prev) => prev + emojiData.emoji);
   };
 
+  const removeMedia = (index) => {
+    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <>
-      <Modal isOpen={isOpen} onClose={handleCloseAttempt} size="3xl" isCentered>
-        <ModalOverlay />
-        <ModalContent borderRadius="2xl">
-          <ModalHeader textAlign="center">Create New Post</ModalHeader>
-          <ModalCloseButton onClick={handleCloseAttempt} />
+      <Modal isOpen={isOpen} onClose={handleCloseAttempt} size="4xl" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.400" />
+        <ModalContent borderRadius="2xl" overflow="hidden" shadow="2xl">
+          {/* Header with gradient */}
+          <ModalHeader 
+            textAlign="center" 
+            py={4}
+            bgGradient="linear(to-r, sky.50, blue.50)"
+            borderBottom="1px"
+            borderColor="gray.100"
+          >
+            <Text fontSize="lg" fontWeight="bold" bgGradient="linear(to-r, sky.600, blue.600)" bgClip="text">
+              Create New Post
+            </Text>
+          </ModalHeader>
+          
+          <ModalCloseButton 
+            onClick={handleCloseAttempt}
+            top={3}
+            right={3}
+            rounded="full"
+            _hover={{ bg: "gray.100" }}
+          />
+
           <ModalBody px={0} py={0}>
-            <Box display="flex" flexDir={{ base: "column", md: "row" }} minH="400px">
+            <Box display="flex" flexDir={{ base: "column", md: "row" }} minH="500px" maxH="600px">
+              {/* Left side - Media Preview */}
               <Box
                 flex="1.5"
-                bg="gray.50"
+                bgGradient="linear(to-br, sky.50, blue.50, sky.100)"
                 display="flex"
                 justifyContent="center"
                 alignItems="center"
-                minH="400px"
-                p={2}
+                minH={{ base: "300px", md: "500px" }}
+                maxH="600px"
+                p={4}
+                position="relative"
+                overflow="hidden"
               >
                 {previewUrls.length > 0 ? (
-                  previewUrls.map((media, i) =>
-                    media.type.startsWith("video") ? (
-                      <video
-                        key={i}
-                        src={media.url}
-                        controls
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          borderRadius: "8px",
-                          objectFit: "cover",
-                        }}
-                      />
-                    ) : (
-                      <Image
-                        key={i}
-                        src={media.url}
-                        boxSize="100%"
-                        borderRadius="md"
-                        objectFit="cover"
-                      />
-                    )
-                  )
+                  <Box position="relative" w="100%" h="100%" display="flex" alignItems="center" justifyContent="center">
+                    {previewUrls.map((media, i) =>
+                      media.type.startsWith("video") ? (
+                        <Box key={i} position="relative" maxW="100%" maxH="100%" display="flex" alignItems="center" justifyContent="center">
+                          <video
+                            src={media.url}
+                            controls
+                            style={{
+                              maxWidth: "100%",
+                              maxHeight: "550px",
+                              borderRadius: "12px",
+                              objectFit: "contain",
+                              boxShadow: "0 4px 20px rgba(14, 165, 233, 0.15)",
+                            }}
+                          />
+                          <Button
+                            position="absolute"
+                            top={2}
+                            right={2}
+                            size="sm"
+                            rounded="full"
+                            colorScheme="red"
+                            onClick={() => removeMedia(i)}
+                            zIndex={2}
+                            shadow="lg"
+                            _hover={{ transform: "scale(1.05)" }}
+                          >
+                            <MdClose size={16} />
+                          </Button>
+                        </Box>
+                      ) : (
+                        <Box key={i} position="relative" maxW="100%" maxH="100%" display="flex" alignItems="center" justifyContent="center">
+                          <Image
+                            src={media.url}
+                            maxW="100%"
+                            maxH="550px"
+                            borderRadius="xl"
+                            objectFit="contain"
+                            shadow="lg"
+                          />
+                          <Button
+                            position="absolute"
+                            top={2}
+                            right={2}
+                            size="sm"
+                            rounded="full"
+                            colorScheme="red"
+                            onClick={() => removeMedia(i)}
+                            zIndex={2}
+                            shadow="lg"
+                            _hover={{ transform: "scale(1.05)" }}
+                          >
+                            <MdClose size={16} />
+                          </Button>
+                        </Box>
+                      )
+                    )}
+                  </Box>
                 ) : (
-                  <Box color="gray.400">No Image/Video Selected</Box>
+                  <Box textAlign="center" color="gray.400">
+                    <Box 
+                      w="24" 
+                      h="24" 
+                      mx="auto" 
+                      mb={4} 
+                      rounded="full" 
+                      bgGradient="linear(to-br, sky.400, blue.500)"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      opacity={0.6}
+                    >
+                      <BsImage size={48} color="white" />
+                    </Box>
+                    <Text fontSize="sm" fontWeight="medium">No media selected</Text>
+                    <Text fontSize="xs" mt={1}>Upload photos or videos to get started</Text>
+                  </Box>
                 )}
               </Box>
 
-              <Box flex="1" p={4} display="flex" flexDir="column" gap={4}>
-                {/* Vùng nhập nội dung có icon emoji */}
-                <Box position="relative">
+              {/* Right side - Form */}
+              <Box 
+                flex="1" 
+                p={6} 
+                display="flex" 
+                flexDir="column" 
+                gap={4} 
+                bg="white"
+                overflowY="auto"
+                maxH="600px"
+              >
+                {/* Caption textarea with emoji */}
+                <Box position="relative" flexShrink={0}>
                   <Textarea
-                    placeholder="Write a caption..."
+                    placeholder="What's on your mind?"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    minH="120px"
+                    minH="100px"
+                    maxH="120px"
                     resize="none"
                     pr="40px"
+                    borderColor="gray.200"
+                    _hover={{ borderColor: "sky.300" }}
+                    _focus={{ 
+                      borderColor: "sky.400", 
+                      boxShadow: "0 0 0 1px var(--chakra-colors-sky-400)",
+                      outline: "none"
+                    }}
+                    borderRadius="xl"
+                    fontSize="sm"
                   />
                   <Box
                     position="absolute"
                     top="10px"
                     right="10px"
                     cursor="pointer"
-                    color="gray.500"
+                    color="gray.400"
+                    _hover={{ color: "sky.500" }}
+                    transition="color 0.2s"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   >
                     <BsEmojiSmile size={20} />
@@ -202,24 +305,51 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                       top="100%"
                       right="0"
                       mt={2}
+                      boxShadow="xl"
+                      borderRadius="xl"
+                      overflow="hidden"
                     >
-                      <EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} />
+                      <EmojiPicker onEmojiClick={handleEmojiClick} height={300} width={280} />
                     </Box>
                   )}
                 </Box>
 
-                {/* Upload media */}
-                <Box>
+                {/* Upload media button */}
+                <Box flexShrink={0}>
                   <label htmlFor="upload-media">
                     <Box
                       cursor="pointer"
-                      border="2px dashed #CBD5E0"
-                      borderRadius="lg"
+                      border="2px dashed"
+                      borderColor="sky.200"
+                      borderRadius="xl"
                       p={4}
                       textAlign="center"
-                      _hover={{ bg: "gray.50" }}
+                      transition="all 0.3s"
+                      _hover={{ 
+                        bg: "sky.50", 
+                        borderColor: "sky.400",
+                        transform: "translateY(-2px)"
+                      }}
                     >
-                      <strong>Click to select images/videos</strong>
+                      <Box
+                        w="12"
+                        h="12"
+                        mx="auto"
+                        mb={2}
+                        rounded="full"
+                        bgGradient="linear(to-br, sky.400, blue.500)"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <BsCameraVideo size={24} color="white" />
+                      </Box>
+                      <Text fontWeight="semibold" color="gray.700" fontSize="sm">
+                        {mediaFiles.length > 0 ? `${mediaFiles.length} file(s) selected` : "Select photos or videos"}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500" mt={1}>
+                        Click to browse
+                      </Text>
                       <Input
                         id="upload-media"
                         type="file"
@@ -231,43 +361,97 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                     </Box>
                   </label>
                 </Box>
+
+    
               </Box>
             </Box>
           </ModalBody>
 
-          <ModalFooter justifyContent="space-between" px={6} py={4}>
-            <Button onClick={handleCloseAttempt} variant="ghost" rounded="full">
+          <ModalFooter 
+            justifyContent="space-between" 
+            px={6} 
+            py={4}
+            borderTop="1px"
+            borderColor="gray.100"
+            bg="gray.50"
+          >
+            <Button 
+              onClick={handleCloseAttempt} 
+              variant="ghost" 
+              rounded="full"
+              fontWeight="semibold"
+              color="gray.600"
+              _hover={{ bg: "gray.200", color: "gray.800" }}
+            >
               Cancel
             </Button>
             <Button
-              colorScheme="blue"
+              bg="white"
+              color="sky.600"
               onClick={handleSubmit}
               isLoading={isLoading}
               isDisabled={!content.trim() && mediaFiles.length === 0}
               rounded="full"
+              px={8}
+              fontWeight="bold"
+              fontSize="md"
+              border="2px solid"
+              borderColor="sky.500"
+              _hover={{
+                bg: "sky.50",
+                color: "sky.700",
+                borderColor: "sky.600",
+                transform: "translateY(-2px)",
+                shadow: "lg"
+              }}
+              _active={{
+                transform: "scale(0.98)"
+              }}
+              _disabled={{
+                bg: "gray.100",
+                color: "gray.400",
+                borderColor: "gray.300",
+                cursor: "not-allowed",
+                opacity: 0.6
+              }}
+              transition="all 0.2s"
             >
-              {isLoading ? <Spinner size="sm" /> : "Post"}
+              {isLoading ? <Spinner size="sm" color="sky.500" /> : "Post"}
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
+      {/* Confirmation Dialog */}
       <AlertDialog
         isOpen={isConfirmOpen}
         leastDestructiveRef={cancelRef}
         onClose={() => setIsConfirmOpen(false)}
+        isCentered
       >
-        <AlertDialogOverlay />
-        <AlertDialogContent>
-          <AlertDialogHeader>Discard post?</AlertDialogHeader>
-          <AlertDialogBody>
+        <AlertDialogOverlay backdropFilter="blur(4px)" />
+        <AlertDialogContent borderRadius="2xl" shadow="2xl">
+          <AlertDialogHeader fontSize="lg" fontWeight="bold">
+            Discard post?
+          </AlertDialogHeader>
+          <AlertDialogBody color="gray.600">
             Are you sure you want to discard this post? Your content will be lost.
           </AlertDialogBody>
-          <AlertDialogFooter>
-            <Button ref={cancelRef} onClick={() => setIsConfirmOpen(false)}>
+          <AlertDialogFooter gap={3}>
+            <Button 
+              ref={cancelRef} 
+              onClick={() => setIsConfirmOpen(false)}
+              rounded="full"
+              variant="ghost"
+            >
               Cancel
             </Button>
-            <Button colorScheme="red" onClick={handleConfirmClose} ml={3}>
+            <Button 
+              colorScheme="red" 
+              onClick={handleConfirmClose}
+              rounded="full"
+              px={6}
+            >
               Discard
             </Button>
           </AlertDialogFooter>

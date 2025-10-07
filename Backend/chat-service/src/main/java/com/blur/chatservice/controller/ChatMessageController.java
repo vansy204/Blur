@@ -4,6 +4,8 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import com.blur.chatservice.dto.ApiResponse;
@@ -16,13 +18,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-
-
 @RestController
 @RequestMapping("/messages")
 @RequiredArgsConstructor
@@ -31,13 +26,13 @@ public class ChatMessageController {
     ChatMessageService chatMessageService;
 
     @PostMapping("/create")
-
-    ApiResponse<ChatMessageResponse> create(@RequestBody @Valid ChatMessageRequest chatMessageRequest) throws JsonProcessingException {
+    ApiResponse<ChatMessageResponse> create(@RequestBody @Valid ChatMessageRequest chatMessageRequest)
+            throws JsonProcessingException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
 
         return ApiResponse.<ChatMessageResponse>builder()
-                .result(chatMessageService.create(chatMessageRequest,userId))
+                .result(chatMessageService.create(chatMessageRequest, userId))
                 .build();
     }
 

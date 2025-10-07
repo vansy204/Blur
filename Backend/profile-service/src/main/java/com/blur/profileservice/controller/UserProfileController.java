@@ -102,7 +102,7 @@ public class UserProfileController {
                 .build();
     }
     @PostMapping("/users/search")
-    ApiResponse<List<UserProfileResponse>> search(@RequestBody SearchUserRequest request) {
+    ApiResponse<List<UserProfileResponse>> search(@RequestParam(value = "name") String request) {
         return ApiResponse.<List<UserProfileResponse>>builder()
                 .result(userProfileService.search(request))
                 .build();

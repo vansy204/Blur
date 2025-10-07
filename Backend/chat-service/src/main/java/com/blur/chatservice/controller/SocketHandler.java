@@ -1,42 +1,29 @@
 package com.blur.chatservice.controller;
 
-import com.blur.chatservice.dto.request.ChatMessageRequest;
 import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
-import com.blur.chatservice.repository.ConversationRepository;
-import com.blur.chatservice.repository.WebsocketSessionRepository;
-import com.blur.chatservice.service.ChatMessageService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import org.springframework.stereotype.Component;
 
+import com.blur.chatservice.dto.request.ChatMessageRequest;
 import com.blur.chatservice.dto.request.IntrospectRequest;
 import com.blur.chatservice.dto.response.ChatMessageResponse;
 import com.blur.chatservice.entity.ParticipantInfo;
-import com.blur.chatservice.entity.WebsocketSession;
-
+import com.blur.chatservice.repository.ConversationRepository;
+import com.blur.chatservice.service.ChatMessageService;
 import com.blur.chatservice.service.IdentityService;
 import com.blur.chatservice.service.WebsocketSessionService;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
-import com.corundumstudio.socketio.annotation.OnConnect;
-import com.corundumstudio.socketio.annotation.OnDisconnect;
-import com.corundumstudio.socketio.annotation.OnEvent;
-
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 
 @Component
 @RequiredArgsConstructor
@@ -46,201 +33,284 @@ public class SocketHandler {
     SocketIOServer socketIOServer;
     IdentityService identityService;
     WebsocketSessionService websocketSessionService;
-    private final WebsocketSessionRepository websocketSessionRepository;
-    private final ChatMessageService chatMessageService;
-    private final ConversationRepository conversationRepository;
+    ChatMessageService chatMessageService;
+    ConversationRepository conversationRepository;
 
+    private final ConcurrentHashMap<String, Long> processedMessages = new ConcurrentHashMap<>();
+    private static final long DUPLICATE_THRESHOLD = 3000;
 
-    @OnConnect
-    public void clientConnected(SocketIOClient client) {
-        // get token from request params
-        String token = client.getHandshakeData().getSingleUrlParam("token");
-
-        // verify
-        var introspectRes = identityService.introspect(
-                IntrospectRequest.builder().token(token).build());
-        // if token is invalid => disconnect
-        if (introspectRes.isValid()) {
-            // persist websocket session
-            WebsocketSession websocketSession = WebsocketSession.builder()
-                    .socketSessionId(client.getSessionId().toString())
-                    .userId(introspectRes.getUserId())
-                    .createdAt(Instant.now())
-                    .build();
-            websocketSessionService.createWebsocketSession(websocketSession);
-        } else {
-            log.error("authentication failed");
-            client.disconnect();
-        }
-    }
-
-    @OnDisconnect
-    public void clientDisconnected(SocketIOClient client) {
-
-        log.info("Client disconnected: {}", client.getSessionId());
-        try {
-            websocketSessionService.deleteSession(client.getSessionId().toString());
-        } catch (Exception e) {
-            log.error("Error during client disconnection cleanup: ", e);
-        }
-
-
-        log.info("client disconnected: {}", client.getSessionId());
-        websocketSessionService.deleteSession(client.getSessionId().toString());
-
-    }
+    private final ConcurrentHashMap<String, Set<UUID>> userSessions = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void startServer() {
+        socketIOServer.addConnectListener(this::handleConnect);
+        socketIOServer.addDisconnectListener(this::handleDisconnect);
+        socketIOServer.addEventListener("send_message", Map.class, (client, data, ack) -> handleSendMessage(client, data));
+        socketIOServer.addEventListener("typing", Map.class, (client, data, ack) -> handleTyping(client, data));
         socketIOServer.start();
-        socketIOServer.addListeners(this);
+        log.info("SocketIO Server started on port 8099");
     }
 
-    @OnEvent("send_message")
-    public void onSendMessage(SocketIOClient client, ChatMessageRequest data) {
-        log.info("=== Processing send_message event ===");
+    @PreDestroy
+    public void stopServer() {
+        processedMessages.clear();
+        userSessions.clear();
+        socketIOServer.stop();
+    }
+
+    private void handleConnect(SocketIOClient client) {
+        log.info("Client connecting: {}", client.getSessionId());
+
+        String token = null;
+        token = client.getHandshakeData().getSingleUrlParam("token");
+
+        if (token == null || token.isEmpty()) {
+            Object authObj = client.getHandshakeData().getAuthToken();
+            if (authObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> authMap = (Map<String, Object>) authObj;
+                token = (String) authMap.get("token");
+            }
+        }
+
+        log.info("Token received: {}", token != null ? "Yes" : "No");
+
+        if (token == null || token.isEmpty()) {
+            log.error("No token provided");
+            sendError(client, "auth_error", "TOKEN_REQUIRED", "Token required");
+            client.disconnect();
+            return;
+        }
 
         try {
-            String token = client.getHandshakeData().getSingleUrlParam("token");
-            log.info("Token exists: {}", token != null && !token.isEmpty());
-            log.info("Conversation ID: {}", data.getConversationId());
-            log.info("Message content length: {}", data.getMessage() != null ? data.getMessage().length() : 0);
-
-            // Validate input data
-            if (data.getConversationId() == null || data.getMessage() == null || data.getMessage().trim().isEmpty()) {
-                log.error("Invalid message data - missing conversationId or message content");
-                client.sendEvent("message_error", Map.of(
-                        "message", "Invalid message data"
-                ));
-                return;
-            }
-
-            if (token == null || token.isEmpty()) {
-                log.error("No token provided in send_message event");
-                client.sendEvent("auth_error", Map.of("message", "No authentication token"));
-                return;
-            }
-
-            // Verify token again for security
             var introspectRes = identityService.introspect(IntrospectRequest.builder().token(token).build());
-            log.info("Token validation result: valid={}, userId={}",
-                    introspectRes.isValid(),
-                    introspectRes.isValid() ? introspectRes.getUserId() : "N/A");
 
             if (!introspectRes.isValid()) {
-                log.error("AUTHENTICATION FAILED - Token invalid or expired");
-                client.sendEvent("auth_error", Map.of(
-                        "message", "Authentication failed - token invalid or expired"
-
-                ));
+                sendError(client, "auth_error", "INVALID_TOKEN", "Invalid token");
+                client.disconnect();
                 return;
             }
 
             String userId = introspectRes.getUserId();
-            log.info("Processing message from authenticated user: {}", userId);
+            client.set("userId", userId);
 
-            // FIXED: Set up Security Context manually for Socket operations
-            // This ensures authentication.getName() won't be null in ChatMessageService
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            userSessions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(client.getSessionId());
+            websocketSessionService.createSession(client.getSessionId().toString(), userId);
 
-            // Create message with explicit userId parameter
-            ChatMessageResponse chatMessageResponse = chatMessageService.create(data, userId);
-            log.info("Message created successfully with ID: {}", chatMessageResponse.getId());
+            log.info("User {} connected (session: {})", userId, client.getSessionId());
 
-            // Set the 'me' flag based on current user
-            chatMessageResponse.setMe(userId.equals(chatMessageResponse.getSender().getUserId()));
+            Map<String, Object> connectedData = new HashMap<>();
+            connectedData.put("userId", userId);
+            connectedData.put("sessionId", client.getSessionId().toString());
+            connectedData.put("timestamp", Instant.now().toString());
 
-            // Get all participants in the conversation
-            List<String> participantUserIds = conversationRepository.findById(data.getConversationId())
-                    .map(conversation -> conversation.getParticipants().stream()
-                            .map(ParticipantInfo::getUserId)
-                            .collect(Collectors.toList()))
-                    .orElse(List.of());
+            client.sendEvent("connected", connectedData);
 
-            log.info("Found {} participants in conversation {}", participantUserIds.size(), data.getConversationId());
+        } catch (Exception e) {
+            log.error("Authentication failed", e);
+            sendError(client, "auth_error", "AUTH_FAILED", "Authentication failed");
+            client.disconnect();
+        }
+    }
 
-            if (participantUserIds.isEmpty()) {
-                log.warn("No participants found for conversation: {}", data.getConversationId());
-                client.sendEvent("message_error", Map.of(
-                        "message", "Conversation not found or no participants"
+    private void handleDisconnect(SocketIOClient client) {
+        String userId = client.get("userId");
+        log.info("Client disconnected: {} (User: {})", client.getSessionId(), userId);
 
-                ));
-                return;
-            }
-
-            // Get active WebSocket sessions for participants
-            Map<String, WebsocketSession> sessionsBySocketId = websocketSessionRepository.findALlByUserIdIn(participantUserIds)
-                    .stream()
-                    .collect(Collectors.toMap(WebsocketSession::getSocketSessionId, ws -> ws));
-
-            log.info("Found {} active socket sessions for participants", sessionsBySocketId.size());
-
-            // Send "message_received" event to all participants
-            int messagesSent = 0;
-            int totalClients = socketIOServer.getAllClients().size();
-            log.info("Checking {} total connected clients", totalClients);
-
-            for (SocketIOClient sioClient : socketIOServer.getAllClients()) {
-                WebsocketSession wsSession = sessionsBySocketId.get(sioClient.getSessionId().toString());
-                if (wsSession != null) {
-                    try {
-                        // Create a copy of the message for each recipient with correct 'me' flag
-                        ChatMessageResponse messageForRecipient = ChatMessageResponse.builder()
-                                .id(chatMessageResponse.getId())
-                                .conversationId(chatMessageResponse.getConversationId())
-                                .message(chatMessageResponse.getMessage())
-                                .createdDate(chatMessageResponse.getCreatedDate())
-                                .sender(chatMessageResponse.getSender())
-                                .me(wsSession.getUserId().equals(userId)) // Set 'me' flag based on recipient
-                                .build();
-                        sioClient.sendEvent("message_received", messageForRecipient);
-                        messagesSent++;
-                        log.info("Message sent to client: {} (user: {}) ",
-                                sioClient.getSessionId(), wsSession.getUserId());
-                    } catch (Exception e) {
-                        log.error("Error sending message to client {}: {}",
-                                sioClient.getSessionId(), e.getMessage());
+        try {
+            if (userId != null) {
+                Set<UUID> sessions = userSessions.get(userId);
+                if (sessions != null) {
+                    sessions.remove(client.getSessionId());
+                    if (sessions.isEmpty()) {
+                        userSessions.remove(userId);
                     }
                 }
             }
 
-            log.info("Successfully sent message to {} out of {} participants", messagesSent, participantUserIds.size());
-
-            // Send success confirmation to sender if no messages were sent
-            if (messagesSent == 0) {
-                log.warn("No active sessions found for participants - sending confirmation to sender only");
-                client.sendEvent("message_sent", Map.of(
-                        "message", "Message saved but no active recipients",
-                        "messageId", chatMessageResponse.getId()
-                ));
-            } else {
-                // Send confirmation to sender
-                client.sendEvent("message_sent", Map.of(
-                        "message", "Message sent successfully",
-                        "messageId", chatMessageResponse.getId(),
-                        "recipientCount", messagesSent
-                ));
-            }
-
+            websocketSessionService.deleteSession(client.getSessionId().toString());
         } catch (Exception e) {
-            log.error("Failed to process send_message event: ", e);
-            client.sendEvent("message_error", Map.of(
-                    "message", "Failed to send message: " + e.getMessage(),
-                    "error", e.getClass().getSimpleName()
-            ));
-        } finally {
-            // IMPORTANT: Clear Security Context after processing
-            SecurityContextHolder.clearContext();
+            log.error("Error during disconnection cleanup", e);
         }
     }
 
+    private void handleSendMessage(SocketIOClient senderClient, Map<String, Object> data) {
+        try {
+            String senderId = senderClient.get("userId");
+            if (senderId == null) {
+                sendError(senderClient, "message_error", "SESSION_EXPIRED", "Session expired");
+                return;
+            }
 
-    @PreDestroy
-    public void stopServer() {
-        socketIOServer.stop();
-        log.info("SocketIOServer stopped");
+            String conversationId = (String) data.get("conversationId");
+            String message = (String) data.get("message");
+            String tempMessageId = (String) data.get("messageId");
 
+            if (conversationId == null || message == null || message.trim().isEmpty()) {
+                sendError(senderClient, "message_error", "INVALID_DATA", "Invalid message data");
+                return;
+            }
+
+            String messageKey = conversationId + ":" + tempMessageId;
+            if (isDuplicate(messageKey)) {
+                log.warn("Duplicate message detected: {}", tempMessageId);
+                return;
+            }
+
+            log.info("Processing message from {}: {}", senderId, message);
+
+            ChatMessageRequest request = ChatMessageRequest.builder()
+                    .conversationId(conversationId)
+                    .message(message)
+                    .build();
+
+            ChatMessageResponse savedMessage = chatMessageService.create(request, senderId);
+            log.info("Message saved with ID: {}", savedMessage.getId());
+
+            var conversation = conversationRepository
+                    .findById(conversationId)
+                    .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+            if (conversation.getParticipants().size() != 2) {
+                sendError(senderClient, "message_error", "INVALID_CONVERSATION", "Invalid conversation");
+                return;
+            }
+
+            String receiverId = conversation.getParticipants().stream()
+                    .map(ParticipantInfo::getUserId)
+                    .filter(id -> !id.equals(senderId))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+            log.info("Found receiver: {}", receiverId);
+
+            Map<String, Object> payload = buildMessagePayload(savedMessage, tempMessageId);
+
+            log.info("Broadcasting message {} from {} to {}", savedMessage.getId(), senderId, receiverId);
+
+            int senderCount = sendToUser(senderId, "message_received", payload);
+            log.info("Sent to sender {}: {} devices", senderId, senderCount);
+
+            int receiverCount = sendToUser(receiverId, "message_received", payload);
+            log.info("Sent to receiver {}: {} devices", receiverId, receiverCount);
+
+            markAsProcessed(messageKey);
+
+        } catch (Exception e) {
+            log.error("Error processing message", e);
+            sendError(senderClient, "message_error", "INTERNAL_ERROR", "Failed to send message");
+        }
+    }
+
+    private void handleTyping(SocketIOClient client, Map<String, Object> data) {
+        try {
+            String senderId = client.get("userId");
+            String conversationId = (String) data.get("conversationId");
+            Boolean isTyping = (Boolean) data.getOrDefault("isTyping", false);
+
+            if (senderId == null || conversationId == null) return;
+
+            var conversation = conversationRepository.findById(conversationId).orElse(null);
+            if (conversation == null) return;
+
+            String receiverId = conversation.getParticipants().stream()
+                    .map(ParticipantInfo::getUserId)
+                    .filter(id -> !id.equals(senderId))
+                    .findFirst()
+                    .orElse(null);
+
+            if (receiverId == null) return;
+
+            Map<String, Object> typingData = new HashMap<>();
+            typingData.put("conversationId", conversationId);
+            typingData.put("userId", senderId);
+            typingData.put("isTyping", isTyping);
+
+            sendToUser(receiverId, "user_typing", typingData);
+
+        } catch (Exception e) {
+            log.debug("Error handling typing", e);
+        }
+    }
+
+    private int sendToUser(String userId, String event, Object data) {
+        Set<UUID> sessions = userSessions.get(userId);
+
+        log.info("Looking for sessions for user {}: {}", userId, sessions != null ? sessions.size() : 0);
+
+        if (sessions == null || sessions.isEmpty()) {
+            log.warn("No active sessions for user: {}", userId);
+            return 0;
+        }
+
+        int successCount = 0;
+        for (UUID sessionId : sessions) {
+            try {
+                SocketIOClient client = socketIOServer.getClient(sessionId);
+                if (client != null && client.isChannelOpen()) {
+                    client.sendEvent(event, data);
+                    successCount++;
+                    log.info("Sent event {} to session {}", event, sessionId);
+                } else {
+                    log.warn("Session {} not active", sessionId);
+                }
+            } catch (Exception e) {
+                log.error("Failed to send to session {}: {}", sessionId, e.getMessage());
+            }
+        }
+
+        return successCount;
+    }
+
+    private Map<String, Object> buildMessagePayload(ChatMessageResponse msg, String tempId) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", msg.getId());
+        payload.put("messageId", msg.getId());
+        payload.put("tempMessageId", tempId);
+        payload.put("conversationId", msg.getConversationId());
+        payload.put("message", msg.getMessage());
+        payload.put("createdDate", msg.getCreatedDate().toString());
+
+        if (msg.getSender() != null) {
+            ParticipantInfo sender = msg.getSender();
+            payload.put("senderId", sender.getUserId());
+
+            Map<String, Object> senderMap = new HashMap<>();
+            senderMap.put("userId", sender.getUserId());
+            senderMap.put("username", orEmpty(sender.getUsername()));
+            senderMap.put("firstName", orEmpty(sender.getFirstName()));
+            senderMap.put("lastName", orEmpty(sender.getLastName()));
+            senderMap.put("avatar", orEmpty(sender.getAvatar()));
+
+            payload.put("sender", senderMap);
+        }
+
+        return payload;
+    }
+
+    private String orEmpty(String value) {
+        return value != null ? value : "";
+    }
+
+    private boolean isDuplicate(String key) {
+        Long lastTime = processedMessages.get(key);
+        return lastTime != null && (System.currentTimeMillis() - lastTime) < DUPLICATE_THRESHOLD;
+    }
+
+    private void markAsProcessed(String key) {
+        processedMessages.put(key, System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        processedMessages.entrySet().removeIf(entry -> (now - entry.getValue()) > 300000);
+    }
+
+    private void sendError(SocketIOClient client, String event, String code, String message) {
+        Map<String, Object> errorData = new HashMap<>();
+        errorData.put("code", code);
+        errorData.put("message", message);
+        client.sendEvent(event, errorData);
+    }
+
+    private void sendError(SocketIOClient client, String event, String message) {
+        sendError(client, event, "ERROR", message);
     }
 }

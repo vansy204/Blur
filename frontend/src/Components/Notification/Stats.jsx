@@ -1,8 +1,7 @@
+// ============= NotificationStats.jsx =============
 import { Heart, MessageCircle, UserPlus } from 'lucide-react';
-import React from 'react'
+import React from 'react';
 
-
-// Stats component
 const NotificationStats = ({ notifications }) => {
   const stats = {
     likes: notifications.filter(n => n.type === 'like').length,
@@ -11,39 +10,52 @@ const NotificationStats = ({ notifications }) => {
     messages: notifications.filter(n => n.type === 'message').length,
   };
 
+  const statItems = [
+    { 
+      icon: Heart, 
+      count: stats.likes, 
+      label: 'Likes',
+      gradient: 'from-red-100 to-red-50',
+      iconColor: 'text-red-500'
+    },
+    { 
+      icon: MessageCircle, 
+      count: stats.comments, 
+      label: 'Comments',
+      gradient: 'from-sky-100 to-sky-50',
+      iconColor: 'text-sky-500'
+    },
+    { 
+      icon: UserPlus, 
+      count: stats.follows, 
+      label: 'Follows',
+      gradient: 'from-emerald-100 to-emerald-50',
+      iconColor: 'text-emerald-500'
+    },
+    { 
+      icon: MessageCircle, 
+      count: stats.messages, 
+      label: 'Messages',
+      gradient: 'from-violet-100 to-violet-50',
+      iconColor: 'text-violet-500'
+    },
+  ];
+
   return (
-    <div className="px-6 py-4 bg-blue-50/50 border-b border-blue-100">
+    <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
       <div className="grid grid-cols-4 gap-4">
-        <div className="text-center">
-          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-1">
-            <Heart size={14} className="text-red-500" />
+        {statItems.map((item, index) => (
+          <div key={index} className="text-center group cursor-pointer">
+            <div className={`w-12 h-12 bg-gradient-to-br ${item.gradient} rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all`}>
+              <item.icon size={20} className={item.iconColor} />
+            </div>
+            <p className="text-lg font-bold text-gray-900 mb-0.5">{item.count}</p>
+            <p className="text-xs text-gray-500 font-medium">{item.label}</p>
           </div>
-          <p className="text-xs font-semibold text-gray-900">{stats.likes}</p>
-          <p className="text-xs text-gray-500">Likes</p>
-        </div>
-        <div className="text-center">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
-            <MessageCircle size={14} className="text-blue-500" />
-          </div>
-          <p className="text-xs font-semibold text-gray-900">{stats.comments}</p>
-          <p className="text-xs text-gray-500">Comments</p>
-        </div>
-        <div className="text-center">
-          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-1">
-            <UserPlus size={14} className="text-green-500" />
-          </div>
-          <p className="text-xs font-semibold text-gray-900">{stats.follows}</p>
-          <p className="text-xs text-gray-500">Follows</p>
-        </div>
-        <div className="text-center">
-          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-1">
-            <MessageCircle size={14} className="text-purple-500" />
-          </div>
-          <p className="text-xs font-semibold text-gray-900">{stats.messages}</p>
-          <p className="text-xs text-gray-500">Messages</p>
-        </div>
+        ))}
       </div>
     </div>
   );
 };
+
 export default NotificationStats;
