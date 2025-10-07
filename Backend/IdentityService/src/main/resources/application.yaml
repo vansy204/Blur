@@ -30,7 +30,7 @@ outbound:
     grant-type: "authorization_code"
 
 jwt:
-  signerKey: "15dbefda1f522778324fdbb8810d843bc5716214e793da2040db05b9fefc5e84"
+  signerKey: "15dbefda1f522778324fdbb8810d843bc5716214e793da2040db05b9fefc5e85"
   valid-duration: 3600
   refreshable-duration: 360000
 

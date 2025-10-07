@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Image, Mic, Paperclip, PlusCircle, Send, AlertCircle } from "lucide-react";
 
 const API_BASE = "http://localhost:8888/api/chat";
@@ -6,20 +6,16 @@ const SOCKET_URL = "http://localhost:8099";
 
 const getToken = () => localStorage.getItem("token");
 
-// ✅ Decode JWT token để lấy userId
 const getUserId = () => {
   const token = localStorage.getItem("token");
   if (!token) return null;
   
   try {
-    // JWT format: header.payload.signature
     const payload = token.split('.')[1];
     const decoded = JSON.parse(atob(payload));
-    
-    // Backend có thể lưu userId trong các field khác nhau
     return decoded.sub || decoded.userId || decoded.user_id || decoded.id;
   } catch (error) {
-    console.error("❌ Cannot decode token:", error);
+    console.error("Cannot decode token:", error);
     return null;
   }
 };
@@ -63,46 +59,66 @@ const ConversationList = ({ conversations, selected, onSelect }) => {
         </div>
       ) : (
         <div className="divide-y">
-          {conversations.map((conv) => (
-            <div
-              key={conv.id}
-              onClick={() => onSelect(conv)}
-              className={`flex items-center p-4 cursor-pointer transition-all ${
-                selected?.id === conv.id 
-                  ? 'bg-blue-50 border-l-4 border-l-blue-500' 
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              <div className="relative">
-                <img 
-                  src={conv.conversationAvatar || '/api/placeholder/48/48'} 
-                  alt={conv.conversationName}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-              </div>
-              
-              <div className="flex-1 min-w-0 ml-3">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-semibold truncate">{conv.conversationName}</h3>
+          {conversations.map((conv) => {
+            const messageTime = conv.lastMessageTime 
+              ? new Date(conv.lastMessageTime).toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+              : '';
+            
+            return (
+              <div
+                key={conv.id}
+                onClick={() => onSelect(conv)}
+                className={`flex items-center p-4 cursor-pointer transition-all ${
+                  selected?.id === conv.id 
+                    ? 'bg-blue-50 border-l-4 border-l-blue-500' 
+                    : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className="relative">
+                  <img 
+                    src={conv.conversationAvatar || '/api/placeholder/48/48'} 
+                    alt={conv.conversationName}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
                 </div>
-                <p className="text-sm text-gray-500 truncate">
-                  {conv.lastMessage || 'Chưa có tin nhắn'}
-                </p>
+                
+                <div className="flex-1 min-w-0 ml-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold truncate">{conv.conversationName}</h3>
+                    {messageTime && (
+                      <span className="text-xs text-gray-400">{messageTime}</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500 truncate">
+                    {conv.lastMessage || 'Chưa có tin nhắn'}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
 
-const MessageBubble = ({ msg, currentUserId }) => {
-  const isMe = msg.me === true || msg.senderId === currentUserId;
+const MessageBubble = React.memo(({ msg, currentUserId }) => {
+  const isMe = msg.senderId === currentUserId;
   const time = new Date(msg.createdDate || Date.now()).toLocaleTimeString('vi-VN', { 
     hour: '2-digit', 
     minute: '2-digit' 
+  });
+
+  console.log("Render bubble:", {
+    msgId: msg.id,
+    message: msg.message,
+    senderId: msg.senderId,
+    currentUserId: currentUserId,
+    isMe: isMe
   });
 
   return (
@@ -135,7 +151,7 @@ const MessageBubble = ({ msg, currentUserId }) => {
       </div>
     </div>
   );
-};
+});
 
 const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentUserId }) => {
   const [input, setInput] = useState("");
@@ -145,19 +161,19 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (input.trim() && conversation && isConnected) {
       onSendMessage(input);
       setInput("");
     }
-  };
+  }, [input, conversation, isConnected, onSendMessage]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
   if (!conversation) {
     return (
@@ -229,7 +245,6 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            disabled={!isConnected}
           />
           
           <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -238,7 +253,7 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
           
           <button
             onClick={handleSend}
-            disabled={!input.trim() || !isConnected}
+            disabled={!input.trim()}
             className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full p-2 transition-colors"
           >
             <Send size={22} />
@@ -262,37 +277,30 @@ export default function MessagePage() {
 
   useEffect(() => {
     const userId = getUserId();
-    console.log("🔍 DEBUG - Decoded userId from token:", userId);
     setCurrentUserId(userId);
   }, []);
 
-  // Socket.IO connection
   useEffect(() => {
     const token = getToken();
-    const userId = getUserId();
-    
-    console.log("🔍 DEBUG - Token:", token ? "✅ Có" : "❌ Không có");
-    console.log("🔍 DEBUG - UserId:", userId);
-    
-    // Set currentUserId ngay lập tức
-    setCurrentUserId(userId);
-    
     if (!token) {
-      setError("Vui lòng đăng nhập để sử dụng chat");
-      console.error("❌ Không có token, không thể kết nối socket");
+      setError("Vui lòng đăng nhập");
       return;
     }
 
+    let isSubscribed = true;
     const script = document.createElement('script');
     script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
+    script.async = true;
+    
     script.onload = () => {
-      console.log("🔧 Socket.IO loaded");
-      
-      const socket = window.io(`${SOCKET_URL}?token=${token}`, {
+      if (!isSubscribed) return;
+
+      const socket = window.io(SOCKET_URL, {
+        query: { token },  // Gửi qua query string
         autoConnect: true,
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10,
         timeout: 20000,
         transports: ['websocket', 'polling']
       });
@@ -300,116 +308,91 @@ export default function MessagePage() {
       socketRef.current = socket;
 
       socket.on("connect", () => {
-        console.log("✅ Socket connected:", socket.id);
-        console.log("🔍 DEBUG - Socket transport:", socket.io.engine.transport.name);
+        console.log("Socket connected");
         setIsConnected(true);
         setError("");
       });
 
       socket.on("disconnect", (reason) => {
-        console.log("❌ Socket disconnected:", reason);
-        console.log("🔍 DEBUG - Disconnect reason:", reason);
+        console.log("Socket disconnected:", reason);
         setIsConnected(false);
       });
       
       socket.on("connect_error", (err) => {
-        console.error("❌ Connection error:", err.message);
-        setError("Không thể kết nối tới server");
+        setError("Không thể kết nối");
+        setIsConnected(false);
       });
 
-      // ✅ XỬ LÝ MESSAGE_RECEIVED - LOGIC TỐI ƯU
       socket.on("message_received", (data) => {
-        console.log("📨 MESSAGE RECEIVED:", data);
+        const currentUser = getUserId();
+        const messageSenderId = data.senderId || data.sender?.userId;
         
-        setMessages((prev) => {
-          // Check đúng conversation TRƯỚC
-          if (data.conversationId !== currentConversationRef.current) {
-            console.log("⚠️ Wrong conversation, ignoring");
-            return prev;
-          }
+        console.log("📨 Received:", {
+          messageId: data.id,
+          senderId: messageSenderId,
+          currentUser: currentUser,
+          isMe: messageSenderId === currentUser,
+          message: data.message
+        });
+        
+        setConversations(prev => {
+          const idx = prev.findIndex(c => c.id === data.conversationId);
+          if (idx === -1) return prev;
           
-          // ✅ Lấy currentUserId từ trong callback
-          const currentUser = getUserId();
-          const messageSenderId = data.senderId || data.sender?.userId;
-          const isMe = messageSenderId === currentUser;
-          
-          console.log("🔍 COMPARE:");
-          console.log("   messageSenderId:", messageSenderId);
-          console.log("   currentUser:", currentUser);
-          console.log("   isMe:", isMe);
-          
-          // ✅ CHECK DUPLICATE NGAY - Trước khi xử lý
-          const isDuplicate = prev.some(m => 
-            (m.id === data.id) || 
-            (m.id === data.tempMessageId) ||
-            (data.tempMessageId && m.id === data.tempMessageId && !m.isPending)
-          );
-          
-          if (isDuplicate && !data.tempMessageId) {
-            console.log("⚠️ Duplicate message (no tempId), ignoring:", data.id);
-            return prev;
-          }
-          
-          const processedData = {
-            ...data,
-            me: isMe,
-            senderId: messageSenderId
+          const updated = [...prev];
+          const conv = {
+            ...updated[idx],
+            lastMessage: data.message,
+            lastMessageTime: data.createdDate || new Date().toISOString()
           };
-          
-          // ✅ CASE 1: Replace pending message bằng tempMessageId
-          if (data.tempMessageId) {
-            const pendingIndex = prev.findIndex(
-              m => m.id === data.tempMessageId && m.isPending
-            );
-            
-            if (pendingIndex !== -1) {
-              console.log("🔄 Replacing pending message:", data.tempMessageId, "→", data.id);
-              const updated = [...prev];
-              updated[pendingIndex] = {
-                ...processedData,
-                isPending: false
-              };
-              return updated;
-            }
-            
-            // Nếu không tìm thấy pending message, check duplicate với real ID
-            const existsById = prev.some(m => m.id === data.id);
-            if (existsById) {
-              console.log("⚠️ Duplicate message (with tempId), ignoring:", data.id);
+          updated.splice(idx, 1);
+          updated.unshift(conv);
+          return updated;
+        });
+
+        if (data.conversationId === currentConversationRef.current) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === data.id)) {
               return prev;
             }
-          }
+            
+            if (data.tempMessageId) {
+              const idx = prev.findIndex(m => m.id === data.tempMessageId);
+              if (idx !== -1) {
+                const updated = [...prev];
+                updated[idx] = {
+                  id: data.id,
+                  message: data.message,
+                  senderId: messageSenderId,
+                  conversationId: data.conversationId,
+                  createdDate: data.createdDate,
+                  sender: data.sender
+                };
+                return updated;
+              }
+            }
 
-          // ✅ CASE 2: Message mới từ người khác hoặc tab khác
-          console.log("✅ Adding new message with isMe =", isMe);
-          return [...prev, processedData];
-        });
-      });
-
-      socket.on("connected", (data) => {
-        console.log("✅ Connection confirmed:", data);
-      });
-
-      socket.on("auth_error", (data) => {
-        console.error("❌ Auth error:", data);
-        setError(data.message);
-      });
-
-      socket.on("message_error", (data) => {
-        console.error("❌ Message error:", data);
-        setError(data.message);
+            return [...prev, {
+              id: data.id,
+              message: data.message,
+              senderId: messageSenderId,
+              conversationId: data.conversationId,
+              createdDate: data.createdDate || new Date().toISOString(),
+              sender: data.sender
+            }];
+          });
+        }
       });
     };
     
-    script.onerror = () => {
-      setError("Không thể tải Socket.IO library");
-    };
-    
+    script.onerror = () => setError("Không thể tải Socket.IO");
     document.head.appendChild(script);
 
     return () => {
+      isSubscribed = false;
       if (socketRef.current) {
         socketRef.current.disconnect();
+        socketRef.current = null;
       }
       if (script.parentNode) {
         script.parentNode.removeChild(script);
@@ -417,116 +400,98 @@ export default function MessagePage() {
     };
   }, []);
 
-  // Fetch conversations
   useEffect(() => {
     const fetchConversations = async () => {
       try {
         const data = await apiCall('/conversations/my-conversations');
         setConversations(data.result || []);
       } catch (err) {
-        console.error("Lỗi tải conversations:", err);
-        setError("Không thể tải danh sách cuộc trò chuyện");
+        console.error("Error:", err);
       }
     };
-
     fetchConversations();
   }, []);
 
-  // Fetch messages khi chọn conversation
   useEffect(() => {
-    if (!selectedChat) return;
-
-    // ✅ Update conversation ref NGAY
+    if (!selectedChat || !currentUserId) return;
+    
     currentConversationRef.current = selectedChat.id;
 
     const fetchMessages = async () => {
       try {
         const data = await apiCall(`/messages?conversationId=${selectedChat.id}`);
-        const fetchedMessages = (data.result || []).map(msg => {
+        console.log("📥 API Response:", data.result?.slice(0, 2)); // Log 2 messages đầu
+        
+        const msgs = (data.result || []).map(msg => {
           const senderId = msg.sender?.userId;
+          console.log("Processing msg:", {
+            id: msg.id,
+            message: msg.message,
+            senderUserId: senderId,
+            currentUserId: currentUserId
+          });
+          
           return {
-            ...msg,
+            id: msg.id,
+            message: msg.message,
             senderId: senderId,
-            me: senderId === currentUserId // ✅ Tự set dựa trên currentUserId
+            conversationId: msg.conversationId,
+            createdDate: msg.createdDate,
+            sender: msg.sender
           };
         });
         
-        console.log("📥 Loaded messages:", fetchedMessages.length);
-        console.log("   CurrentUserId:", currentUserId);
-        
-        setMessages(fetchedMessages);
+        console.log("📥 Loaded messages:", msgs.length);
+        setMessages(msgs);
       } catch (err) {
-        console.error("Lỗi tải messages:", err);
-        setError("Không thể tải tin nhắn");
+        console.error("Error:", err);
       }
     };
 
     fetchMessages();
   }, [selectedChat, currentUserId]);
 
-  // ✅ Send message handler
-  const handleSendMessage = (text) => {
+  const handleSendMessage = useCallback((text) => {
     if (!text.trim() || !selectedChat || !currentUserId) {
-      console.warn("⚠️ Cannot send message:");
-      console.warn("   Text:", text.trim() ? "✅" : "❌ Empty");
-      console.warn("   Chat selected:", selectedChat ? "✅" : "❌ No");
-      console.warn("   User ID:", currentUserId ? "✅" : "❌ No");
+      console.warn("Cannot send: missing data");
       return;
     }
 
-    const tempMessageId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (!socketRef.current?.connected) {
+      console.warn("Socket not connected, will try to send anyway");
+    }
+
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    // ✅ Tạo tin nhắn tạm (Optimistic UI)
-    const tempMsg = {
-      id: tempMessageId,
+    setMessages(prev => [...prev, {
+      id: tempId,
       message: text,
       senderId: currentUserId,
-      me: true,
-      createdDate: new Date().toISOString(),
       conversationId: selectedChat.id,
+      createdDate: new Date().toISOString(),
       isPending: true
-    };
-    
-    console.log("📤 SENDING MESSAGE:");
-    console.log("   TempId:", tempMessageId);
-    console.log("   ConversationId:", selectedChat.id);
-    console.log("   Message:", text);
-    console.log("   Socket connected:", socketRef.current?.connected);
-    
-    // ✅ Thêm tin nhắn tạm vào UI ngay
-    setMessages((prev) => [...prev, tempMsg]);
+    }]);
 
-    // ✅ Emit qua socket
-    if (socketRef.current?.connected) {
-      const payload = {
+    if (socketRef.current) {
+      socketRef.current.emit("send_message", {
         conversationId: selectedChat.id,
         message: text,
-        messageId: tempMessageId
-      };
-      console.log("📤 Emitting payload:", payload);
-      socketRef.current.emit("send_message", payload);
-      console.log("✅ Message emitted via socket");
+        messageId: tempId
+      });
+      console.log("Message sent via socket");
     } else {
-      console.error("❌ Socket not connected!");
-      console.error("   Socket exists:", !!socketRef.current);
-      console.error("   Socket connected:", socketRef.current?.connected);
-      setError("Mất kết nối. Đang thử kết nối lại...");
-      
-      // Remove tin nhắn tạm nếu không gửi được
-      setMessages((prev) => prev.filter(m => m.id !== tempMessageId));
+      console.error("Socket not initialized");
     }
-  };
+  }, [selectedChat, currentUserId]);
 
   return (
     <div className="flex h-screen bg-gray-100">
       <ConnectionStatus error={error} />
-      
       <ConversationList
         conversations={conversations}
         selected={selectedChat}
         onSelect={setSelectedChat}
       />
-      
       <ChatArea
         conversation={selectedChat}
         messages={messages}

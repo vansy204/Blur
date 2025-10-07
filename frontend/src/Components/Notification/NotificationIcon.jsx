@@ -1,44 +1,43 @@
+// ============= NotificationIcon.jsx =============
 import { Clock, Heart, MessageCircle, UserPlus } from 'lucide-react';
-import React from 'react'
+import React from 'react';
 
-
-// Notification icon component with blue theme
 const NotificationIcon = ({ type, className = '' }) => {
-  const iconProps = { size: 12 };
-  const baseClass = `${className} p-1 rounded-full border-2 border-white shadow-sm`;
+  const iconProps = { size: 14 };
+  const baseClass = `${className} p-1.5 rounded-full border-2 border-white shadow-md`;
 
   switch (type) {
     case 'likePost':
       return (
-        <div className={`${baseClass} bg-red-500`}>
+        <div className={`${baseClass} bg-gradient-to-br from-red-400 to-red-500`}>
           <Heart {...iconProps} className="text-white fill-white" />
         </div>
       );
     case 'CommentPost':
       return (
-        <div className={`${baseClass} bg-blue-500`}>
+        <div className={`${baseClass} bg-gradient-to-br from-sky-400 to-blue-500`}>
           <MessageCircle {...iconProps} className="text-white" />
         </div>
       );
     case 'follow':
       return (
-        <div className={`${baseClass} bg-green-500`}>
+        <div className={`${baseClass} bg-gradient-to-br from-emerald-400 to-emerald-500`}>
           <UserPlus {...iconProps} className="text-white" />
         </div>
       );
     case 'message':
       return (
-        <div className={`${baseClass} bg-purple-500`}>
+        <div className={`${baseClass} bg-gradient-to-br from-violet-400 to-violet-500`}>
           <MessageCircle {...iconProps} className="text-white" />
         </div>
       );
     default:
       return (
-        <div className={`${baseClass} bg-gray-500`}>
+        <div className={`${baseClass} bg-gradient-to-br from-gray-400 to-gray-500`}>
           <Clock {...iconProps} className="text-white" />
         </div>
       );
   }
 };
 
-export default NotificationIcon
+export default NotificationIcon;

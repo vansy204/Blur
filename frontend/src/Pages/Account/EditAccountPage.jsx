@@ -1,14 +1,13 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
-
 import "react-datepicker/dist/react-datepicker.css";
 import { getToken } from "../../service/LocalStorageService";
 import { fetchUserInfo } from "../../api/userApi";
 import { useToast } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
-import { useDarkMode } from "../../hooks/useDarkMode"; // Hook để quản lý dark mode
+import { MdPhotoCamera, MdArrowBack } from "react-icons/md";
 
 const EditAccountPage = () => {
   const [formData, setFormData] = useState({
@@ -25,12 +24,12 @@ const EditAccountPage = () => {
     dob: "",
   });
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const token = getToken();
   const toast = useToast();
   const navigate = useNavigate();
-  const { isDarkMode, toggleDarkMode } = useDarkMode();
 
-  // Load user info ban đầu
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -62,8 +61,16 @@ const EditAccountPage = () => {
     const file = e.target.files[0];
     if (file) {
       try {
+        setIsUploading(true);
         const uploadedUrl = await uploadToCloudnary(file);
         setFormData((prev) => ({ ...prev, imageUrl: uploadedUrl }));
+        toast({
+          title: "Image uploaded successfully",
+          status: "success",
+          duration: 2000,
+          position: "top-right",
+          isClosable: true,
+        });
       } catch (err) {
         toast({
           title: "Image upload failed",
@@ -72,12 +79,15 @@ const EditAccountPage = () => {
           isClosable: true,
           position: "top-right",
         });
+      } finally {
+        setIsUploading(false);
       }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const userInfo = await fetchUserInfo(token);
       const response = await axios.put(
@@ -96,7 +106,7 @@ const EditAccountPage = () => {
       }
 
       toast({
-        title: "User profile updated.",
+        title: "Profile updated successfully!",
         status: "success",
         duration: 3000,
         position: "top-right",
@@ -113,107 +123,99 @@ const EditAccountPage = () => {
         position: "top-right",
         isClosable: true,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      isDarkMode ? 'bg-gray-900' : 'bg-white'
-    }`}>
-      <div className="max-w-3xl mx-auto p-4 sm:p-6">
-        {/* Header với nút Dark Mode */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className={`text-xl sm:text-2xl font-bold text-center flex-1 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            Edit Profile
-          </h2>
-          
-          {/* Dark Mode Toggle */}
-          <button
-            onClick={toggleDarkMode}
-            className={`p-2 rounded-full transition-colors duration-300 ${
-              isDarkMode 
-                ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            aria-label="Toggle dark mode"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              {isDarkMode ? (
-                // Sun icon for dark mode
-                <path
-                  fillRule="evenodd"
-                  d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                  clipRule="evenodd"
-                />
-              ) : (
-                // Moon icon for light mode
-                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-              )}
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Avatar upload */}
-          <div className="flex flex-col items-center space-y-3">
-            <div className="relative group">
-              <img
-                src={
-                  formData.imageUrl ||
-                  "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
-                }
-                alt="avatar"
-                className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 shadow-md transition-colors duration-300 ${
-                  isDarkMode 
-                    ? 'border-gray-600' 
-                    : 'border-gray-300'
-                }`}
-              />
-              <div className="absolute inset-0 rounded-full bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
-                <span className="text-white text-sm">Change</span>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/profile")}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <MdArrowBack className="w-6 h-6 text-gray-600" />
+            </button>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent">
+                Edit Profile
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Update your personal information
+              </p>
             </div>
           </div>
+        </div>
 
-          {/* Tên */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input
-              type="text"
-              name="firstName"
-              placeholder="First Name"
-              value={formData.firstName}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            />
-            <input
-              type="text"
-              name="lastName"
-              placeholder="Last Name"
-              value={formData.lastName}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            />
-          </div>
+        {/* Form Container */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Avatar Upload */}
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full blur-md opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                <img
+                  src={
+                    formData.imageUrl ||
+                    "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
+                  }
+                  alt="avatar"
+                  className="relative w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg"
+                />
+                <label className="absolute bottom-0 right-0 w-10 h-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
+                  {isUploading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <MdPhotoCamera className="w-5 h-5 text-white" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
+                </label>
+              </div>
+              <p className="text-sm text-gray-500">
+                Click the camera icon to change your profile picture
+              </p>
+            </div>
 
-          {/* Ngày sinh */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className={`date-picker-wrapper ${isDarkMode ? 'dark' : ''}`}>
+            {/* Name Fields */}
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700">
+                Full Name
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  name="firstName"
+                  placeholder="First Name"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                />
+                <input
+                  type="text"
+                  name="lastName"
+                  placeholder="Last Name"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Date of Birth */}
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700">
+                Date of Birth
+              </label>
               <DatePicker
                 selected={formData.dob ? new Date(formData.dob) : null}
                 onChange={(date) =>
@@ -227,138 +229,129 @@ const EditAccountPage = () => {
                 showYearDropdown
                 dropdownMode="select"
                 placeholderText="Select Date of Birth"
-                className={`border rounded px-4 py-2 w-full transition-colors duration-300 ${
-                  isDarkMode
-                    ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-                } focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
               />
             </div>
-          </div>
 
-          {/* Tiểu sử */}
-          <textarea
-            name="bio"
-            placeholder="Bio"
-            value={formData.bio}
-            onChange={handleChange}
-            rows={3}
-            className={`w-full border rounded px-4 py-2 resize-none transition-colors duration-300 ${
-              isDarkMode
-                ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-            } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-          />
+            {/* Bio */}
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700">
+                Bio
+              </label>
+              <textarea
+                name="bio"
+                placeholder="Tell us about yourself..."
+                value={formData.bio}
+                onChange={handleChange}
+                rows={4}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+              />
+            </div>
 
-          {/* Thành phố - Địa chỉ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input
-              type="text"
-              name="city"
-              placeholder="City"
-              value={formData.city}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            />
-            <input
-              type="text"
-              name="address"
-              placeholder="Address"
-              value={formData.address}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            />
-          </div>
+            {/* Location */}
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700">
+                Location
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  name="city"
+                  placeholder="City"
+                  value={formData.city}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                />
+                <input
+                  type="text"
+                  name="address"
+                  placeholder="Address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
 
-          {/* Email - SĐT */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            />
-            <input
-              type="tel"
-              name="phone"
-              placeholder="Phone"
-              value={formData.phone}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            />
-          </div>
+            {/* Contact Info */}
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700">
+                Contact Information
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                />
+                <input
+                  type="tel"
+                  name="phone"
+                  placeholder="Phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
 
-          {/* Giới tính - Website */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <select
-              name="gender"
-              value={formData.gender}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            >
-              <option value="" className={isDarkMode ? 'bg-gray-800' : 'bg-white'}>
-                Gender
-              </option>
-              <option value="male" className={isDarkMode ? 'bg-gray-800' : 'bg-white'}>
-                Male
-              </option>
-              <option value="female" className={isDarkMode ? 'bg-gray-800' : 'bg-white'}>
-                Female
-              </option>
-              <option value="other" className={isDarkMode ? 'bg-gray-800' : 'bg-white'}>
-                Other
-              </option>
-            </select>
-            <input
-              type="text"
-              name="website"
-              placeholder="Website"
-              value={formData.website}
-              onChange={handleChange}
-              className={`border rounded px-4 py-2 transition-colors duration-300 ${
-                isDarkMode
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-1 focus:ring-blue-500`}
-            />
-          </div>
+            {/* Additional Info */}
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700">
+                Additional Information
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all bg-white"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                <input
+                  type="text"
+                  name="website"
+                  placeholder="Website"
+                  value={formData.website}
+                  onChange={handleChange}
+                  className="border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
 
-          {/* Nút lưu */}
-          <div className="text-center">
-            <button
-              type="submit"
-              className={`px-6 py-2 rounded font-medium transition-all duration-300 transform hover:scale-105 ${
-                isDarkMode
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
-                  : 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg hover:shadow-blue-500/25'
-              }`}
-            >
-              Save Changes
-            </button>
-          </div>
-        </form>
+            {/* Action Buttons */}
+            <div className="flex gap-4 pt-6">
+              <button
+                type="button"
+                onClick={() => navigate("/profile")}
+                className="flex-1 px-6 py-3 rounded-xl font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex-1 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-500 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Saving...
+                  </span>
+                ) : (
+                  "Save Changes"
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

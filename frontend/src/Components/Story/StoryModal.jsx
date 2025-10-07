@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
-import { formatDistanceToNow } from 'date-fns';
 import { likeStory, unlikeStory, deleteStory } from "../../api/storyApi";
 import { timeDifference } from "../../Config/Logic";
 import { useToast } from '@chakra-ui/react';
+import { MdClose, MdVolumeOff, MdVolumeUp, MdMoreVert, MdDelete } from 'react-icons/md';
+import { AiFillHeart, AiOutlineHeart } from 'react-icons/ai';
 
 const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -16,7 +17,6 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
   
   const currentStory = stories[currentIndex] || {};
 
-  // Kiểm tra xem mediaUrl có phải là video không dựa vào đuôi file
   const isVideo = currentStory.mediaUrl && 
     (currentStory.mediaUrl.toLowerCase().endsWith('.mp4') || 
     currentStory.mediaUrl.toLowerCase().endsWith('.mov') || 
@@ -160,10 +160,10 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
   const handleDeleteStory = async (storyId) => {
     if (!storyId) {
       toast({
-        title: "Error",
-        description: "Cannot delete story. Invalid story ID.",
+        title: "Lỗi",
+        description: "Không thể xóa story. ID không hợp lệ.",
         status: "error",
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
       });
       return;
@@ -173,14 +173,13 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
       const result = await deleteStory(storyId);
       if (result) {
         toast({
-          title: "Story deleted",
-          description: "The story has been deleted successfully.",
+          title: "Đã xóa story",
+          description: "Story đã được xóa thành công.",
           status: "success",
-          duration: 5000,
+          duration: 3000,
           isClosable: true,
         });
         
-        // Gọi callback để thông báo xoá thành công và gửi ID story đã xoá
         if (typeof onDeleteSuccess === 'function') {
           onDeleteSuccess(storyId);
         }
@@ -188,20 +187,20 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
         handleClose();
       } else {
         toast({
-          title: "Error",
-          description: "Failed to delete the story. Please try again.",
+          title: "Lỗi",
+          description: "Không thể xóa story. Vui lòng thử lại.",
           status: "error",
-          duration: 5000,
+          duration: 3000,
           isClosable: true,
         });
       }
     } catch (error) {
       console.error("Error deleting story:", error);
       toast({
-        title: "Error",
-        description: error.message || "Something went wrong while deleting the story.",
+        title: "Lỗi",
+        description: error.message || "Có lỗi xảy ra khi xóa story.",
         status: "error",
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
       });
     }
@@ -211,99 +210,123 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50"
+      className="fixed inset-0 bg-black/90 backdrop-blur-sm flex justify-center items-center z-50 p-4"
       onClick={handleOutsideClick}
     >
       <div 
         ref={modalContentRef}
-        className="bg-black rounded-xl relative max-w-lg w-full" 
+        className="bg-black rounded-2xl relative w-full max-w-lg max-h-[90vh] shadow-2xl overflow-hidden flex items-center justify-center" 
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Close button */}
         <button
-          className="absolute top-2 right-2 text-white bg-black bg-opacity-50 rounded-full w-8 h-8 z-10 flex items-center justify-center cursor-pointer"
+          className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all group"
           onClick={handleClose}
         >
-          ✕
+          <MdClose className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
         </button>
 
-        <div className="absolute top-0 left-0 right-0 flex gap-1 px-2 pt-2 z-10">
+        {/* Progress bars */}
+        <div className="absolute top-0 left-0 right-0 flex gap-1 px-3 pt-3 z-10">
           {stories.map((_, idx) => (
             <div
               key={idx}
-              className="h-1 flex-1 rounded-full bg-white/30 overflow-hidden"
+              className="h-1 flex-1 rounded-full bg-white/20 overflow-hidden backdrop-blur-sm"
             >
               <div
-                className={`h-full bg-white transition-all ${!isVideo && idx === currentIndex ? "duration-[10000ms] w-full" : idx < currentIndex ? "w-full" : "w-0"}`}></div>
+                className={`h-full bg-gradient-to-r from-sky-400 to-blue-500 rounded-full transition-all ${
+                  !isVideo && idx === currentIndex 
+                    ? "duration-[10000ms] w-full" 
+                    : idx < currentIndex 
+                    ? "w-full" 
+                    : "w-0"
+                }`}
+              />
             </div>
           ))}
         </div>
 
-        <div className="absolute top-4 left-2 right-2 flex items-center gap-2 z-10 px-2 pt-4">
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-white">
+        {/* User info header */}
+        <div className="absolute top-12 left-3 right-3 flex items-center gap-3 z-10 px-2">
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-sky-400 shadow-lg">
             <img 
               src={currentStory?.userProfileImage} 
               alt="profile" 
               className="w-full h-full object-cover"
-         
             />
           </div>
-          <div className="text-white text-sm font-medium">
-            {currentStory?.firstName 
-              ? `${currentStory.firstName} ${currentStory.lastName || ''}` 
-              : currentStory?.username || "User"}
+          <div className="flex-1">
+            <div className="text-white text-sm font-semibold drop-shadow-lg">
+              {currentStory?.firstName 
+                ? `${currentStory.firstName} ${currentStory.lastName || ''}` 
+                : currentStory?.username || "User"}
+            </div>
+            <div className="text-white/80 text-xs drop-shadow">
+              {timeDifference(currentStory?.createdAt)}
+            </div>
           </div>
-          <div className="text-white/70 text-xs ml-auto">
-            {timeDifference(currentStory?.createdAt)}
-          </div>
+          
+          {/* Menu button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
-            className="text-white ml-2"
+            className="w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all"
           >
-            ⋮
+            <MdMoreVert className="text-white w-5 h-5" />
           </button>
+          
+          {/* Menu dropdown */}
           {showMenu && (
-            <div className="absolute right-2 bg-black bg-opacity-70 rounded-lg p-2">
+            <div className="absolute right-0 top-12 bg-white rounded-xl shadow-xl overflow-hidden min-w-[160px]">
               <button
-                onClick={() => handleDeleteStory(currentStory.id)}
-                className="text-white text-sm"
+                onClick={() => {
+                  handleDeleteStory(currentStory.id);
+                  setShowMenu(false);
+                }}
+                className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
               >
-                Delete Story
+                <MdDelete className="w-5 h-5" />
+                Xóa Story
               </button>
             </div>
           )}
         </div>
 
-        {currentStory?.mediaUrl && (
-          isVideo ? (
-            <video
-              ref={videoRef}
-              src={currentStory.mediaUrl}
-              className="w-full object-cover rounded-xl"
-              autoPlay
-              playsInline
-              muted={isMuted}
-              onError={(e) => console.error("Video error:", e)}
-            />
-          ) : (
-            <img
-              src={currentStory.mediaUrl}
-              alt="story"
-              className="w-full object-cover rounded-xl"
+        {/* Media content - FIXED SIZING */}
+        <div className="w-full h-full flex items-center justify-center">
+          {currentStory?.mediaUrl && (
+            isVideo ? (
+              <video
+                ref={videoRef}
+                src={currentStory.mediaUrl}
+                className="max-w-full max-h-[90vh] object-contain rounded-2xl"
+                autoPlay
+                playsInline
+                muted={isMuted}
+                onError={(e) => console.error("Video error:", e)}
+              />
+            ) : (
+              <img
+                src={currentStory.mediaUrl}
+                alt="story"
+                className="max-w-full max-h-[90vh] object-contain rounded-2xl"
+              />
+            )
+          )}
+        </div>
 
-            />
-          )
-        )}
-
+        {/* Caption */}
         {currentStory?.content && (
-          <div className="absolute bottom-12 left-2 right-2 text-white px-4 py-2 bg-black/50 rounded-lg">
-            {currentStory.content}
+          <div className="absolute bottom-20 left-4 right-4 text-white px-4 py-3 bg-black/60 backdrop-blur-md rounded-xl shadow-lg">
+            <p className="text-sm leading-relaxed">{currentStory.content}</p>
           </div>
         )}
 
-        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
+        {/* Action buttons */}
+        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between z-10 gap-3">
+          {/* Like button */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -311,26 +334,36 @@ const StoryModal = ({ isOpen, onClose, stories, story, onDeleteSuccess }) => {
                 handleLikeStory(currentStory.id);
               }
             }}
-            className="text-white bg-black bg-opacity-50 rounded-full w-8 h-8 flex items-center justify-center"
+            className="w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all group"
           >
-            {isLiked ? '❤️' : '🤍'}
+            {isLiked ? (
+              <AiFillHeart className="w-6 h-6 text-red-500 group-hover:scale-110 transition-transform" />
+            ) : (
+              <AiOutlineHeart className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
+            )}
           </button>
 
+          {/* Mute button for videos */}
           {isVideo && (
             <button 
               onClick={(e) => {
                 e.stopPropagation();
                 toggleMute();
               }}
-              className="text-white bg-black bg-opacity-50 rounded-full w-8 h-8 flex items-center justify-center"
+              className="w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all group"
             >
-              {isMuted ? '🔇' : '🔊'}
+              {isMuted ? (
+                <MdVolumeOff className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
+              ) : (
+                <MdVolumeUp className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
+              )}
             </button>
           )}
         </div>
 
-        <div className="absolute top-0 left-0 h-full w-1/2" onClick={handlePrev} />
-        <div className="absolute top-0 right-0 h-full w-1/2" onClick={handleNext} />
+        {/* Navigation areas */}
+        <div className="absolute top-0 left-0 h-full w-1/2 cursor-pointer z-[5]" onClick={handlePrev} />
+        <div className="absolute top-0 right-0 h-full w-1/2 cursor-pointer z-[5]" onClick={handleNext} />
       </div>
     </div>
   );
