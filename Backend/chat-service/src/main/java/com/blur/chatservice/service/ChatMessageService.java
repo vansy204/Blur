@@ -41,9 +41,6 @@ public class ChatMessageService {
 
     public ChatMessageResponse create(ChatMessageRequest chatMessageRequest, String userId)
             throws JsonProcessingException {
-        log.info(
-                "📝 Creating message for conversation: {} by user: {}", chatMessageRequest.getConversationId(), userId);
-
         // Validate user profile
         var userResponse = profileClient.getProfile(userId);
 
@@ -53,7 +50,7 @@ public class ChatMessageService {
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
         conversation.getParticipants().stream()
-                .filter(participantInfo -> userResponse.getResult().getId().equals(participantInfo.getUserId()))
+                .filter(participantInfo -> userResponse.getResult().getUserId().equals(participantInfo.getUserId()))
                 .findAny()
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
@@ -72,14 +69,11 @@ public class ChatMessageService {
         // Save to database
         chatMessage = chatMessageRepository.save(chatMessage);
 
-        log.info("✅ Message saved with ID: {}", chatMessage.getId());
 
-        // ✅ Return response WITHOUT setting 'me' flag
-        // SocketHandler sẽ lo việc này khi broadcast
+
         return toChatMessageResponse(chatMessage, null);
     }
 
-    // ✅ Overload method với userId parameter
     private ChatMessageResponse toChatMessageResponse(ChatMessage chatMessage, String currentUserId) {
         var chatMessageResponse = chatMessageMapper.toChatMessageResponse(chatMessage);
 
@@ -93,12 +87,10 @@ public class ChatMessageService {
     }
 
     public List<ChatMessageResponse> getMessages(String conversationId) {
-        // ✅ Lấy userId từ SecurityContext (vì đây là REST API call)
         String userId = null;
         try {
             userId = SecurityContextHolder.getContext().getAuthentication().getName();
         } catch (Exception e) {
-            log.warn("⚠️ No authentication context, 'me' flag will not be set");
         }
 
         var userResponse = profileClient.getProfile(userId);
@@ -109,7 +101,7 @@ public class ChatMessageService {
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
         conversation.getParticipants().stream()
-                .filter(participantInfo -> userResponse.getResult().getId().equals(participantInfo.getUserId()))
+                .filter(participantInfo -> userResponse.getResult().getUserId().equals(participantInfo.getUserId()))
                 .findAny()
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
