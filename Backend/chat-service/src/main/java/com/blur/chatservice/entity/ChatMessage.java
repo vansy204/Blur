@@ -1,10 +1,13 @@
 package com.blur.chatservice.entity;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoId;
+
+import com.blur.chatservice.enums.MessageType;
 
 import lombok.Builder;
 import lombok.Data;
@@ -26,4 +29,7 @@ public class ChatMessage {
 
     @Indexed
     Instant createdDate;
+
+    MessageType messageType;
+    List<MediaAttachment> attachments;
 }
