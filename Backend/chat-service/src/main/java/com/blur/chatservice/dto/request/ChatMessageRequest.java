@@ -1,6 +1,10 @@
 package com.blur.chatservice.dto.request;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
+
+import com.blur.chatservice.entity.MediaAttachment;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,4 +23,6 @@ public class ChatMessageRequest {
 
     @NotBlank
     String message;
+
+    List<MediaAttachment> attachments;
 }

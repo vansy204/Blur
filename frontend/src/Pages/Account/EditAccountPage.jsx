@@ -59,29 +59,68 @@ const EditAccountPage = () => {
 
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      try {
-        setIsUploading(true);
-        const uploadedUrl = await uploadToCloudnary(file);
-        setFormData((prev) => ({ ...prev, imageUrl: uploadedUrl }));
-        toast({
-          title: "Image uploaded successfully",
-          status: "success",
-          duration: 2000,
-          position: "top-right",
-          isClosable: true,
-        });
-      } catch (err) {
-        toast({
-          title: "Image upload failed",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-          position: "top-right",
-        });
-      } finally {
-        setIsUploading(false);
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return;
+    }
+
+    // Validate file size (10MB max)
+    if (file.size > 10485760) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 10MB",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return;
+    }    
+    try {
+      setIsUploading(true);
+            const attachment = await uploadToCloudnary(file);
+      if (!attachment || !attachment.url) {
+        throw new Error("Upload failed - no URL returned");
       }
+
+      if (typeof attachment.url !== 'string' || attachment.url.trim() === '') {
+        throw new Error("Invalid URL returned");
+      }
+
+      setFormData((prev) => ({ 
+        ...prev, 
+        imageUrl: attachment.url 
+      }));
+      
+      toast({
+        title: "Image uploaded successfully",
+        status: "success",
+        duration: 2000,
+        position: "top-right",
+        isClosable: true,
+      });
+    } catch (err) {
+      console.error("❌ Upload failed:", err);
+      toast({
+        title: "Image upload failed",
+        description: err.message || "Please try again",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top-right",
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 

@@ -1,7 +1,9 @@
 package com.blur.chatservice.enums;
 
 public enum MessageType {
-    CHAT,
-    JOIN,
-    LEAVE
+    TEXT,
+    IMAGE,
+    VIDEO,
+    FILE,
+    MIXED
 }

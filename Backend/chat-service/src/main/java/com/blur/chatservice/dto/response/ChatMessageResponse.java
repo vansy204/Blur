@@ -1,8 +1,11 @@
 package com.blur.chatservice.dto.response;
 
 import java.time.Instant;
+import java.util.List;
 
+import com.blur.chatservice.entity.MediaAttachment;
 import com.blur.chatservice.entity.ParticipantInfo;
+import com.blur.chatservice.enums.MessageType;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,8 +21,10 @@ import lombok.experimental.FieldDefaults;
 public class ChatMessageResponse {
     String id;
     String conversationId;
-    Boolean me;
     String message;
+    MessageType messageType;
+    List<MediaAttachment> attachments;
     ParticipantInfo sender;
     Instant createdDate;
+    Boolean me;
 }

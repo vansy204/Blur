@@ -40,9 +40,7 @@ public class ConversationService {
         List<Conversation> conversations = conversationRepository.findAllByParticipantIdsContains(
                 userResponse.getResult().getUserId());
 
-        return conversations.stream()
-                .map(this::toConversationResponse)
-                .collect(Collectors.toList());
+        return conversations.stream().map(this::toConversationResponse).collect(Collectors.toList());
     }
 
     public ConversationResponse createConversation(ConversationRequest request) {
@@ -64,8 +62,7 @@ public class ConversationService {
         userIds.add(participantInfo.getUserId());
 
         var sortedIds = userIds.stream().sorted().toList(); // sap xep lai theo thu tu de dam bao Hash la duy nhat
-        log.info("participant info: {}", participantInfo);
-        log.info("user info: {}", userInfo);
+
         String userIdHash = generateParticipantHash(sortedIds);
         var conversation = conversationRepository
                 .findByParticipantsHash(userIdHash)
