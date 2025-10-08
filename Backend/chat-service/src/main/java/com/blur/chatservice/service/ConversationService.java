@@ -38,7 +38,7 @@ public class ConversationService {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         var userResponse = profileClient.getProfile(userId);
         List<Conversation> conversations = conversationRepository.findAllByParticipantIdsContains(
-                userResponse.getResult().getId());
+                userResponse.getResult().getUserId());
 
         return conversations.stream()
                 .map(this::toConversationResponse)
@@ -61,10 +61,11 @@ public class ConversationService {
 
         List<String> userIds = new ArrayList<>();
         userIds.add(userId);
-        userIds.add(participantInfo.getId());
+        userIds.add(participantInfo.getUserId());
 
         var sortedIds = userIds.stream().sorted().toList(); // sap xep lai theo thu tu de dam bao Hash la duy nhat
-
+        log.info("participant info: {}", participantInfo);
+        log.info("user info: {}", userInfo);
         String userIdHash = generateParticipantHash(sortedIds);
         var conversation = conversationRepository
                 .findByParticipantsHash(userIdHash)
@@ -112,7 +113,7 @@ public class ConversationService {
         conversation.getParticipants().stream()
                 .filter(participantInfo -> !participantInfo
                         .getUserId()
-                        .equals(profileResponse.getResult().getId()))
+                        .equals(profileResponse.getResult().getUserId()))
                 .findFirst()
                 .ifPresent(participantInfo -> {
                     conversationResponse.setConversationName(

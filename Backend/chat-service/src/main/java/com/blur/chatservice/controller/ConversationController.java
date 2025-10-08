@@ -24,7 +24,6 @@ public class ConversationController {
 
     @PostMapping("/create")
     ApiResponse<ConversationResponse> createConversation(@RequestBody ConversationRequest conversationRequest) {
-        log.info("conversation create request {}", conversationRequest);
         return ApiResponse.<ConversationResponse>builder()
                 .result(conversationService.createConversation(conversationRequest))
                 .build();

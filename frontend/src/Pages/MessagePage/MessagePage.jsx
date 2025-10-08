@@ -113,13 +113,6 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
     minute: '2-digit' 
   });
 
-  console.log("Render bubble:", {
-    msgId: msg.id,
-    message: msg.message,
-    senderId: msg.senderId,
-    currentUserId: currentUserId,
-    isMe: isMe
-  });
 
   return (
     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -308,13 +301,11 @@ export default function MessagePage() {
       socketRef.current = socket;
 
       socket.on("connect", () => {
-        console.log("Socket connected");
         setIsConnected(true);
         setError("");
       });
 
       socket.on("disconnect", (reason) => {
-        console.log("Socket disconnected:", reason);
         setIsConnected(false);
       });
       
@@ -324,16 +315,7 @@ export default function MessagePage() {
       });
 
       socket.on("message_received", (data) => {
-        const currentUser = getUserId();
         const messageSenderId = data.senderId || data.sender?.userId;
-        
-        console.log("📨 Received:", {
-          messageId: data.id,
-          senderId: messageSenderId,
-          currentUser: currentUser,
-          isMe: messageSenderId === currentUser,
-          message: data.message
-        });
         
         setConversations(prev => {
           const idx = prev.findIndex(c => c.id === data.conversationId);
@@ -420,17 +402,10 @@ export default function MessagePage() {
     const fetchMessages = async () => {
       try {
         const data = await apiCall(`/messages?conversationId=${selectedChat.id}`);
-        console.log("📥 API Response:", data.result?.slice(0, 2)); // Log 2 messages đầu
         
         const msgs = (data.result || []).map(msg => {
           const senderId = msg.sender?.userId;
-          console.log("Processing msg:", {
-            id: msg.id,
-            message: msg.message,
-            senderUserId: senderId,
-            currentUserId: currentUserId
-          });
-          
+      
           return {
             id: msg.id,
             message: msg.message,
@@ -441,10 +416,8 @@ export default function MessagePage() {
           };
         });
         
-        console.log("📥 Loaded messages:", msgs.length);
         setMessages(msgs);
       } catch (err) {
-        console.error("Error:", err);
       }
     };
 
@@ -453,12 +426,10 @@ export default function MessagePage() {
 
   const handleSendMessage = useCallback((text) => {
     if (!text.trim() || !selectedChat || !currentUserId) {
-      console.warn("Cannot send: missing data");
       return;
     }
 
     if (!socketRef.current?.connected) {
-      console.warn("Socket not connected, will try to send anyway");
     }
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -478,9 +449,7 @@ export default function MessagePage() {
         message: text,
         messageId: tempId
       });
-      console.log("Message sent via socket");
     } else {
-      console.error("Socket not initialized");
     }
   }, [selectedChat, currentUserId]);
 

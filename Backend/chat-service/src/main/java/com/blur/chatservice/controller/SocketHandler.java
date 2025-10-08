@@ -48,7 +48,6 @@ public class SocketHandler {
         socketIOServer.addEventListener("send_message", Map.class, (client, data, ack) -> handleSendMessage(client, data));
         socketIOServer.addEventListener("typing", Map.class, (client, data, ack) -> handleTyping(client, data));
         socketIOServer.start();
-        log.info("SocketIO Server started on port 8099");
     }
 
     @PreDestroy
@@ -59,11 +58,8 @@ public class SocketHandler {
     }
 
     private void handleConnect(SocketIOClient client) {
-        log.info("Client connecting: {}", client.getSessionId());
-
         String token = null;
         token = client.getHandshakeData().getSingleUrlParam("token");
-
         if (token == null || token.isEmpty()) {
             Object authObj = client.getHandshakeData().getAuthToken();
             if (authObj instanceof Map) {
@@ -72,11 +68,7 @@ public class SocketHandler {
                 token = (String) authMap.get("token");
             }
         }
-
-        log.info("Token received: {}", token != null ? "Yes" : "No");
-
         if (token == null || token.isEmpty()) {
-            log.error("No token provided");
             sendError(client, "auth_error", "TOKEN_REQUIRED", "Token required");
             client.disconnect();
             return;
@@ -96,9 +88,6 @@ public class SocketHandler {
 
             userSessions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(client.getSessionId());
             websocketSessionService.createSession(client.getSessionId().toString(), userId);
-
-            log.info("User {} connected (session: {})", userId, client.getSessionId());
-
             Map<String, Object> connectedData = new HashMap<>();
             connectedData.put("userId", userId);
             connectedData.put("sessionId", client.getSessionId().toString());
@@ -107,7 +96,6 @@ public class SocketHandler {
             client.sendEvent("connected", connectedData);
 
         } catch (Exception e) {
-            log.error("Authentication failed", e);
             sendError(client, "auth_error", "AUTH_FAILED", "Authentication failed");
             client.disconnect();
         }
@@ -115,8 +103,6 @@ public class SocketHandler {
 
     private void handleDisconnect(SocketIOClient client) {
         String userId = client.get("userId");
-        log.info("Client disconnected: {} (User: {})", client.getSessionId(), userId);
-
         try {
             if (userId != null) {
                 Set<UUID> sessions = userSessions.get(userId);
@@ -153,11 +139,9 @@ public class SocketHandler {
 
             String messageKey = conversationId + ":" + tempMessageId;
             if (isDuplicate(messageKey)) {
-                log.warn("Duplicate message detected: {}", tempMessageId);
                 return;
             }
 
-            log.info("Processing message from {}: {}", senderId, message);
 
             ChatMessageRequest request = ChatMessageRequest.builder()
                     .conversationId(conversationId)
@@ -165,7 +149,6 @@ public class SocketHandler {
                     .build();
 
             ChatMessageResponse savedMessage = chatMessageService.create(request, senderId);
-            log.info("Message saved with ID: {}", savedMessage.getId());
 
             var conversation = conversationRepository
                     .findById(conversationId)
@@ -182,22 +165,12 @@ public class SocketHandler {
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
-            log.info("Found receiver: {}", receiverId);
 
             Map<String, Object> payload = buildMessagePayload(savedMessage, tempMessageId);
-
-            log.info("Broadcasting message {} from {} to {}", savedMessage.getId(), senderId, receiverId);
-
-            int senderCount = sendToUser(senderId, "message_received", payload);
-            log.info("Sent to sender {}: {} devices", senderId, senderCount);
-
-            int receiverCount = sendToUser(receiverId, "message_received", payload);
-            log.info("Sent to receiver {}: {} devices", receiverId, receiverCount);
 
             markAsProcessed(messageKey);
 
         } catch (Exception e) {
-            log.error("Error processing message", e);
             sendError(senderClient, "message_error", "INTERNAL_ERROR", "Failed to send message");
         }
     }
@@ -229,17 +202,14 @@ public class SocketHandler {
             sendToUser(receiverId, "user_typing", typingData);
 
         } catch (Exception e) {
-            log.debug("Error handling typing", e);
         }
     }
 
     private int sendToUser(String userId, String event, Object data) {
         Set<UUID> sessions = userSessions.get(userId);
 
-        log.info("Looking for sessions for user {}: {}", userId, sessions != null ? sessions.size() : 0);
 
         if (sessions == null || sessions.isEmpty()) {
-            log.warn("No active sessions for user: {}", userId);
             return 0;
         }
 
@@ -250,12 +220,9 @@ public class SocketHandler {
                 if (client != null && client.isChannelOpen()) {
                     client.sendEvent(event, data);
                     successCount++;
-                    log.info("Sent event {} to session {}", event, sessionId);
                 } else {
-                    log.warn("Session {} not active", sessionId);
                 }
             } catch (Exception e) {
-                log.error("Failed to send to session {}: {}", sessionId, e.getMessage());
             }
         }
 
