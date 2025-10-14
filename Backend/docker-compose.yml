@@ -10,21 +10,24 @@ services:
     ports:
       - "7474:7474"
       - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/12345678
     volumes:
       - neo4j_data:/data
 
   mysql:
-    image: mysql:latest
+    image: mysql:8.0
     container_name: mysql
     ports:
       - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=root
+
     volumes:
       - mysql_data:/var/lib/mysql
 
   mongo:
-    image: mongo:latest
+    image: mongo:6.0
     container_name: mongo
     ports:
       - "27017:27017"
@@ -41,112 +44,35 @@ services:
       - "6379:6379"
 
   # ====================
-  # Kafka + Zookeeper
+  # Kafka + Zookeeper (Confluent)
   # ====================
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.7.1
     container_name: zookeeper
     ports:
       - "2181:2181"
     environment:
-      - ZOOKEEPER_CLIENT_PORT=2181
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    image: bitnami/kafka:3.9.0
+    image: confluentinc/cp-kafka:7.7.1
     container_name: kafka
-    environment:
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-    ports:
-      - "9092:9092"
     depends_on:
       - zookeeper
-
-  # ====================
-  # Microservices
-  # ====================
-  api-gateway:
-    build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
-    container_name: api-gateway
     ports:
-      - "8888:8888"
-    depends_on:
-      - identity-service
-      - profile-service
-      - notification-service
-      - chat-service
-      - post-service
-      - story-service
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
 
-  identity-service:
-    build:
-      context: ./IdentityService
-      dockerfile: Dockerfile
-    container_name: identity-service
-    ports:
-      - "8080:8080"
-    depends_on:
-      - mysql
-      - redis
 
-  profile-service:
-    build:
-      context: ./profile-service
-      dockerfile: Dockerfile
-    container_name: profile-service
-    ports:
-      - "8081:8081"
-    depends_on:
-      - neo4j
-
-  notification-service:
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    container_name: notification-service
-    ports:
-      - "8082:8082"
-    depends_on:
-      - kafka
-      - redis
-      - mongo
-
-  chat-service:
-    build:
-      context: ./chat-service
-      dockerfile: Dockerfile
-    container_name: chat-service
-    ports:
-      - "8083:8083"
-    depends_on:
-      - mongo
-      - redis
-
-  post-service:
-    build:
-      context: ./post-service
-      dockerfile: Dockerfile
-    container_name: post-service
-    ports:
-      - "8084:8084"
-    depends_on:
-      - mongo
-
-  story-service:
-    build:
-      context: ./story-service
-      dockerfile: Dockerfile
-    container_name: story-service
-    ports:
-      - "8086:8086"
-    depends_on:
-      - mongo
-
-# ====================
-# Volumes
 # ====================
 volumes:
   neo4j_data:
