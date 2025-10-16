@@ -1,12 +1,13 @@
 import React from "react";
-
 import Router from "./Pages/Router/Router";
+import { SocketProvider } from "./contexts/SocketContext";
 
 function App() {
   return (
-     
-        <Router/>
-     
+      <SocketProvider>
+        <Router />
+      </SocketProvider>
   );
 }
+
 export default App;

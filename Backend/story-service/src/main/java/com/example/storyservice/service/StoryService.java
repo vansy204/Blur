@@ -90,15 +90,12 @@ public class StoryService {
 
     @Scheduled(fixedRate = 3600000) // Run every hour (3600000 ms)
     public void deleteOldStories() {
-        log.info("Running scheduled task to delete old stories");
         Instant twentyFourHoursAgo = Instant.now().minus(24, ChronoUnit.HOURS);
         
         List<Story> oldStories = storyRepository.findAllByCreatedAtBefore(twentyFourHoursAgo);
         if (!oldStories.isEmpty()) {
-            log.info("Deleting {} stories older than 24 hours", oldStories.size());
             storyRepository.deleteAll(oldStories);
         }
     }
 
-    // Rest of your existing methods...
 }
