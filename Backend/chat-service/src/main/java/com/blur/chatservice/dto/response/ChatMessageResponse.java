@@ -27,4 +27,6 @@ public class ChatMessageResponse {
     ParticipantInfo sender;
     Instant createdDate;
     Boolean me;
+    Boolean isRead;
+    List<String> readBy;
 }

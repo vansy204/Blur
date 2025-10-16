@@ -50,13 +50,9 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        String path = exchange.getRequest().getURI().getPath();
-        log.info("=== Incoming Request ===");
-        log.info("Path: {}", path);
-        log.info("Method: {}", exchange.getRequest().getMethod());
+
 
         if (isPublicEndpoint(exchange.getRequest())) {
-            log.info("✅ Public endpoint - Allowing request");
             return chain.filter(exchange);
         }
 
@@ -64,24 +60,18 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
 
         if (CollectionUtils.isEmpty(authHeader)) {
-            log.warn("❌ No Authorization header found");
             return unauthenticated(exchange.getResponse());
         }
 
         String token = authHeader.get(0).replace("Bearer ", "");
-        log.info("🔑 Token found, verifying...");
-
         // Verify token
         return identityService.introspect(token).flatMap(introspectResponse -> {
             if (introspectResponse.getResult().isValid()) {
-                log.info("✅ Token valid - Allowing request");
                 return chain.filter(exchange);
             } else {
-                log.warn("❌ Token invalid");
                 return unauthenticated(exchange.getResponse());
             }
         }).onErrorResume(throwable -> {
-            log.error("❌ Token verification error: {}", throwable.getMessage());
             return unauthenticated(exchange.getResponse());
         });
     }
@@ -97,14 +87,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         boolean isPublic = Arrays.stream(publicEnpoints).anyMatch(pattern -> {
             String fullPattern = apiPrefix + pattern;
             boolean matches = path.matches(fullPattern);
-
-            log.debug("Checking: '{}' against pattern: '{}' → {}",
-                    path, fullPattern, matches);
-
             return matches;
         });
-
-        log.info("Is public endpoint: {}", isPublic);
         return isPublic;
     }
 

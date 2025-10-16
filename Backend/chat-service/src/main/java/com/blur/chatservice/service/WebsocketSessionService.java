@@ -23,8 +23,6 @@ public class WebsocketSessionService {
 
     @Transactional
     public WebsocketSession createSession(String sessionId, String userId) {
-        log.debug("Creating session: {} for user: {}", sessionId, userId);
-
         WebsocketSession session = WebsocketSession.builder()
                 .socketSessionId(sessionId)
                 .userId(userId)
@@ -36,7 +34,6 @@ public class WebsocketSessionService {
 
     @Transactional
     public void deleteSession(String sessionId) {
-        log.debug("Deleting session: {}", sessionId);
         websocketSessionRepository.deleteBySocketSessionId(sessionId);
     }
 

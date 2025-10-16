@@ -56,7 +56,7 @@ const ProfileUserDetails = () => {
         const postData = await getPostsByUserId(profileData.userId, token);
         setPosts(postData);
       } catch (error) {
-        console.log("Error fetching profile data:", error);
+       
       } finally {
         setIsLoading(false);
       }

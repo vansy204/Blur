@@ -32,4 +32,6 @@ public class ChatMessage {
 
     MessageType messageType;
     List<MediaAttachment> attachments;
+    Boolean isRead;
+    List<String> readBy;
 }

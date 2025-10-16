@@ -3,6 +3,7 @@ package com.blur.chatservice.service;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -41,8 +42,10 @@ public class ChatMessageService {
         }
 
         // Validate message or attachments exists
-        boolean hasMessage = request.getMessage() != null && !request.getMessage().trim().isEmpty();
-        boolean hasAttachments = request.getAttachments() != null && !request.getAttachments().isEmpty();
+        boolean hasMessage =
+                request.getMessage() != null && !request.getMessage().trim().isEmpty();
+        boolean hasAttachments =
+                request.getAttachments() != null && !request.getAttachments().isEmpty();
 
         if (!hasMessage && !hasAttachments) {
             throw new AppException(ErrorCode.INVALID_FILE);
@@ -95,8 +98,8 @@ public class ChatMessageService {
                         .avatar(userInfo.getImageUrl())
                         .build())
                 .createdDate(Instant.now())
+                .readBy(List.of(userInfo.getUserId()))
                 .build();
-
 
         if (chatMessage.getAttachments() != null) {
             for (int i = 0; i < chatMessage.getAttachments().size(); i++) {
@@ -136,13 +139,16 @@ public class ChatMessageService {
                 .sender(chatMessage.getSender())
                 .createdDate(chatMessage.getCreatedDate())
                 .me(userId.equals(chatMessage.getSender().getUserId()))
+                .readBy(chatMessage.getReadBy())
                 .build();
         return response;
     }
 
     private MessageType determineMessageType(ChatMessageRequest request) {
-        boolean hasMessage = request.getMessage() != null && !request.getMessage().trim().isEmpty();
-        boolean hasAttachments = request.getAttachments() != null && !request.getAttachments().isEmpty();
+        boolean hasMessage =
+                request.getMessage() != null && !request.getMessage().trim().isEmpty();
+        boolean hasAttachments =
+                request.getAttachments() != null && !request.getAttachments().isEmpty();
 
         if (!hasAttachments) {
             return MessageType.TEXT;
@@ -168,6 +174,7 @@ public class ChatMessageService {
                 .attachments(msg.getAttachments())
                 .sender(msg.getSender())
                 .createdDate(msg.getCreatedDate())
+                .readBy(msg.getReadBy())
                 .build();
 
         if (currentUserId != null && msg.getSender() != null) {
@@ -204,8 +211,7 @@ public class ChatMessageService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        var messages = chatMessageRepository
-                .findAllByConversationIdOrderByCreatedDateDesc(conversationId);
+        var messages = chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
 
         final String finalUserId = userId;
 
@@ -214,5 +220,47 @@ public class ChatMessageService {
                     return toChatMessageResponse(msg, finalUserId);
                 })
                 .toList();
+    }
+
+    public Integer unreadCount(String conversationId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userId = auth != null ? auth.getName() : null;
+
+        if (userId == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        var userResponse = profileClient.getProfile(userId);
+        if (userResponse == null || userResponse.getResult() == null) {
+            throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
+        }
+
+        var conversation = conversationRepository
+                .findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        boolean isParticipant = conversation.getParticipants().stream()
+                .anyMatch(p -> p.getUserId().equals(userId));
+
+        if (!isParticipant) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        long count = chatMessageRepository.countByConversationIdAndReadByNotContains(conversationId, userId);
+        return (int) count;
+    }
+
+    public String markAsRead(String conversationId, String userId) {
+        List<ChatMessage> messages =
+                chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
+
+        for (ChatMessage msg : messages) {
+            if (!msg.getReadBy().contains(userId)) {
+                msg.getReadBy().add(userId);
+                msg.setIsRead(true);
+            }
+        }
+        chatMessageRepository.saveAll(messages);
+        return "mark as read";
     }
 }

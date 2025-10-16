@@ -26,7 +26,6 @@ public class IdentityService {
     public IntrospecResponse introspect(IntrospectRequest request) {
         try {
             var res = identityClient.introspect(request).getResult();
-            log.info("introspect result: {}", res);
             if (Objects.isNull(res)) {
                 return IntrospecResponse.builder().valid(false).build();
             }
