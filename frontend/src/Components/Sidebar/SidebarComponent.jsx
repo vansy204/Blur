@@ -9,13 +9,21 @@ import { getToken, removeToken } from "../../service/LocalStorageService";
 import axios from "axios";
 import { getUserDetails } from "../../service/JwtService";
 import CreatePostModal from "../Post/CreatePostModal";
+import { useUnreadMessages } from "../../hooks/useUnreadMessages";
 
 export const SidebarComponent = ({ onPostCreate }) => {
   const [activeTab, setActiveTab] = useState();
   const [showDropdown, setShowDropdown] = useState(false);
   const [user, setUser] = useState(null);
+  
   const navigate = useNavigate();
   const toast = useToast();
+  
+  // 🔥 Sử dụng custom hook để quản lý unread messages
+  const { totalUnread } = useUnreadMessages({
+    autoRefresh: true,        // Tự động refresh mỗi 30 giây
+    refreshInterval: 30000,   // 30 giây
+  });
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
@@ -126,7 +134,7 @@ export const SidebarComponent = ({ onPostCreate }) => {
             <div
               key={item.title}
               onClick={() => handleTabClick(item.title)}
-              className={`group flex items-center gap-4 py-3 px-4 rounded-xl cursor-pointer transition-all duration-200 ${
+              className={`group relative flex items-center gap-4 py-3 px-4 rounded-xl cursor-pointer transition-all duration-200 ${
                 activeTab === item.title
                   ? "bg-gradient-to-r from-sky-50 to-blue-50 text-sky-600"
                   : "hover:bg-gray-50 text-gray-700"
@@ -154,12 +162,19 @@ export const SidebarComponent = ({ onPostCreate }) => {
                 </>
               ) : (
                 <>
-                  <div className={`text-xl transition-transform duration-200 ${
+                  <div className={`relative text-xl transition-transform duration-200 ${
                     activeTab === item.title ? "scale-110" : "group-hover:scale-105"
                   }`}>
                     {activeTab === item.title ? item.activeIcon : item.icon}
+                    
+                    {/* 🔥 UNREAD COUNT BADGE - Chỉ hiển thị cho Message */}
+                    {item.title === "Message" && totalUnread > 0 && (
+                      <div className="absolute -top-2 -right-2 min-w-[18px] h-[18px] flex items-center justify-center bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full border-2 border-white shadow-lg animate-pulse">
+                        {totalUnread > 99 ? "99+" : totalUnread}
+                      </div>
+                    )}
                   </div>
-                  <span className={`font-medium text-sm ${
+                  <span className={`font-medium text-sm flex items-center gap-2 ${
                     activeTab === item.title ? "font-semibold" : ""
                   }`}>
                     {item.title}
@@ -232,4 +247,4 @@ export const SidebarComponent = ({ onPostCreate }) => {
       `}</style>
     </div>
   );
-}
+};
