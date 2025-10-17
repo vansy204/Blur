@@ -41,6 +41,7 @@ public class SocketHandler {
     ConcurrentHashMap<String, Set<UUID>> userSessions = new ConcurrentHashMap<>();
 
     static final long DUPLICATE_THRESHOLD = 3000;
+    static final long CLEANUP_INTERVAL = 300000; // 5 phút
 
     @PostConstruct
     public void startServer() {
@@ -49,6 +50,7 @@ public class SocketHandler {
         socketIOServer.addEventListener("send_message", Map.class, this::handleSendMessage);
         socketIOServer.addEventListener("typing", Map.class, this::handleTyping);
         socketIOServer.start();
+        log.info("✅ SocketIO Server started successfully");
     }
 
     @PreDestroy
@@ -56,6 +58,7 @@ public class SocketHandler {
         processedMessages.clear();
         userSessions.clear();
         socketIOServer.stop();
+        log.info("🔴 SocketIO Server stopped");
     }
 
     private void handleConnect(SocketIOClient client) {
@@ -68,9 +71,10 @@ public class SocketHandler {
         }
 
         try {
-            var introspectRes = identityService.introspect(com.blur.chatservice.dto.request.IntrospectRequest.builder()
-                    .token(token)
-                    .build());
+            var introspectRes = identityService.introspect(
+                    com.blur.chatservice.dto.request.IntrospectRequest.builder()
+                            .token(token)
+                            .build());
 
             if (!introspectRes.isValid()) {
                 sendError(client, "auth_error", "INVALID_TOKEN", "Invalid token");
@@ -81,8 +85,7 @@ public class SocketHandler {
             String userId = introspectRes.getUserId();
             client.set("userId", userId);
 
-            userSessions
-                    .computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
+            userSessions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
                     .add(client.getSessionId());
 
             websocketSessionService.createSession(client.getSessionId().toString(), userId);
@@ -93,8 +96,10 @@ public class SocketHandler {
                     "timestamp", Instant.now().toString());
 
             client.sendEvent("connected", connectedData);
+            log.info("✅ User connected: {} (session: {})", userId, client.getSessionId());
 
         } catch (Exception e) {
+            log.error("❌ Auth failed for client {}: {}", client.getSessionId(), e.getMessage());
             sendError(client, "auth_error", "AUTH_FAILED", "Authentication failed");
             client.disconnect();
         }
@@ -113,7 +118,9 @@ public class SocketHandler {
                 }
             }
             websocketSessionService.deleteSession(client.getSessionId().toString());
+            log.info("🔌 User disconnected: {} (session: {})", userId, client.getSessionId());
         } catch (Exception e) {
+            log.error("❌ Error handling disconnect: {}", e.getMessage());
         }
     }
 
@@ -131,7 +138,7 @@ public class SocketHandler {
 
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> attachmentsData = (List<Map<String, Object>>) data.get("attachments");
-            // Validation
+
             if (conversationId == null) {
                 sendError(client, "message_error", "INVALID_DATA", "Conversation ID required");
                 return;
@@ -145,34 +152,33 @@ public class SocketHandler {
                 return;
             }
 
-            // Check duplicate
+            // === CHECK DUPLICATE ===
             String messageKey = conversationId + ":" + tempMessageId;
             if (isDuplicate(messageKey)) {
+                log.warn("⚠️ Duplicate message ignored: {}", messageKey);
                 return;
             }
 
-            // Build request
-            ChatMessageRequest.ChatMessageRequestBuilder builder =
-                    ChatMessageRequest.builder().conversationId(conversationId).message(message);
+            // === BUILD REQUEST ===
+            ChatMessageRequest.ChatMessageRequestBuilder builder = ChatMessageRequest.builder()
+                    .conversationId(conversationId)
+                    .message(message);
 
             if (hasAttachments) {
                 List<MediaAttachment> attachments = attachmentsData.stream()
-                        .map(attData -> {
-                            MediaAttachment att = mapToAttachment(attData);
-                            return att;
-                        })
+                        .map(this::mapToAttachment)
                         .collect(Collectors.toList());
-
                 builder.attachments(attachments);
             }
 
             ChatMessageRequest request = builder.build();
 
+            // === LƯU MESSAGE VÀO DATABASE ===
             ChatMessageResponse savedMessage = chatMessageService.create(request, senderId);
+            log.info("💾 Message saved: {} in conversation {}", savedMessage.getId(), conversationId);
 
-            // Get receiver
-            var conversation = conversationRepository
-                    .findById(conversationId)
+            // === TÌM RECEIVER ===
+            var conversation = conversationRepository.findById(conversationId)
                     .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
             if (conversation.getParticipants().size() != 2) {
@@ -186,20 +192,28 @@ public class SocketHandler {
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
-            // Broadcast
+            // === BUILD PAYLOAD ===
             Map<String, Object> payload = buildMessagePayload(savedMessage, tempMessageId);
 
-            int senderCount = sendToUser(senderId, "message_received", payload);
-            int receiverCount = sendToUser(receiverId, "message_received", payload);
+            // === SỰ KIỆN 1: GỬI "message_sent" CHO NGƯỜI GỬI ===
+            int senderCount = sendToUser(senderId, "message_sent", payload);
+            log.info("✅ Sent 'message_sent' to sender {} ({} sessions)", senderId, senderCount);
 
+            int receiverCount = sendToUser(receiverId, "message_received", payload);
+            log.info("📨 Sent 'message_received' to receiver {} ({} sessions)", receiverId, receiverCount);
+
+            // === MARK AS PROCESSED ===
             markAsProcessed(messageKey);
 
         } catch (Exception e) {
-
+            log.error("❌ Error handling send_message: {}", e.getMessage(), e);
             sendError(client, "message_error", "INTERNAL_ERROR", "Failed to send message");
         }
     }
 
+    /**
+     * XỬ LÝ TYPING INDICATOR
+     */
     private void handleTyping(SocketIOClient client, Map<String, Object> data, Object ack) {
         try {
             String senderId = client.get("userId");
@@ -225,18 +239,20 @@ public class SocketHandler {
                     "isTyping", isTyping);
 
             sendToUser(receiverId, "user_typing", typingData);
+            log.debug("⌨️ Typing indicator sent: {} -> {}", senderId, receiverId);
 
         } catch (Exception e) {
-
+            log.error("❌ Error handling typing: {}", e.getMessage());
         }
     }
 
+    /**
+     * MAP ATTACHMENT DATA
+     */
     private MediaAttachment mapToAttachment(Map<String, Object> data) {
-        if (data == null) {
-            return null;
-        }
+        if (data == null) return null;
 
-        MediaAttachment attachment = MediaAttachment.builder()
+        return MediaAttachment.builder()
                 .id((String) data.get("id"))
                 .url((String) data.get("url"))
                 .fileName((String) data.get("fileName"))
@@ -247,7 +263,6 @@ public class SocketHandler {
                 .duration(getNumber(data, "duration", Integer.class))
                 .thumbnailUrl((String) data.get("thumbnailUrl"))
                 .build();
-        return attachment;
     }
 
     @SuppressWarnings("unchecked")
@@ -263,6 +278,9 @@ public class SocketHandler {
         return null;
     }
 
+    /**
+     * BUILD MESSAGE PAYLOAD
+     */
     private Map<String, Object> buildMessagePayload(ChatMessageResponse msg, String tempId) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("id", msg.getId());
@@ -270,9 +288,7 @@ public class SocketHandler {
         payload.put("tempMessageId", tempId);
         payload.put("conversationId", msg.getConversationId());
         payload.put("message", msg.getMessage());
-        payload.put(
-                "messageType",
-                msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
+        payload.put("messageType", msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
         payload.put("createdDate", msg.getCreatedDate().toString());
 
         if (msg.getSender() != null) {
@@ -290,15 +306,19 @@ public class SocketHandler {
 
         if (msg.getAttachments() != null && !msg.getAttachments().isEmpty()) {
             payload.put("attachments", msg.getAttachments());
-        } else {
         }
 
         return payload;
     }
 
+    /**
+     * GỬI EVENT ĐÉN TẤT CẢ SESSIONS CỦA 1 USER
+     * @return Số lượng sessions đã gửi thành công
+     */
     private int sendToUser(String userId, String event, Object data) {
         Set<UUID> sessions = userSessions.get(userId);
         if (sessions == null || sessions.isEmpty()) {
+            log.warn("⚠️ No active sessions for user: {}", userId);
             return 0;
         }
 
@@ -311,11 +331,15 @@ public class SocketHandler {
                     count++;
                 }
             } catch (Exception e) {
+                log.error("❌ Error sending to session {}: {}", sessionId, e.getMessage());
             }
         }
         return count;
     }
 
+    /**
+     * EXTRACT TOKEN TỪ HANDSHAKE
+     */
     private String extractToken(SocketIOClient client) {
         String token = client.getHandshakeData().getSingleUrlParam("token");
 
@@ -331,23 +355,39 @@ public class SocketHandler {
         return token;
     }
 
+    /**
+     * KIỂM TRA DUPLICATE MESSAGE
+     */
     private boolean isDuplicate(String key) {
         Long lastTime = processedMessages.get(key);
         return lastTime != null && (System.currentTimeMillis() - lastTime) < DUPLICATE_THRESHOLD;
     }
 
+    /**
+     * ĐÁNH DẤU MESSAGE ĐÃ XỬ LÝ
+     */
     private void markAsProcessed(String key) {
         processedMessages.put(key, System.currentTimeMillis());
 
-        // Cleanup old entries
+        // Cleanup old entries (giữ ConcurrentHashMap nhỏ gọn)
         long now = System.currentTimeMillis();
-        processedMessages.entrySet().removeIf(e -> (now - e.getValue()) > 300000);
+        processedMessages.entrySet().removeIf(e -> (now - e.getValue()) > CLEANUP_INTERVAL);
     }
 
+    /**
+     * GỬI ERROR ĐÉN CLIENT
+     */
     private void sendError(SocketIOClient client, String event, String code, String message) {
-        client.sendEvent(event, Map.of("code", code, "message", message));
+        Map<String, Object> error = Map.of(
+                "code", code,
+                "message", message,
+                "timestamp", Instant.now().toString());
+        client.sendEvent(event, error);
     }
 
+    /**
+     * HELPER: RETURN EMPTY STRING IF NULL
+     */
     private String orEmpty(String value) {
         return value != null ? value : "";
     }
