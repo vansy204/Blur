@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import toast, { Toaster } from 'react-hot-toast';
 import { getUserId } from "../../utils/auth";
 import { apiCall } from "../../service/api";
 import { useSocket } from "../../contexts/SocketContext";
 import { useNotification, requestNotificationPermission } from "../../contexts/NotificationContext";
 import { useUnreadMessages } from "../../hooks/useUnreadMessages";
+import { markConversationAsRead } from "../../service/chatApi";
 import ConnectionStatus from "../../Components/Message/ConnectionStatus";
 import ConversationList from "../../Components/Message/ConversationList";
 import ChatArea from "../../Components/Message/ChatArea";
@@ -15,12 +17,21 @@ export default function MessagePage() {
   const [messages, setMessages] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const currentConversationRef = useRef(null);
+  const messagesFetchedRef = useRef(new Set());
 
   const navigate = useNavigate();
   const { sendMessage, isConnected, error, registerMessageCallbacks } = useSocket();
   const { addNotification } = useNotification();
 
-  // === REQUEST NOTIFICATION PERMISSION KHI MOUNT ===
+  // === MAKE TOAST AVAILABLE GLOBALLY ===
+  useEffect(() => {
+    window.toast = toast;
+    return () => {
+      delete window.toast;
+    };
+  }, []);
+
+  // === REQUEST NOTIFICATION PERMISSION ===
   useEffect(() => {
     requestNotificationPermission();
   }, []);
@@ -33,53 +44,105 @@ export default function MessagePage() {
   }, []);
 
   // === FETCH CONVERSATIONS ===
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        console.log("📋 Fetching conversations...");
-        const data = await apiCall("/conversations/my-conversations");
-        const convs = data.result || [];
-        setConversations(convs);
-        console.log(`✅ Loaded ${convs.length} conversations`);
-      } catch (err) {
-        console.error("❌ Error fetching conversations:", err);
-      }
-    };
-    fetchConversations();
+  const fetchConversations = useCallback(async () => {
+    try {
+      console.log("📋 Fetching conversations...");
+      const data = await apiCall("/conversations/my-conversations");
+      const convs = data.result || [];
+      
+      // Sort conversations: mới nhất lên đầu
+      const sortedConvs = convs.sort((a, b) => {
+        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        return timeB - timeA;
+      });
+      
+      setConversations(sortedConvs);
+      console.log(`✅ Loaded ${sortedConvs.length} conversations`);
+    } catch (err) {
+      console.error("❌ Error fetching conversations:", err);
+    }
   }, []);
 
-  // === FETCH MESSAGES KHI CHỌN CONVERSATION ===
   useEffect(() => {
-    if (!selectedChat || !currentUserId) return;
+    fetchConversations();
+  }, [fetchConversations]);
 
-    currentConversationRef.current = selectedChat.id;
+  // === FETCH MESSAGES ===
+  const fetchMessages = useCallback(async (conversationId) => {
+    try {
+      console.log(`📥 Fetching messages for conversation: ${conversationId}`);
+      const data = await apiCall(`/messages?conversationId=${conversationId}`);
+      const msgs = (data.result || []).map((msg) => ({
+        id: msg.id,
+        message: msg.message,
+        senderId: msg.sender?.userId,
+        conversationId: msg.conversationId,
+        createdDate: msg.createdDate,
+        sender: msg.sender,
+        messageType: msg.messageType,
+        attachments: msg.attachments,
+        isPending: false,
+        isRead: msg.isRead,
+      }));
+      
+      // Sort messages: CŨ NHẤT LÊN ĐẦU, MỚI NHẤT Ở DƯỚI
+      const sortedMsgs = msgs.sort((a, b) => {
+        const timeA = new Date(a.createdDate).getTime();
+        const timeB = new Date(b.createdDate).getTime();
+        return timeA - timeB;
+      });
+      
+      console.log(`✅ Loaded ${sortedMsgs.length} messages`);
+      setMessages(sortedMsgs);
+      messagesFetchedRef.current.add(conversationId);
+    } catch (err) {
+      console.error("❌ Error fetching messages:", err);
+    }
+  }, []);
+
+  // === HANDLE SELECT CONVERSATION ===
+  const handleSelectConversation = useCallback(async (conv) => {
+    if (!currentUserId || !conv) return;
     
-    const fetchMessages = async () => {
-      try {
-        console.log(`📥 Fetching messages for conversation: ${selectedChat.id}`);
-        const data = await apiCall(`/messages?conversationId=${selectedChat.id}`);
-        const msgs = (data.result || []).map((msg) => ({
-          id: msg.id,
-          message: msg.message,
-          senderId: msg.sender?.userId,
-          conversationId: msg.conversationId,
-          createdDate: msg.createdDate,
-          sender: msg.sender,
-          messageType: msg.messageType,
-          attachments: msg.attachments,
-          isPending: false,
-        }));
-        console.log(`✅ Loaded ${msgs.length} messages`);
-        setMessages(msgs);
-      } catch (err) {
-        console.error("❌ Error fetching messages:", err);
-      }
-    };
+    console.log("📍 Selected conversation:", conv.id);
+    
+    setSelectedChat(conv);
+    currentConversationRef.current = conv.id;
+    setMessages([]);
+    
+    await fetchMessages(conv.id);
+    
+    // Mark as read (non-blocking)
+    try {
+      markConversationAsRead(conv.id).catch(err => 
+        console.error('Failed to mark as read:', err)
+      );
+    } catch (err) {
+      console.error('Error marking as read:', err);
+    }
+  }, [currentUserId, fetchMessages]);
 
-    fetchMessages();
-  }, [selectedChat, currentUserId]);
+  // === HANDLE CONVERSATION DELETED ===
+  const handleConversationDeleted = useCallback((deletedConversationId) => {
+    console.log('🗑️ Handling conversation deletion:', deletedConversationId);
+    
+    // Remove from list
+    setConversations((prev) => 
+      prev.filter((conv) => conv.id !== deletedConversationId)
+    );
+    
+    // Clear if currently selected
+    if (selectedChat?.id === deletedConversationId) {
+      setSelectedChat(null);
+      setMessages([]);
+      currentConversationRef.current = null;
+    }
+    
+    console.log('✅ Conversation removed from UI');
+  }, [selectedChat]);
 
-  // === CALLBACK 1: XỬ LÝ KHI TIN NHẮN ĐÃ GỬI THÀNH CÔNG ===
+  // === CALLBACK: MESSAGE SENT ===
   const handleMessageSent = useCallback((data) => {
     console.log("✅ [Callback] Message sent:", {
       realId: data.id,
@@ -87,7 +150,7 @@ export default function MessagePage() {
       conversationId: data.conversationId,
     });
     
-    // Cập nhật conversation list - đưa lên đầu
+    // Update conversation list
     setConversations((prev) => {
       const idx = prev.findIndex((c) => c.id === data.conversationId);
       if (idx === -1) return prev;
@@ -99,13 +162,12 @@ export default function MessagePage() {
         lastMessageTime: data.createdDate || new Date().toISOString(),
       };
       
-      // Di chuyển conversation lên đầu
       updated.splice(idx, 1);
       updated.unshift(conv);
       return updated;
     });
 
-    // Thay thế tempId bằng real ID trong messages (CHỈ KHI ĐÚNG CONVERSATION)
+    // Update messages if current conversation
     if (data.conversationId === currentConversationRef.current) {
       setMessages((prev) => {
         const tempIdx = prev.findIndex((m) => m.id === data.tempMessageId);
@@ -126,6 +188,7 @@ export default function MessagePage() {
           messageType: data.messageType,
           attachments: data.attachments,
           isPending: false,
+          isRead: data.isRead,
         };
         
         console.log(`✅ Updated temp message ${data.tempMessageId} → ${data.id}`);
@@ -134,7 +197,7 @@ export default function MessagePage() {
     }
   }, []);
 
-  // === CALLBACK 2: XỬ LÝ KHI NHẬN TIN NHẮN MỚI ===
+  // === CALLBACK: MESSAGE RECEIVED ===
   const handleMessageReceived = useCallback((data) => {
     console.log("📨 [Callback] Message received:", {
       messageId: data.id,
@@ -145,7 +208,7 @@ export default function MessagePage() {
     const messageSenderId = data.senderId || data.sender?.userId;
     const isCurrentConversation = data.conversationId === currentConversationRef.current;
 
-    // Cập nhật conversation list - đưa lên đầu
+    // Update conversation list
     setConversations((prev) => {
       const idx = prev.findIndex((c) => c.id === data.conversationId);
       if (idx === -1) {
@@ -160,15 +223,12 @@ export default function MessagePage() {
         lastMessageTime: data.createdDate || new Date().toISOString(),
       };
       
-      // Di chuyển conversation lên đầu
       updated.splice(idx, 1);
       updated.unshift(conv);
       return updated;
     });
 
-    // === HIỂN THỊ NOTIFICATION ===
-    // Chỉ hiển thị nếu KHÔNG PHẢI conversation đang mở
-    // hoặc user đang ở page khác (không focus vào MessagePage)
+    // Show notification if needed
     if (!isCurrentConversation || document.hidden) {
       const senderName = `${data.sender?.firstName || ''} ${data.sender?.lastName || ''}`.trim() 
         || data.sender?.username 
@@ -184,19 +244,16 @@ export default function MessagePage() {
         attachments: data.attachments,
         createdDate: data.createdDate,
         onClick: (notification) => {
-          // Navigate đến MessagePage và chọn conversation
           console.log("📍 Navigating to conversation:", notification.conversationId);
           
-          // Tìm conversation
           setConversations(prev => {
             const conv = prev.find(c => c.id === notification.conversationId);
             if (conv) {
-              setSelectedChat(conv);
+              handleSelectConversation(conv);
             }
             return prev;
           });
           
-          // Navigate nếu đang ở page khác
           if (window.location.pathname !== '/messages') {
             navigate('/messages');
           }
@@ -206,10 +263,9 @@ export default function MessagePage() {
       console.log("🔔 Notification added for message:", data.id);
     }
 
-    // Thêm tin nhắn vào chat hiện tại (CHỈ NẾU ĐÚNG CONVERSATION)
+    // Add message to current conversation
     if (isCurrentConversation) {
       setMessages((prev) => {
-        // Kiểm tra trùng lặp
         if (prev.some((m) => m.id === data.id)) {
           console.log("⚠️ Duplicate message ignored:", data.id);
           return prev;
@@ -225,15 +281,25 @@ export default function MessagePage() {
           messageType: data.messageType,
           attachments: data.attachments,
           isPending: false,
+          isRead: data.isRead,
         };
 
         console.log("✅ Added new message to chat:", data.id);
         return [...prev, newMessage];
       });
+      
+      // Auto mark as read
+      try {
+        markConversationAsRead(data.conversationId).catch(err => 
+          console.error('Failed to auto-mark as read:', err)
+        );
+      } catch (err) {
+        console.error('Error auto-marking as read:', err);
+      }
     }
-  }, [addNotification, navigate]);
+  }, [addNotification, navigate, handleSelectConversation]);
 
-  // === ĐĂNG KÝ CALLBACKS VỚI SOCKET CONTEXT ===
+  // === REGISTER CALLBACKS ===
   useEffect(() => {
     console.log("🔗 Registering socket callbacks...");
     registerMessageCallbacks({
@@ -242,7 +308,7 @@ export default function MessagePage() {
     });
   }, [registerMessageCallbacks, handleMessageSent, handleMessageReceived]);
 
-  // === HANDLE SELECT USER (TẠO CONVERSATION MỚI) ===
+  // === HANDLE SELECT USER ===
   const handleSelectUser = useCallback(
     async (user) => {
       console.log("👤 Selected user:", user);
@@ -255,7 +321,7 @@ export default function MessagePage() {
 
       if (existingConv) {
         console.log("✅ Found existing conversation:", existingConv.id);
-        setSelectedChat(existingConv);
+        handleSelectConversation(existingConv);
       } else {
         console.log("🆕 Creating new conversation placeholder");
         const tempConv = {
@@ -266,10 +332,11 @@ export default function MessagePage() {
           isTemporary: true,
         };
         setSelectedChat(tempConv);
+        currentConversationRef.current = tempConv.id;
         setMessages([]);
       }
     },
-    [conversations]
+    [conversations, handleSelectConversation]
   );
 
   // === HANDLE SEND MESSAGE ===
@@ -281,7 +348,10 @@ export default function MessagePage() {
       }
 
       if (!isConnected) {
-        alert("❌ Không có kết nối socket. Vui lòng thử lại.");
+        toast.error("Không có kết nối. Vui lòng thử lại.", {
+          duration: 2000,
+          style: { borderRadius: '12px', fontSize: '14px' }
+        });
         return;
       }
 
@@ -339,24 +409,42 @@ export default function MessagePage() {
     [selectedChat, currentUserId, isConnected, sendMessage]
   );
 
+  // === HANDLE BACK (Mobile) ===
+  const handleBack = useCallback(() => {
+    setSelectedChat(null);
+    currentConversationRef.current = null;
+  }, []);
+
+  // Memoize conversations
+  const sortedConversations = useMemo(() => conversations, [conversations]);
+
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-blue-50 overflow-hidden">
+      <Toaster position="top-center" />
       <ConnectionStatus error={error} />
       
-      <ConversationList
-        conversations={conversations}
-        selected={selectedChat}
-        onSelect={setSelectedChat}
-        onSelectUser={handleSelectUser}
-      />
+      {/* Conversation List - Hidden on mobile when chat selected */}
+      <div className={`${selectedChat ? 'hidden md:flex' : 'flex'} w-full md:w-80`}>
+        <ConversationList
+          conversations={sortedConversations}
+          selected={selectedChat}
+          onSelect={handleSelectConversation}
+          onSelectUser={handleSelectUser}
+          onConversationDeleted={handleConversationDeleted}
+        />
+      </div>
       
-      <ChatArea
-        conversation={selectedChat}
-        messages={messages}
-        onSendMessage={handleSendMessage}
-        isConnected={isConnected}
-        currentUserId={currentUserId}
-      />
+      {/* Chat Area - Hidden on mobile when no chat selected */}
+      <div className={`${!selectedChat ? 'hidden md:flex' : 'flex'} flex-1`}>
+        <ChatArea
+          conversation={selectedChat}
+          messages={messages}
+          onSendMessage={handleSendMessage}
+          isConnected={isConnected}
+          currentUserId={currentUserId}
+          onBack={handleBack}
+        />
+      </div>
     </div>
   );
 }
