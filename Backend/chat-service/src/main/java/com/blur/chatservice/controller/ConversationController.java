@@ -46,6 +46,7 @@ public class ConversationController {
                 .result(chatMessageService.unreadCount(id))
                 .build();
     }
+
     @PutMapping("/mark-as-read")
     ApiResponse<String> markAsRead(@RequestParam("conversationId") String conversationId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -71,10 +71,9 @@ public class SocketHandler {
         }
 
         try {
-            var introspectRes = identityService.introspect(
-                    com.blur.chatservice.dto.request.IntrospectRequest.builder()
-                            .token(token)
-                            .build());
+            var introspectRes = identityService.introspect(com.blur.chatservice.dto.request.IntrospectRequest.builder()
+                    .token(token)
+                    .build());
 
             if (!introspectRes.isValid()) {
                 sendError(client, "auth_error", "INVALID_TOKEN", "Invalid token");
@@ -85,7 +84,8 @@ public class SocketHandler {
             String userId = introspectRes.getUserId();
             client.set("userId", userId);
 
-            userSessions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
+            userSessions
+                    .computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
                     .add(client.getSessionId());
 
             websocketSessionService.createSession(client.getSessionId().toString(), userId);
@@ -160,14 +160,12 @@ public class SocketHandler {
             }
 
             // === BUILD REQUEST ===
-            ChatMessageRequest.ChatMessageRequestBuilder builder = ChatMessageRequest.builder()
-                    .conversationId(conversationId)
-                    .message(message);
+            ChatMessageRequest.ChatMessageRequestBuilder builder =
+                    ChatMessageRequest.builder().conversationId(conversationId).message(message);
 
             if (hasAttachments) {
-                List<MediaAttachment> attachments = attachmentsData.stream()
-                        .map(this::mapToAttachment)
-                        .collect(Collectors.toList());
+                List<MediaAttachment> attachments =
+                        attachmentsData.stream().map(this::mapToAttachment).collect(Collectors.toList());
                 builder.attachments(attachments);
             }
 
@@ -178,7 +176,8 @@ public class SocketHandler {
             log.info("💾 Message saved: {} in conversation {}", savedMessage.getId(), conversationId);
 
             // === TÌM RECEIVER ===
-            var conversation = conversationRepository.findById(conversationId)
+            var conversation = conversationRepository
+                    .findById(conversationId)
                     .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
             if (conversation.getParticipants().size() != 2) {
@@ -288,7 +287,9 @@ public class SocketHandler {
         payload.put("tempMessageId", tempId);
         payload.put("conversationId", msg.getConversationId());
         payload.put("message", msg.getMessage());
-        payload.put("messageType", msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
+        payload.put(
+                "messageType",
+                msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
         payload.put("createdDate", msg.getCreatedDate().toString());
 
         if (msg.getSender() != null) {
