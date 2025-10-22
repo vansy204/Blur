@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
-import { MdEdit, MdGridOn } from "react-icons/md";
+import { MdGridOn } from "react-icons/md";
 import { BiMessageRounded } from "react-icons/bi";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getToken } from "../../service/LocalStorageService";
