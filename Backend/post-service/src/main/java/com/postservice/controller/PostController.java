@@ -4,6 +4,7 @@ import com.postservice.dto.request.PostRequest;
 import com.postservice.dto.response.ApiResponse;
 import com.postservice.dto.response.PostResponse;
 import com.postservice.entity.PostLike;
+import com.postservice.service.PostSaveService;
 import com.postservice.service.PostService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PostController {
     PostService postService;
-
+    PostSaveService postSaveService;
     @PostMapping("/create")
     public ApiResponse<PostResponse> createPost(@RequestBody PostRequest post) {
         return ApiResponse.<PostResponse>builder()
@@ -77,6 +78,24 @@ public class PostController {
         var result = postService.getPostsByUserId(userId);
         return ApiResponse.<List<PostResponse>>builder()
                 .result(result)
+                .build();
+    }
+    @PostMapping("/save/{postId}")
+    public ApiResponse<String> savePost(@PathVariable String postId) {
+        return ApiResponse.<String>builder()
+                .result(postSaveService.savePost(postId))
+                .build();
+    }
+    @PostMapping("/unsave/{postId}")
+    public ApiResponse<String> unsavePost(@PathVariable String postId) {
+        return ApiResponse.<String>builder()
+                .result(postSaveService.unsavePost(postId))
+                .build();
+    }
+    @GetMapping("/all-saved")
+    public ApiResponse<List<PostResponse>> getAllSavedPosts() {
+        return ApiResponse.<List<PostResponse>>builder()
+                .result(postSaveService.getAllSavedPost())
                 .build();
     }
 }

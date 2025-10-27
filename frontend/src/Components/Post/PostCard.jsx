@@ -22,7 +22,7 @@ import { timeDifference } from "../../Config/Logic";
 import { getToken } from "../../service/LocalStorageService";
 import { fetchLikePost, deletePost } from "../../api/postApi";
 import { IoSend } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { data, useNavigate } from "react-router-dom";
 
 const PostCard = ({ post, user, onPostDeleted }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -237,9 +237,86 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       console.error("Error unliking post:", error);
     }
   };
+ const handleSavePost = async () => {
+    try {
+      const res = await axios.post(
+        `http://localhost:8888/api/post/save/${post.id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-  const handleSavePost = () => setIsSaved(true);
-  const handleUnSavePost = () => setIsSaved(false);
+      if (res.data.code !== 1000) {
+        throw new Error(res.data.message || "Save post failed");
+      }
+
+      setIsSaved(true);
+
+      toast({
+        title: "Post saved successfully",
+        status: "success",
+        duration: 2000,
+        position: "top-right",
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error("Error saving post:", error);
+      
+      const errorMessage = error.response?.data?.message || error.message || "Something went wrong";
+      
+      toast({
+        title: "Failed to save post",
+        description: errorMessage,
+        status: "error",
+        duration: 3000,
+        position: "top-right",
+        isClosable: true,
+      });
+    }
+  };
+  const handleUnSavePost = async () => {
+    try {
+      const res = await axios.post(
+        `http://localhost:8888/api/post/unsave/${post.id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (res.data.code !== 1000) {
+        throw new Error(res.data.message || "Unsave post failed");
+      }
+      setIsSaved(false);
+      toast({
+        title: "Post removed from saved",
+        status: "success",
+        duration: 2000,
+        position: "top-right",
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error("Error unsaving post:", error);
+      
+      const errorMessage = error.response?.data?.message || error.message || "Something went wrong";
+      
+      toast({
+        title: "Failed to unsave post",
+        description: errorMessage,
+        status: "error",
+        duration: 3000,
+        position: "top-right",
+        isClosable: true,
+      });
+    }
+  };
   const handleClick = () => setShowDropdown(!showDropdown);
   const handleOpenCommentModal = () => onOpen();
 

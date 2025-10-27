@@ -102,13 +102,13 @@ const ProfileUserDetails = () => {
       const conversationData = await createConversation(
         {
           type: "DIRECT",
-          participantIds: [user.id]
+          participantIds: [user.userId]
         },
         token
       );
 
       // Navigate đến trang chat với conversationId
-      navigate(`/chat/${conversationData.id}`);
+      navigate(`/`);
     } catch (error) {
       console.error("Error creating conversation:", error);
       // Có thể hiển thị toast notification ở đây
