@@ -3,7 +3,69 @@ import { Image, Send, Loader, Smile, Plus, X, Phone, Video, Info } from 'lucide-
 import toast, { Toaster } from 'react-hot-toast';
 import MessageBubble from './MessageBubble';
 import MediaPreview from './MediaPreview';
-import { uploadToCloudnary } from '../../Config/UploadToCloudnary';
+
+export const uploadToCloudnary = async (file) => {
+  if (!file) {
+    console.error("No file provided to upload");
+    return null;
+  }
+
+  console.log(`📤 Uploading file: ${file.name}, type: ${file.type}, size: ${file.size}`);
+
+  try {
+    const data = new FormData();
+    data.append("file", file);
+    data.append("upload_preset", "instagram");
+    data.append("cloud_name", "dqg5pghlu");
+
+    const isVideo = file.type.startsWith("video");
+    const endpoint = isVideo
+      ? "https://api.cloudinary.com/v1_1/dqg5pghlu/video/upload"
+      : "https://api.cloudinary.com/v1_1/dqg5pghlu/image/upload";
+
+    console.log(`📍 Uploading to endpoint: ${endpoint}`);
+
+    const res = await fetch(endpoint, { method: "POST", body: data });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("❌ Cloudinary upload failed:", res.status, errorText);
+      throw new Error(`Upload failed: ${res.status}`);
+    }
+
+    const fileData = await res.json();
+    console.log("✅ Cloudinary response:", fileData);
+
+    const url = fileData.secure_url || fileData.url;
+    
+    if (!url) {
+      console.error("❌ No URL returned from Cloudinary:", fileData);
+      throw new Error("No URL returned from Cloudinary");
+    }
+
+    const attachment = {
+      id: fileData.public_id || `attachment-${Date.now()}`,
+      url: url,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      width: fileData.width || null,
+      height: fileData.height || null,
+      duration: fileData.duration || null,
+      thumbnailUrl: fileData.thumbnail_url || null,
+      format: fileData.format || null,
+      resourceType: fileData.resource_type || (isVideo ? 'video' : 'image'),
+    };
+
+    console.log("✅ Upload successful, attachment object:", attachment);
+    return attachment;
+
+  } catch (error) {
+    console.error("❌ Error uploading to Cloudinary:", error);
+    alert(`Lỗi upload file ${file.name}: ${error.message}`);
+    return null;
+  }
+};
 
 const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentUserId }) => {
   const [input, setInput] = useState("");
@@ -14,20 +76,50 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Optimize scroll với useCallback
+  // Optimize scroll với useCallback và Intersection Observer
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, []);
 
+  // Debounce scroll để tránh scroll quá nhiều
   useEffect(() => {
-    scrollToBottom();
+    const timeoutId = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeoutId);
   }, [messages.length, scrollToBottom]);
 
-  // Memoize file validation để tránh re-calculate
+  // Đóng actions khi click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showActions && !e.target.closest('.actions-menu')) {
+        setShowActions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showActions]);
+
+  // Memoize file validation
   const validateFiles = useCallback((files) => {
+    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
     const validFiles = files.filter(file => {
       const isImage = file.type.startsWith('image/');
       const isVideo = file.type.startsWith('video/');
+      const isValidSize = file.size <= MAX_FILE_SIZE;
+      
+      if (!isValidSize) {
+        toast.error(`File ${file.name} quá lớn (tối đa 100MB)`, {
+          duration: 3000,
+          style: {
+            borderRadius: '12px',
+            background: '#262626',
+            color: '#fff',
+            fontSize: '14px',
+            padding: '12px 16px',
+          }
+        });
+        return false;
+      }
+      
       return isImage || isVideo;
     });
     
@@ -35,10 +127,11 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
       toast.error('Chỉ chấp nhận ảnh và video', {
         duration: 2000,
         style: {
-          borderRadius: '16px',
-          fontSize: '14px',
-          background: '#1e293b',
+          borderRadius: '12px',
+          background: '#262626',
           color: '#fff',
+          fontSize: '14px',
+          padding: '12px 16px',
         }
       });
     }
@@ -51,6 +144,9 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
     const validFiles = validateFiles(files);
     setSelectedFiles(prev => [...prev, ...validFiles]);
     setShowActions(false);
+    
+    // Reset input để có thể chọn lại cùng file
+    e.target.value = '';
   }, [validateFiles]);
 
   const removeFile = useCallback((index) => {
@@ -68,10 +164,11 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
       ? toast.loading('Đang tải lên...', { 
           position: 'bottom-center',
           style: {
-            borderRadius: '16px',
+            borderRadius: '12px',
             fontSize: '14px',
-            background: '#0ea5e9',
+            background: '#262626',
             color: '#fff',
+            padding: '12px 16px',
           }
         })
       : null;
@@ -92,7 +189,17 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
       await onSendMessage(input, attachments);
       
       if (uploadingToast) {
-        toast.dismiss(uploadingToast);
+        toast.success('Đã gửi', {
+          id: uploadingToast,
+          duration: 1500,
+          style: {
+            borderRadius: '12px',
+            background: '#262626',
+            color: '#fff',
+            fontSize: '14px',
+            padding: '12px 16px',
+          }
+        });
       }
       
       setInput("");
@@ -104,14 +211,15 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
     } catch (error) {
       console.error("❌ Error uploading:", error);
       if (uploadingToast) {
-        toast.error('Không thể tải lên', {
+        toast.error('Không thể gửi', {
           id: uploadingToast,
           duration: 2000,
           style: {
-            borderRadius: '16px',
-            fontSize: '14px',
-            background: '#dc2626',
+            borderRadius: '12px',
+            background: '#262626',
             color: '#fff',
+            fontSize: '14px',
+            padding: '12px 16px',
           }
         });
       }
@@ -135,16 +243,16 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50">
-        <div className="text-center">
-          <div className="w-28 h-28 mx-auto mb-6 bg-gradient-to-br from-sky-400 via-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-2xl shadow-blue-500/30">
-            <Send size={48} className="text-white" />
+      <div className="flex-1 flex items-center justify-center bg-white">
+        <div className="text-center px-6">
+          <div className="w-24 h-24 mx-auto mb-6 border-2 border-black rounded-full flex items-center justify-center">
+            <Send size={40} className="text-black" strokeWidth={1.5} />
           </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-3">
+          <h3 className="text-[22px] font-light text-black mb-2">
             Tin nhắn của bạn
           </h3>
-          <p className="text-base text-gray-600">
-            Gửi ảnh và tin nhắn riêng tư cho bạn bè
+          <p className="text-sm text-gray-500 font-normal">
+            Gửi ảnh và tin nhắn riêng tư cho bạn bè hoặc nhóm.
           </p>
         </div>
       </div>
@@ -152,59 +260,74 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      <Toaster />
+    <div className="flex-1 flex flex-col bg-white h-full">
+      <Toaster position="bottom-center" />
       
-      {/* Header - Instagram Blue Style */}
-      <div className="bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 px-4 py-3 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="relative">
-              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-sky-300 to-cyan-400 p-[2.5px] shadow-lg">
+      {/* Header - Instagram Style */}
+      <div className="bg-white border-b border-gray-200 px-5 py-3 sticky top-0 z-10">
+        <div className="flex items-center justify-between max-w-full">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="relative flex-shrink-0">
+              <div className="w-10 h-10 rounded-full overflow-hidden">
                 <img 
                   src={conversation.conversationAvatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png'} 
                   alt={conversation.conversationName}
-                  className="w-full h-full rounded-full object-cover bg-white"
+                  className="w-full h-full object-cover"
                 />
               </div>
               {isConnected && (
-                <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full shadow-md"></div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-white text-base truncate">{conversation.conversationName}</h3>
+              <h3 className="font-semibold text-black text-sm truncate leading-tight">
+                {conversation.conversationName}
+              </h3>
               {isConnected && (
-                <span className="text-xs text-blue-100">Đang hoạt động</span>
+                <span className="text-xs text-gray-500 font-normal">Đang hoạt động</span>
               )}
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <button className="w-9 h-9 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-all">
-              <Phone size={20} />
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button 
+              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Gọi thoại"
+            >
+              <Phone size={22} strokeWidth={1.5} />
             </button>
-            <button className="w-9 h-9 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-all">
-              <Video size={20} />
+            <button 
+              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Gọi video"
+            >
+              <Video size={22} strokeWidth={1.5} />
             </button>
-            <button className="w-9 h-9 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-all">
-              <Info size={20} />
+            <button 
+              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Thông tin"
+            >
+              <Info size={22} strokeWidth={1.5} />
             </button>
           </div>
         </div>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto bg-gradient-to-b from-sky-50/30 to-white">
+      <div className="flex-1 overflow-y-auto bg-white" style={{ scrollbarWidth: 'thin' }}>
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 px-4">
-            <div className="w-20 h-20 mb-4 bg-gradient-to-br from-sky-100 to-blue-100 rounded-full flex items-center justify-center shadow-lg">
-              <Send size={32} className="text-blue-400" />
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 px-6">
+            <div className="w-24 h-24 mb-5 border-2 border-gray-300 rounded-full flex items-center justify-center">
+              <Send size={40} className="text-gray-400" strokeWidth={1.5} />
             </div>
-            <p className="text-center text-base font-medium text-gray-600">Chưa có tin nhắn</p>
-            <p className="text-center text-sm mt-2 text-gray-400">Bắt đầu cuộc trò chuyện ngay!</p>
+            <p className="text-center text-sm font-normal text-gray-500 mb-1">
+              Chưa có tin nhắn nào
+            </p>
+            <p className="text-center text-xs text-gray-400">
+              Gửi tin nhắn để bắt đầu cuộc trò chuyện
+            </p>
           </div>
         ) : (
-          <div className="py-4">
+          <div className="py-4 px-5">
             {messages.map((msg) => (
               <MessageBubble 
                 key={msg.id} 
@@ -217,18 +340,18 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
         )}
       </div>
 
-      {/* Input Area - Instagram Blue Style */}
-      <div className="bg-white border-t border-gray-100 p-4 shadow-lg">
+      {/* Input Area - Instagram Style */}
+      <div className="bg-white border-t border-gray-200 p-5">
         {/* File Preview */}
         {selectedFiles.length > 0 && (
-          <div className="mb-3">
+          <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-blue-600">
-                {selectedFiles.length} tệp đã chọn
+              <span className="text-sm font-semibold text-black">
+                {selectedFiles.length} tệp
               </span>
               <button 
                 onClick={() => setSelectedFiles([])}
-                className="text-sm text-blue-500 font-medium hover:text-blue-700 transition-colors"
+                className="text-sm text-blue-500 font-semibold hover:text-blue-700 transition-colors"
               >
                 Xóa tất cả
               </button>
@@ -244,29 +367,36 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
         {/* Input Box */}
         <div className="flex items-center gap-3">
           {/* Actions Button */}
-          <div className="relative">
+          <div className="relative actions-menu">
             <button 
               onClick={() => setShowActions(!showActions)}
-              className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-sky-500 to-blue-600 text-white hover:from-sky-600 hover:to-blue-700 rounded-full transition-all shadow-md hover:shadow-lg"
+              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+              aria-label="Thêm tệp"
             >
-              <Plus size={22} />
+              <Plus size={24} strokeWidth={2} />
             </button>
             
             {showActions && (
-              <div className="absolute bottom-full left-0 mb-3 bg-white shadow-2xl rounded-2xl p-2 min-w-[200px] border border-blue-100">
-                <button
-                  onClick={() => {
-                    fileInputRef.current?.click();
-                    setShowActions(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-sky-50 hover:to-blue-50 rounded-xl transition-all text-left group"
-                >
-                  <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
-                    <Image size={18} className="text-white" />
-                  </div>
-                  <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-600">Ảnh/Video</span>
-                </button>
-              </div>
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setShowActions(false)}
+                />
+                <div className="absolute bottom-full left-0 mb-2 bg-white shadow-lg rounded-xl py-2 min-w-[180px] border border-gray-200 z-20 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <button
+                    onClick={() => {
+                      fileInputRef.current?.click();
+                      setShowActions(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Image size={16} className="text-white" strokeWidth={2} />
+                    </div>
+                    <span className="text-sm font-normal text-black">Ảnh/Video</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
 
@@ -280,19 +410,22 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
           />
           
           {/* Text Input */}
-          <div className="flex-1 flex items-center gap-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-full px-5 py-3 border-2 border-transparent focus-within:border-blue-400 transition-all shadow-sm">
+          <div className="flex-1 flex items-center gap-3 bg-gray-100 rounded-full px-4 py-2 border border-gray-200 focus-within:border-gray-300 transition-colors">
             <input
               ref={inputRef}
               type="text"
-              className="flex-1 bg-transparent focus:outline-none text-sm text-gray-900 placeholder-gray-400 font-medium"
+              className="flex-1 bg-transparent focus:outline-none text-sm text-black placeholder-gray-500 font-normal"
               placeholder="Nhắn tin..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               disabled={isUploading}
             />
-            <button className="text-blue-500 hover:text-blue-600 transition-colors hover:scale-110">
-              <Smile size={22} />
+            <button 
+              className="text-black hover:opacity-60 transition-opacity flex-shrink-0"
+              aria-label="Emoji"
+            >
+              <Smile size={22} strokeWidth={1.5} />
             </button>
           </div>
           
@@ -301,12 +434,12 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
             <button
               onClick={handleSend}
               disabled={isUploading}
-              className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-sky-500 to-blue-600 text-white hover:from-sky-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 rounded-full transition-all shadow-md hover:shadow-lg hover:scale-110 disabled:scale-100"
+              className="text-blue-500 font-semibold text-sm hover:text-blue-700 disabled:text-blue-300 transition-colors flex-shrink-0 px-1"
             >
               {isUploading ? (
-                <Loader size={20} className="animate-spin" />
+                <Loader size={20} className="animate-spin" strokeWidth={2} />
               ) : (
-                <Send size={18} />
+                'Gửi'
               )}
             </button>
           )}

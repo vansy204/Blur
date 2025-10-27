@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
-import { Check, CheckCheck, Clock } from 'lucide-react';
+import { Check, CheckCheck } from 'lucide-react';
 import MessageAttachment from './MessageAttachment';
 
 const MessageBubble = React.memo(({ msg, currentUserId }) => {
   const isMe = msg.senderId === currentUserId;
   
-  // Memoize time formatting để tránh recalculate mỗi render
+  // Memoize time formatting - chỉ format 1 lần
   const time = useMemo(() => {
     const date = new Date(msg.createdDate || Date.now());
     return date.toLocaleTimeString('vi-VN', { 
@@ -14,7 +14,7 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
     });
   }, [msg.createdDate]);
 
-  // Memoize sender name
+  // Memoize sender name - tránh string concatenation mỗi render
   const senderName = useMemo(() => {
     if (!msg.sender) return '';
     const firstName = msg.sender.firstName || '';
@@ -22,46 +22,59 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
     return `${firstName} ${lastName}`.trim() || msg.sender.username || 'User';
   }, [msg.sender]);
 
-  // Determine message status icon
+  // Determine message status icon - chỉ render khi status thay đổi
   const StatusIcon = useMemo(() => {
-    if (msg.isPending) return <Clock size={14} className="ml-1" />;
-    if (msg.isRead) return <CheckCheck size={14} className="ml-1" />;
-    return <Check size={14} className="ml-1" />;
+    if (msg.isPending) return null; // Instagram không show pending icon trong bubble
+    if (msg.isRead) return <CheckCheck size={12} strokeWidth={2.5} />;
+    return <Check size={12} strokeWidth={2.5} />;
   }, [msg.isPending, msg.isRead]);
 
+  // Memoize có attachment hay không
+  const hasAttachments = useMemo(() => 
+    msg.attachments && msg.attachments.length > 0,
+    [msg.attachments]
+  );
+
+  // Memoize có text hay không
+  const hasText = useMemo(() => 
+    msg.message && msg.message.trim().length > 0,
+    [msg.message]
+  );
+
   return (
-    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1 px-4 group`}>
+    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-0.5 group`}>
       <div className={`flex items-end gap-2 max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
         {/* Avatar - Chỉ hiển thị cho người khác */}
         {!isMe && (
-          <div className="w-8 h-8 rounded-full flex-shrink-0 mb-1 overflow-hidden bg-gradient-to-br from-sky-300 to-blue-400 p-[1.5px]">
+          <div className="w-7 h-7 rounded-full flex-shrink-0 mb-0.5 overflow-hidden">
             <img 
               src={msg.sender?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png'} 
               alt={senderName}
-              className="w-full h-full rounded-full object-cover bg-white"
+              className="w-full h-full object-cover"
               loading="lazy"
             />
           </div>
         )}
         
         <div className="flex flex-col max-w-full">
-          {/* Tên người gửi - Chỉ cho người khác */}
+          {/* Tên người gửi - Chỉ cho người khác, ẩn mặc định */}
           {!isMe && senderName && (
-            <span className="text-xs font-medium text-gray-600 mb-1 px-3">
+            <span className="text-xs font-normal text-gray-500 mb-1 px-3 opacity-0 group-hover:opacity-100 transition-opacity">
               {senderName}
             </span>
           )}
           
           {/* Message Bubble */}
-          <div className={`relative ${msg.isPending ? 'opacity-70' : ''}`}>
-            <div className={`px-4 py-2.5 rounded-3xl shadow-sm transition-all ${
+          <div className={`relative ${msg.isPending ? 'opacity-60' : ''}`}>
+            {/* Main Bubble Container */}
+            <div className={`inline-block max-w-full ${
               isMe 
-                ? 'bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-600 text-white rounded-br-md' 
-                : 'bg-gray-100 text-gray-900 rounded-bl-md border border-gray-200'
+                ? 'bg-blue-500 text-white rounded-[20px] rounded-br-md' 
+                : 'bg-gray-100 text-black rounded-[20px] rounded-bl-md border border-gray-200'
             }`}>
               {/* Attachments - Hiển thị trước */}
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className={`space-y-2 ${msg.message ? 'mb-2' : ''}`}>
+              {hasAttachments && (
+                <div className={`${hasText ? 'mb-1' : ''}`}>
                   {msg.attachments.map((att, idx) => (
                     <MessageAttachment 
                       key={att.id || idx} 
@@ -73,45 +86,48 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
               )}
               
               {/* Text message */}
-              {msg.message && (
-                <div className="break-words whitespace-pre-wrap text-[15px] leading-5">
+              {hasText && (
+                <div className={`px-3 py-2 break-words whitespace-pre-wrap text-[15px] leading-[18px] font-normal ${
+                  hasAttachments ? 'pt-0' : ''
+                }`}>
                   {msg.message}
-                </div>
-              )}
-              
-              {/* Time & Status - Inline với message nếu là tin nhắn của mình */}
-              {isMe && (
-                <div className="flex items-center justify-end gap-1 mt-1">
-                  <span className="text-[11px] text-blue-100 opacity-90">
-                    {time}
-                  </span>
-                  <span className="text-blue-100 opacity-90">
-                    {StatusIcon}
-                  </span>
                 </div>
               )}
             </div>
             
-            {/* Timestamp - Hiển thị khi hover cho tin nhắn người khác */}
-            {!isMe && (
-              <span className="absolute -bottom-5 left-0 text-[11px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            {/* Status & Time - Hiển thị bên ngoài bubble */}
+            <div className={`flex items-center gap-1 mt-0.5 ${
+              isMe ? 'justify-end' : 'justify-start'
+            } opacity-0 group-hover:opacity-100 transition-opacity`}>
+              <span className="text-[11px] text-gray-400 font-normal">
                 {time}
               </span>
-            )}
-            
-            {/* Pending indicator */}
-            {msg.isPending && (
-              <span className={`absolute -bottom-5 text-[11px] text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
-                isMe ? 'right-0' : 'left-0'
-              }`}>
-                <Clock size={12} className="inline mr-1" />
-                Đang gửi...
-              </span>
-            )}
+              {isMe && StatusIcon && (
+                <span className="text-gray-400">
+                  {StatusIcon}
+                </span>
+              )}
+              {msg.isPending && (
+                <span className="text-[11px] text-gray-400 font-normal">
+                  • Đang gửi
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison function cho React.memo
+  // Chỉ re-render khi những props quan trọng thay đổi
+  return (
+    prevProps.msg.id === nextProps.msg.id &&
+    prevProps.msg.message === nextProps.msg.message &&
+    prevProps.msg.isPending === nextProps.msg.isPending &&
+    prevProps.msg.isRead === nextProps.msg.isRead &&
+    prevProps.msg.attachments === nextProps.msg.attachments &&
+    prevProps.currentUserId === nextProps.currentUserId
   );
 });
 
