@@ -24,15 +24,16 @@ spring:
 
 outbound:
   identity:
-    client-id: "948254557534-ca906iu2s6s1a33hcuvhv1pdhp9qmoti.apps.googleusercontent.com"
+    client-id: "604644834253-m2m9gls1kpt697dovkj91betr93ckk2g.apps.googleusercontent.com"
     client-secret: ""
-    redirect-url: "http://localhost:3000/Authenticate"
+    redirect-url: "http://localhost:3000/authenticate"
     grant-type: "authorization_code"
+    authUri: "https://accounts.google.com/o/oauth2/auth"
 
 jwt:
   signerKey: "15dbefda1f522778324fdbb8810d843bc5716214e793da2040db05b9fefc5e85"
   valid-duration: 3600
-  refreshable-duration: 360000
+  refreshable-duration: 360000 #in second
 
 app:
   services:
