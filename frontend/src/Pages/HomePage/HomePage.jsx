@@ -162,15 +162,43 @@ const HomePage = () => {
     await fetchData();
   }; */
 
-  const handlePostCreated = (created) => {
-    console.log('📝 Post được tạo:', created);
-  console.log('📝 Kiểu dữ liệu:', Array.isArray(created) ? 'Array' : 'Object');
-  console.log('📝 Số ảnh:', created.images?.length || 0);
-    const normalized = { ...created, id: created.id || created._id };
-    setPosts(prev => mergeUniqueById([normalized, ...prev], []));
-    // (Optional) nếu vẫn muốn refetch profile/stories:
-    // fetchData();
-  };
+  // ✅ IMPROVED: Add new post to top of list without reload
+  const handlePostCreated = useCallback((created) => {
+    console.log('📝 [HomePage] Post được tạo từ modal:', created);
+    console.log('📝 [HomePage] User hiện tại:', user);
+    
+    if (!created) {
+      console.error('❌ [HomePage] No post data received!');
+      return;
+    }
+    
+    // Normalize the post structure with complete user info
+    const normalized = { 
+      ...created, 
+      id: created.id || created._id || `temp-${Date.now()}`,
+      // Ensure user info is included for PostCard display
+      userName: created.userName || (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Unknown User'),
+      userImageUrl: created.userImageUrl || user?.imageUrl || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png',
+      userId: created.userId || user?.id || user?.userId,
+      profileId: created.profileId || user?.profileId || user?.id,
+      createdAt: created.createdAt || new Date().toISOString(),
+      mediaUrls: created.mediaUrls || [],
+      content: created.content || '',
+    };
+    
+    console.log('✅ [HomePage] Post đã được chuẩn hóa:', normalized);
+    
+    // Add to top of posts list immediately
+    setPosts(prev => {
+      console.log('📋 [HomePage] Danh sách posts trước khi thêm:', prev.length);
+      const newList = [normalized, ...prev];
+      console.log('📋 [HomePage] Danh sách posts sau khi thêm:', newList.length);
+      console.log('📋 [HomePage] Post mới ở vị trí đầu:', newList[0]);
+      return newList;
+    });
+    
+    console.log('✅ [HomePage] Post đã được thêm vào đầu feed thành công!');
+  }, [user]);
 
   const handlePostDeleted = (deletedPostId) => {
     setPosts(prevPosts => prevPosts.filter(post => post.id !== deletedPostId));
@@ -308,7 +336,27 @@ const HomePage = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="flex justify-center w-full px-4 xl:px-0 py-6">
         <div className="w-full max-w-[620px]">
+          {/* Stories Section */}
           {renderStories()}
+
+          {/* ✅ Create Post Input - Moved below Stories */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <img
+                src={user?.imageUrl || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"}
+                alt="Your avatar"
+                className="w-12 h-12 rounded-full object-cover border-2 border-sky-200"
+              />
+              <button
+                onClick={() => setIsCreateOpen(true)}
+                className="flex-1 text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-500 transition-colors duration-200"
+              >
+                What's on your mind, {user?.firstName || 'there'}?
+              </button>
+            </div>
+          </div>
+
+          {/* Posts Section */}
           {renderPosts()}
         </div>
       </div>
