@@ -34,7 +34,7 @@ import {
   createComment,
 } from "../../api/postApi";
 import { IoSend } from "react-icons/io5";
-import { data, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const PostCard = ({ post, user, onPostDeleted }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -255,7 +255,9 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       }
     }
   };
- const handleSavePost = async () => {
+
+  // 💾 Save post
+  const handleSavePost = async () => {
     try {
       const res = await axios.post(
         `http://localhost:8888/api/post/save/${post.id}`,
@@ -273,13 +275,28 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       }
 
       setIsSaved(true);
-
+      
+      toast({
+        title: "Post saved successfully",
+        status: "success",
+        duration: 3000,
+        position: "top-right",
+      });
+    } catch (error) {
+      console.error("Error saving post:", error);
+      toast({
+        title: "Failed to save post",
+        status: "error",
+        duration: 3000,
+        position: "top-right",
+      });
+    }
+  };
 
   const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
   const handleClickUserName = () =>
     navigate(`/profile/user/?profileId=${post?.profileId}`);
   const isCurrentUserPostOwner = post?.userId === user?.userId;
-
 
   // 🎥 Video progress
   const handleSeek = (index, value) => {
@@ -483,7 +500,7 @@ const PostCard = ({ post, user, onPostDeleted }) => {
           <RiSendPlaneLine className="text-xl text-gray-700 group-hover:text-sky-500" />
         </div>
         <button
-          onClick={() => setIsSaved(!isSaved)}
+          onClick={handleSavePost}
           className="group transition-transform hover:scale-110 active:scale-95 duration-200"
         >
           {isSaved ? (

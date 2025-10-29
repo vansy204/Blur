@@ -1,6 +1,4 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-
-// import { useEffect, useState, useCallback } from 'react';
 import StoryCircle from '../../Components/Story/StoryCircle';
 import PostCard from '../../Components/Post/PostCard';
 import { fetchAllPost } from '../../api/postApi';
@@ -9,13 +7,28 @@ import { fetchAllStories } from '../../api/storyApi';
 import { getToken } from '../../service/LocalStorageService';
 import CreatePostModal from '../../Components/Post/CreatePostModal';
 
-// ✅ utils mergeUniqueById
+// ✅ IMPROVED: Merge và sort theo thời gian
 const mergeUniqueById = (prev, incoming) => {
-  const map = new Map(prev.map(p => [(p.id || p._id), p]));
-  for (const it of incoming) {
-    map.set((it.id || it._id), it);
-  }
-  return Array.from(map.values());
+  const map = new Map();
+  
+  // Thêm tất cả posts cũ
+  prev.forEach(p => {
+    const id = p.id || p._id;
+    map.set(id, p);
+  });
+  
+  // Thêm/update posts mới
+  incoming.forEach(p => {
+    const id = p.id || p._id;
+    map.set(id, p);
+  });
+  
+  // ✅ Sort theo createdAt (mới nhất đầu tiên)
+  return Array.from(map.values()).sort((a, b) => {
+    const timeA = new Date(a.createdAt || 0).getTime();
+    const timeB = new Date(b.createdAt || 0).getTime();
+    return timeB - timeA; // Descending order
+  });
 };
 
 const HomePage = () => {
@@ -23,8 +36,6 @@ const HomePage = () => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stories, setStories] = useState([]);
-
-  // ⚙️ THÊM DÒNG NÀY
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // ✅ Phân trang
@@ -32,31 +43,12 @@ const HomePage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const sentinelRef = useRef(null);    // div đánh dấu cuối danh sách
-  const inFlightRef = useRef(false);   // chặn gọi loadMorePosts trùng
+  const sentinelRef = useRef(null);
+  const inFlightRef = useRef(false);
+  const observerRef = useRef(null); // ✅ THÊM: Ref để quản lý observer
+  const isProcessingNewPostRef = useRef(false); // ✅ THÊM: Flag xử lý post mới
 
   const token = getToken();
-
-  /*
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const [userInfo, userPosts, userStories] = await Promise.all([
-        fetchUserInfo(token),
-        fetchAllPost(token),
-        fetchAllStories(token),
-      ]);
-
-      setUser(userInfo);
-      setPosts(userPosts);
-      setStories(userStories || []);
-    } catch (error) {
-      console.log("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
-  */
 
   // ✅ Load user + stories (1 lần duy nhất)
   const fetchData = useCallback(async () => {
@@ -75,18 +67,25 @@ const HomePage = () => {
     }
   }, [token]);
 
-  // ✅ Load bài đăng theo trang
+  // ✅ CẢI TIẾN: Load bài đăng với kiểm tra conflict
   const loadMorePosts = useCallback(async () => {
-    if (isLoadingMore || !hasMore) return;
+    if (isLoadingMore || !hasMore || isProcessingNewPostRef.current) return;
 
     setIsLoadingMore(true);
     try {
       const { posts: newPostsRaw = [], hasNextPage } = await fetchAllPost(token, page, 5);
 
-      // Chuẩn hoá id 1 lần (tránh lúc id, lúc _id)
-      const newPosts = newPostsRaw.map(p => ({ ...p, id: p.id || p._id }));
+      const newPosts = newPostsRaw.map(p => ({ 
+        ...p, 
+        id: p.id || p._id,
+        createdAt: p.createdAt || new Date().toISOString()
+      }));
 
-      setPosts(prev => mergeUniqueById(prev, newPosts));
+      setPosts(prev => {
+        const merged = mergeUniqueById(prev, newPosts);
+        console.log(`📋 Loaded page ${page}: ${newPosts.length} posts, Total: ${merged.length}`);
+        return merged;
+      });
 
       if (newPosts.length > 0) {
         setPage(prev => prev + 1);
@@ -103,17 +102,19 @@ const HomePage = () => {
   useEffect(() => {
     if (!token) return;
 
-    // load user + stories
     fetchData();
 
-    // load trang 1 trực tiếp
     (async () => {
       setIsLoadingMore(true);
       try {
         const { posts: newPostsRaw = [], hasNextPage } = await fetchAllPost(token, 1, 5);
-        const first = newPostsRaw.map(p => ({ ...p, id: p.id || p._id }));
+        const first = newPostsRaw.map(p => ({ 
+          ...p, 
+          id: p.id || p._id,
+          createdAt: p.createdAt || new Date().toISOString()
+        }));
         setPosts(first);
-        setPage(2);                    // lần sau sẽ là trang 2
+        setPage(2);
         setHasMore(Boolean(hasNextPage && first.length > 0));
       } catch (e) {
         console.error("Error loading first page:", e);
@@ -121,62 +122,68 @@ const HomePage = () => {
         setIsLoadingMore(false);
       }
     })();
-  }, [token, fetchData]);  // <-- KHÔNG có loadMorePosts ở đây
+  }, [token, fetchData]);
 
-  // callback khi sentinel vào viewport
+  // ✅ CẢI TIẾN: callback khi sentinel vào viewport
   const onIntersect = useCallback(async (entries) => {
     const [entry] = entries;
     if (!entry.isIntersecting) return;
     if (!hasMore) return;
     if (isLoadingMore) return;
     if (inFlightRef.current) return;
+    if (isProcessingNewPostRef.current) return; // ✅ Chặn khi đang xử lý post mới
 
     try {
-      inFlightRef.current = true;      // khóa
-      await loadMorePosts();           // gọi nạp trang kế tiếp
+      inFlightRef.current = true;
+      await loadMorePosts();
     } finally {
-      inFlightRef.current = false;     // mở khóa
+      inFlightRef.current = false;
     }
   }, [hasMore, isLoadingMore, loadMorePosts]);
 
-  // tạo observer 1 lần
+  // ✅ CẢI TIẾN: tạo observer với ref để có thể disconnect
   useEffect(() => {
     if (!sentinelRef.current) return;
+    
     const obs = new IntersectionObserver(onIntersect, {
       root: null,
-      rootMargin: '300px 0px', // gọi sớm hơn một chút
+      rootMargin: '300px 0px',
       threshold: 0,
     });
+    
+    observerRef.current = obs;
     obs.observe(sentinelRef.current);
-    return () => obs.disconnect();
+    
+    return () => {
+      obs.disconnect();
+      observerRef.current = null;
+    };
   }, [onIntersect]);
-
-  //
 
   const handleStoryCreated = async (newStory) => {
     await fetchData();
   };
 
-  /*
-  const handlePostCreated = async (newPost) => {
-    await fetchData();
-  }; */
-
-  // ✅ IMPROVED: Add new post to top of list without reload
+  // ✅ CẢI TIẾN: Tạm dừng observer khi thêm post mới
   const handlePostCreated = useCallback((created) => {
     console.log('📝 [HomePage] Post được tạo từ modal:', created);
-    console.log('📝 [HomePage] User hiện tại:', user);
     
     if (!created) {
       console.error('❌ [HomePage] No post data received!');
       return;
     }
     
-    // Normalize the post structure with complete user info
+    // ✅ TẠM DỪNG observer
+    isProcessingNewPostRef.current = true;
+    if (observerRef.current && sentinelRef.current) {
+      observerRef.current.unobserve(sentinelRef.current);
+      console.log('⏸️ Observer đã tạm dừng');
+    }
+    
+    // Normalize post
     const normalized = { 
       ...created, 
       id: created.id || created._id || `temp-${Date.now()}`,
-      // Ensure user info is included for PostCard display
       userName: created.userName || (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Unknown User'),
       userImageUrl: created.userImageUrl || user?.imageUrl || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png',
       userId: created.userId || user?.id || user?.userId,
@@ -188,23 +195,30 @@ const HomePage = () => {
     
     console.log('✅ [HomePage] Post đã được chuẩn hóa:', normalized);
     
-    // Add to top of posts list immediately
+    // ✅ Thêm vào đầu và loại bỏ duplicate
     setPosts(prev => {
-      console.log('📋 [HomePage] Danh sách posts trước khi thêm:', prev.length);
-      const newList = [normalized, ...prev];
-      console.log('📋 [HomePage] Danh sách posts sau khi thêm:', newList.length);
-      console.log('📋 [HomePage] Post mới ở vị trí đầu:', newList[0]);
+      const filtered = prev.filter(p => (p.id || p._id) !== (normalized.id || normalized._id));
+      const newList = [normalized, ...filtered];
+      console.log('📋 [HomePage] Posts sau khi thêm:', newList.length);
       return newList;
     });
     
-    console.log('✅ [HomePage] Post đã được thêm vào đầu feed thành công!');
+    // ✅ BẬT LẠI observer sau 500ms
+    setTimeout(() => {
+      if (observerRef.current && sentinelRef.current) {
+        observerRef.current.observe(sentinelRef.current);
+        console.log('▶️ Observer đã được bật lại');
+      }
+      isProcessingNewPostRef.current = false;
+    }, 500);
+    
   }, [user]);
 
   const handlePostDeleted = (deletedPostId) => {
     setPosts(prevPosts => prevPosts.filter(post => post.id !== deletedPostId));
   };
 
-  // --- Skeleton ---
+  // --- Skeleton Components ---
   const PostSkeleton = () => (
     <div className="bg-white shadow-lg rounded-3xl overflow-hidden mb-8 border-2 border-gray-100 animate-pulse">
       <div className="flex items-center p-6 gap-4 bg-gradient-to-r from-gray-50 to-white">
@@ -241,18 +255,15 @@ const HomePage = () => {
     if (Array.isArray(stories) && stories.length > 0) {
       stories.forEach(story => {
         if (!story.authorId) return;
-
         if (!storiesByUser[story.authorId]) {
           storiesByUser[story.authorId] = [];
         }
-
         storiesByUser[story.authorId].push(story);
       });
     }
 
     const usersWithStories = Object.keys(storiesByUser).map(authorId => {
       const userStories = storiesByUser[authorId];
-
       userStories.sort((a, b) => {
         const timeA = a.timestamp || a.createdAt;
         const timeB = b.timestamp || b.createdAt;
@@ -291,7 +302,6 @@ const HomePage = () => {
     );
   };
 
-  // --- renderPosts (chuẩn sentinel) ---
   const renderPosts = () => (
     <div className="space-y-6 w-full">
       {isLoading ? (
@@ -307,7 +317,6 @@ const HomePage = () => {
             />
           ))}
 
-          {/* Sentinel: quan sát khi chạm đáy để load thêm */}
           <div ref={sentinelRef} style={{ height: 1 }} />
         </>
       ) : (
@@ -326,7 +335,7 @@ const HomePage = () => {
       {isLoadingMore && (
         <div className="text-center text-gray-500 py-4">Đang tải thêm...</div>
       )}
-      {!hasMore && (
+      {!hasMore && posts.length > 0 && (
         <div className="text-center text-gray-400 py-4">Bạn đã xem hết bài viết</div>
       )}
     </div>
@@ -336,10 +345,8 @@ const HomePage = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="flex justify-center w-full px-4 xl:px-0 py-6">
         <div className="w-full max-w-[620px]">
-          {/* Stories Section */}
           {renderStories()}
 
-          {/* ✅ Create Post Input - Moved below Stories */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
             <div className="flex items-center gap-3">
               <img
@@ -356,12 +363,10 @@ const HomePage = () => {
             </div>
           </div>
 
-          {/* Posts Section */}
           {renderPosts()}
         </div>
       </div>
 
-      {/* Modal tạo bài */}
       <CreatePostModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
