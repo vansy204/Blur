@@ -20,7 +20,7 @@ import "swiper/css/pagination";
 import CommentModal from "../Comment/CommentModal";
 import { timeDifference } from "../../Config/Logic";
 import { getToken } from "../../service/LocalStorageService";
-import { fetchLikePost, deletePost } from "../../api/postApi";
+import { fetchLikePost, deletePost, likePost, unlikePost, createComment } from "../../api/postApi";
 import { IoSend } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 
@@ -62,11 +62,12 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         setComments(commentRes.data.result || []);
         const likesArray = Array.isArray(likeRes) ? likeRes : [];
         setLikes(likesArray);
+        // ✅ Kiểm tra theo user đang đăng nhập (user.id), KHÔNG phải post.userId
         const liked = likesArray.some(
-          (likeItem) => likeItem.userId === post.userId
+        (likeItem) => likeItem.userId === user.id
         );
-
         setIsPostLiked(liked);
+
       } catch (error) {
         console.error("Error fetching data:", error);
         setLikes([]);
@@ -147,21 +148,12 @@ const PostCard = ({ post, user, onPostDeleted }) => {
 
   const handleCreateComment = async (comment) => {
     try {
-      const res = await axios.post(
-        `http://localhost:8888/api/post/comment/${post.id}/create`,
-        {
-          content: comment,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (res.data.code !== 1000) throw new Error("Create comment failed");
-      setComments((prev) => [...prev, res.data.result]);
-      setComment(res.data.result.content);
+      // ✅ Gọi API từ postApi.js
+      const createdComment = await createComment(token, post.id, comment);
+      
+      // ✅ Update state ngay lập tức
+      setComments((prev) => [...prev, createdComment]);
+      setComment("");
 
       toast({
         title: "Comment created successfully.",
@@ -170,9 +162,15 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         position: "top-right",
         isClosable: true,
       });
-      setComment("");
     } catch (error) {
       console.error("Error creating comment:", error);
+      toast({
+        title: "Failed to create comment",
+        status: "error",
+        duration: 3000,
+        position: "top-right",
+        isClosable: true,
+      });
     }
   };
 
@@ -184,57 +182,52 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   };
 
   const handlePostLike = async () => {
-    try {
-      const res = await axios.put(
-        `http://localhost:8888/api/post/${post.id}/like`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+  try {
+    // ✅ Guard: nếu đã like rồi hoặc trong mảng likes đã có user.id => không thêm nữa
+    if (isPostLiked || likes.some(l => l.userId === user.id)) return;
 
-      if (res.data.code !== 1000) throw new Error("Like failed");
+    // ✅ Optimistic update - UI cập nhật ngay
+    setIsPostLiked(true);
+    setLikes((prev) => [
+      ...prev,
+      {
+        userId: user.id,
+        postId: post.id,
+        createdAt: new Date().toISOString(),
+        id: `temp-${Date.now()}`,
+      },
+    ]);
 
-      setIsPostLiked(true);
+    await likePost(token, post.id);
+    console.log('✅ Post liked successfully');
+  } catch (error) {
+    console.error("❌ Error liking post:", error);
+    // Rollback nếu lỗi
+    setIsPostLiked(false);
+    setLikes((prev) => prev.filter((like) => like.id?.startsWith?.('temp-') === false));
+  }
+};
 
-      setLikes((prev) => [
-        ...prev,
-        {
-          userId: post.userId,
-          postId: post.id,
-          createdAt: new Date().toISOString(),
-          id: res.data.result?.id || `temp-${Date.now()}`,
-        },
-      ]);
-    } catch (error) {
-      console.error("Error liking post:", error);
-    }
-  };
 
   const handlePostUnLike = async () => {
     try {
-      const res = await axios.put(
-        `http://localhost:8888/api/post/${post.id}/unlike`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (res.data.code !== 1000) throw new Error("Unlike failed");
-
+      // ✅ Optimistic update - UI cập nhật ngay
       setIsPostLiked(false);
-      setLikes((prev) =>
-        prev.filter((likeItem) => likeItem.userId !== user.id)
-      );
+      setLikes((prev) => prev.filter((likeItem) => likeItem.userId !== user.id));
+
+      // ✅ Gọi API từ postApi.js
+      await unlikePost(token, post.id);
+      console.log('✅ Post unliked successfully');
     } catch (error) {
-      console.error("Error unliking post:", error);
+      console.error("❌ Error unliking post:", error);
+      // Rollback nếu lỗi
+      setIsPostLiked(true);
+      try {
+        const likeRes = await fetchLikePost(token, post.id);
+        setLikes(Array.isArray(likeRes) ? likeRes : []);
+      } catch (refetchError) {
+        console.error("Error refetching likes:", refetchError);
+      }
     }
   };
 
