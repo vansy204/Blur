@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
-import { MdEdit, MdGridOn } from "react-icons/md";
+import { MdGridOn } from "react-icons/md";
 import { BiMessageRounded } from "react-icons/bi";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getToken } from "../../service/LocalStorageService";
@@ -102,13 +102,13 @@ const ProfileUserDetails = () => {
       const conversationData = await createConversation(
         {
           type: "DIRECT",
-          participantIds: [user.id]
+          participantIds: [user.userId]
         },
         token
       );
 
       // Navigate đến trang chat với conversationId
-      navigate(`/chat/${conversationData.id}`);
+      navigate(`/`);
     } catch (error) {
       console.error("Error creating conversation:", error);
       // Có thể hiển thị toast notification ở đây

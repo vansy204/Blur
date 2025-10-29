@@ -14,6 +14,7 @@ public enum ErrorCode {
     UNAUTHENTICATED(1006, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     POST_NOT_FOUND(1020, "Post not found", HttpStatus.NOT_FOUND),
     USER_NOT_FOUND(1021, "User not found", HttpStatus.NOT_FOUND),
+    CANNOT_SAVE_YOUR_POST(1022,"Can't save your post", HttpStatus.BAD_REQUEST),
     ;
     private final int code;
     private final String message;

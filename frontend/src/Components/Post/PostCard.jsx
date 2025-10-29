@@ -34,7 +34,7 @@ import {
   createComment,
 } from "../../api/postApi";
 import { IoSend } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { data, useNavigate } from "react-router-dom";
 
 const PostCard = ({ post, user, onPostDeleted }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -255,11 +255,31 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       }
     }
   };
+ const handleSavePost = async () => {
+    try {
+      const res = await axios.post(
+        `http://localhost:8888/api/post/save/${post.id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (res.data.code !== 1000) {
+        throw new Error(res.data.message || "Save post failed");
+      }
+
+      setIsSaved(true);
+
 
   const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
   const handleClickUserName = () =>
     navigate(`/profile/user/?profileId=${post?.profileId}`);
   const isCurrentUserPostOwner = post?.userId === user?.userId;
+
 
   // 🎥 Video progress
   const handleSeek = (index, value) => {
