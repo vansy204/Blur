@@ -19,6 +19,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -84,6 +85,7 @@ public class PostService {
         postRepository.deleteById(postId);
         return "Post deleted successfully";
     }
+    /*
     public List<PostResponse> getAllPosts() {
         List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
         return posts.stream().map(post -> {
@@ -115,6 +117,44 @@ public class PostService {
                     .updatedAt(post.getUpdatedAt())
                     .build();
         }).collect(Collectors.toList());
+    }
+    */
+
+    public Page<PostResponse> getAllPots(int page, int limit) {
+        Pageable pageable = PageRequest.of(page -1 , limit, Sort.by("createdAt").descending());
+        Page<Post> postPage = postRepository.findAllByOrderByCreatedAtDesc(pageable);
+
+        List<PostResponse> responses = postPage.getContent().stream().map(post -> {
+            String userName = "Unknown";
+            String userImageUrl = null;
+            String profileId = null;
+
+            try{
+                ApiResponse<UserProfileResponse> response = profileClient.getProfile(post.getUserId());
+                UserProfileResponse userProfileResponse = response.getResult();
+
+                if (userProfileResponse != null) {
+                    userName = userProfileResponse.getFirstName() + " " + userProfileResponse.getLastName();
+                    userImageUrl = userProfileResponse.getImageUrl();
+                    profileId = userProfileResponse.getId();
+                }
+            } catch (Exception e) {
+                System.out.println("Không lấy được profile cho userId: " + post.getUserId());
+            }
+
+            return PostResponse.builder()
+                    .id(post.getId())
+                    .userId(post.getUserId())
+                    .profileId(profileId)
+                    .userName(userName)
+                    .userImageUrl(userImageUrl)  // ✅ Truyền vào response
+                    .content(post.getContent())
+                    .mediaUrls(post.getMediaUrls())
+                    .createdAt(post.getCreatedAt())
+                    .updatedAt(post.getUpdatedAt())
+                    .build();
+        }).collect(Collectors.toList());
+        return new PageImpl<>(responses, pageable, postPage.getTotalElements());
     }
 
     public List<PostResponse> getMyPosts() {

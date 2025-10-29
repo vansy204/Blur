@@ -120,6 +120,7 @@ public class ConversationService {
 
         return conversationResponse;
     }
+
     public String deleteConversation(String conversationId) {
         conversationRepository.deleteById(conversationId);
         return "Deleted conversation successfully";

@@ -55,6 +55,7 @@ public class ConversationController {
                 .result(chatMessageService.markAsRead(conversationId, userId))
                 .build();
     }
+
     @DeleteMapping("")
     ApiResponse<String> deleteConversation(@RequestParam("conversationId") String conversationId) {
         return ApiResponse.<String>builder()

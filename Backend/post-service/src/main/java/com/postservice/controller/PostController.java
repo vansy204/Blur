@@ -11,9 +11,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -61,12 +64,36 @@ public class PostController {
                 .result(postService.deletePost(postId))
                 .build();
     }
+    /*
     @GetMapping("/all")
     public ApiResponse<List<PostResponse>> getAllPosts() {
         return ApiResponse.<List<PostResponse>>builder()
                 .result(postService.getAllPosts())
                 .build();
     }
+
+     */
+
+    @GetMapping("/all")
+    public ApiResponse<Map<String, Object>> getAllPosts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int limit) {
+
+        Page<PostResponse> postPage = postService.getAllPots(page, limit);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("posts", postPage.getContent());
+        result.put("currentPage", postPage.getNumber() + 1);
+        result.put("totalPages", postPage.getTotalPages());
+        result.put("hasNextPage", postPage.hasNext());
+
+        return ApiResponse.<Map<String, Object>>builder()
+                .code(1000)
+                .message("OK")
+                .result(result)
+                .build();
+    }
+
     @GetMapping("/{postId}/likes")
     public ApiResponse<List<PostLike>> getPostLikes(@PathVariable String postId) {
         return ApiResponse.<List<PostLike>>builder()

@@ -25,6 +25,7 @@ import {
 import axios from "axios";
 import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
 import { useEffect, useRef, useState } from "react";
+import { createPost } from "../../api/postApi";
 import { getToken } from "../../service/LocalStorageService";
 import { BsEmojiSmile, BsImage, BsCameraVideo } from "react-icons/bs";
 import { MdClose } from "react-icons/md";
@@ -81,48 +82,52 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
 
   const handleSubmit = async () => {
     try {
-      setIsLoading(true);
-      const mediaUrls =
-        mediaFiles.length > 0
-          ? await Promise.all(mediaFiles.map(uploadToCloudnary))
-          : [];
+    setIsLoading(true);
+    const token = getToken();
+    
+    // 1️⃣ Upload media
+    const mediaUrls =
+      mediaFiles.length > 0
+        ? await Promise.all(mediaFiles.map(uploadToCloudnary))
+        : [];
 
-      const newPost = { content, mediaUrls };
-      const response = await axios.post(
-        "http://localhost:8888/api/post/create",
-        newPost,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    console.log('✅ Uploaded media:', mediaUrls);
 
-      toast({
-        title: "Post created successfully.",
-        status: "success",
-        duration: 3000,
-        position: "top-right",
-        isClosable: true,
-      });
+    // 2️⃣ Tạo post với TẤT CẢ ảnh
+    const postData = { 
+      content: content.trim(), 
+      mediaUrls: mediaUrls  // Array chứa tất cả URLs
+    };
 
-      onPostCreate(response.data);
-      resetAndClose();
-    } catch (error) {
-      console.error("Error creating post:", error);
-      toast({
-        title: "Failed to create post.",
-        description: error?.response?.data?.message || error.message,
-        status: "error",
-        duration: 3000,
-        position: "top-right",
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // 3️⃣ Gọi API qua postApi.js
+    const createdPost = await createPost(token, postData);
+
+    toast({
+      title: "Post created successfully.",
+      status: "success",
+      duration: 3000,
+      position: "top-right",
+      isClosable: true,
+    });
+
+    // 4️⃣ Callback CHỈ 1 LẦN
+    onPostCreate(createdPost);
+    resetAndClose();
+    
+  } catch (error) {
+    console.error("❌ Error creating post:", error);
+    toast({
+      title: "Failed to create post.",
+      description: error?.response?.data?.message || error.message,
+      status: "error",
+      duration: 3000,
+      position: "top-right",
+      isClosable: true,
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleEmojiClick = (emojiData) => {
     setContent((prev) => prev + emojiData.emoji);
