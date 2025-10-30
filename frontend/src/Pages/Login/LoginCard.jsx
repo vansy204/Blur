@@ -7,7 +7,7 @@ import { setToken } from "../../service/LocalStorageService";
 import axios from "axios";
 
 const STORAGE_KEY = "rememberedCredentials";
-const API_LOGIN_URL = "http://localhost:8888/api/identity/auth/token";
+const API_LOGIN_URL = "/api/identity/auth/token";
 
 const LoginCard = () => {
   const [formData, setFormData] = useState({

@@ -15,7 +15,7 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb://root:root@localhost:27017/chat-service?authSource=admin
+      uri: mongodb://root:root@mongo:27017/chat-service?authSource=admin
       auto-index-creation: true
   websocket:
     enabled: true
@@ -23,6 +23,6 @@ spring:
 app:
   services:
     profile:
-      url: http://localhost:8081/profile
+      url: http://profile-service:8081/profile
     identity:
-      url: http://localhost:8080/identity
+      url: http://identity-service:8080/identity

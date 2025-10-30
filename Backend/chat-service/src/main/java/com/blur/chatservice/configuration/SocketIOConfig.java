@@ -16,7 +16,7 @@ public class SocketIOConfig {
         config.setPort(8099);
 
         // Cho phép kết nối từ React app
-        config.setOrigin("http://localhost:3000");
+        config.setOrigin("http://www.blur.io.vn");
 
         // Tăng timeout để tránh disconnect nhanh
         config.setPingTimeout(60000);

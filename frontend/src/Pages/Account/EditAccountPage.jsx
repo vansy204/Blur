@@ -130,7 +130,7 @@ const EditAccountPage = () => {
     try {
       const userInfo = await fetchUserInfo(token);
       const response = await axios.put(
-        `http://localhost:8888/api/profile/users/${userInfo.id}`,
+        `/api/profile/users/${userInfo.id}`,
         formData,
         {
           headers: {

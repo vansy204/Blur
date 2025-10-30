@@ -120,8 +120,6 @@ public class UserProfileService {
                 .build();
         log.info("Sending follow event: {}", event);
         notificationClient.sendFollowNotification(event);
-
-
         return "You are following " + followingUser.getFirstName();
     }
 
@@ -151,8 +149,6 @@ public class UserProfileService {
                 .map(userProfileMapper::toUserProfileResponse)
                 .toList();
     }
-
-
 
     public List<UserProfileResponse> search(String request){
         var userId = SecurityContextHolder.getContext().getAuthentication().getName();

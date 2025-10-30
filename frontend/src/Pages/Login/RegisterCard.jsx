@@ -26,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 import { OAuthConfig } from "../../Config/configuration";
 import axios from "axios";
 
-const API_REGISTER_URL = "http://localhost:8888/api/identity/users/registration";
+const API_REGISTER_URL = "/api/identity/users/registration";
 
 const RegisterCard = () => {
   const [formData, setFormData] = useState({

@@ -19,7 +19,7 @@ const SearchPage = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:8888/api/profile/users/search/${search}`,
+        `/api/profile/users/search/${search}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

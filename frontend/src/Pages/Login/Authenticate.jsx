@@ -42,7 +42,7 @@ export default function Authenticate() {
   const getUserDetails = async (accessToken) => {
     try {
       const response = await fetch(
-        "http://localhost:8888/api/identity/users/",
+        "/api/identity/users/",
         {
           method: "GET",
           headers: {
@@ -71,7 +71,7 @@ export default function Authenticate() {
   useEffect(() => {
     console.log("User details: ", userDetails); // Debug giá trị userDetails
     if (userDetails.noPassword === true && !isLoggedIn) {
-      navigate("http://localhost:8888/api/identity/create-password");
+      navigate("/api/identity/create-password");
     } else if (userDetails.noPassword === false && isLoggedIn) {
       navigate("/");
     }

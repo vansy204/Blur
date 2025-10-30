@@ -77,7 +77,7 @@ export const SidebarComponent = ({ onPostCreate }) => {
       if (!userData) return;
       try {
         const response = await axios.get(
-          "http://localhost:8888/api/profile/users/myInfo",
+          "/api/profile/users/myInfo",
           {
             headers: {
               Authorization: `Bearer ${token}`,

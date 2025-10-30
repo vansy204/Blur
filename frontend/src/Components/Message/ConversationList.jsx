@@ -257,7 +257,7 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
     const unreadCount = unreadByConversation[conv.id] || 0;
     if (unreadCount > 0) {
       try {
-        const response = await fetch(`http://localhost:8888/api/chat/conversations/mark-as-read?conversationId=${conv.id}`, {
+        const response = await fetch(`/api/chat/conversations/mark-as-read?conversationId=${conv.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -290,7 +290,7 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
     try {
       console.log(`🗑️ Deleting conversation: ${conversationId}`);
       
-      const response = await fetch(`http://localhost:8888/api/chat/conversations?conversationId=${conversationId}`, {
+      const response = await fetch(`/api/chat/conversations?conversationId=${conversationId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

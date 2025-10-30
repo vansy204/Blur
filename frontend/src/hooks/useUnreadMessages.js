@@ -23,7 +23,7 @@ export const useUnreadMessages = (options = {}) => {
 
   const { registerMessageCallbacks } = useSocket();
 
-  const BASE_URL = 'http://localhost:8888/api';
+  const BASE_URL = '/api';
 
   const fetchAllUnreadCounts = useCallback(async () => {
     const token = getToken();

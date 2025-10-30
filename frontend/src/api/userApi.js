@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getToken } from "../service/LocalStorageService";
 
-const BASE_URL = "http://localhost:8888/api/profile";
+const BASE_URL = "/api/profile";
 
 const config = (token) => ({
   headers: {
