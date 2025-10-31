@@ -38,3 +38,18 @@ app:
   services:
     profile: "http://localhost:8081/profile"
     notification: "http://localhost:8082/notification"
+  redis:
+    key-prefix: identity
+    database: 0
+    pool:
+      max-active: 20
+      max-idle: 10
+      min-idle: 2
+    cache-ttl:
+      default-ttl: 600
+      short-ttl: 300
+      medium-ttl: 900
+      long-ttl: 1800
+      very-long-ttl: 3600
+    advanced-cache:
+      enabled: true

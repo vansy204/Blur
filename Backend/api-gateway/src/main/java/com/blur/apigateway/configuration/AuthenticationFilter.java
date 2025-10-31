@@ -50,8 +50,6 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-
-
         if (isPublicEndpoint(exchange.getRequest())) {
             return chain.filter(exchange);
         }

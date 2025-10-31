@@ -3,6 +3,8 @@ package org.identityservice.service;
 import java.util.HashSet;
 import java.util.List;
 
+import com.blur.commonlibrary.constant.CacheConstants;
+import com.blur.commonlibrary.service.RedisService;
 import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;
@@ -16,6 +18,8 @@ import org.identityservice.mapper.UserMapper;
 import org.identityservice.repository.RoleRepository;
 import org.identityservice.repository.UserRepository;
 import org.identityservice.repository.httpclient.ProfileClient;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -39,7 +43,9 @@ public class UserService {
     ProfileClient profileClient;
     ProfileMapper profileMapper;
     RoleRepository roleRepository;
+    RedisService redisService;
 
+    @CacheEvict(allEntries = true, value = CacheConstants.IDENTITY_USERS)
     public UserResponse createUser(UserCreationRequest request) {
         User user = userMapper.toUser(request);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -77,13 +83,25 @@ public class UserService {
         userRepository.save(user);
     }
 
+
+    @Cacheable(
+            value = CacheConstants.IDENTITY_USERS,
+            unless = "#result == null || #result.isEmpty()"
+    )
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserResponse> getUsers() {
         log.info("Getting users");
         return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
     }
 
+
+    @Cacheable(
+            value = CacheConstants.IDENTITY_USER,
+            key = "#userId",
+            unless = "#result == null"
+    )
     public User getUserById(String userId) {
+        redisService.increment("user:views:"+userId);
         return userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
     }
 
@@ -97,6 +115,12 @@ public class UserService {
         userRepository.deleteById(userId);
     }
 
+
+    @Cacheable(
+            value = CacheConstants.IDENTITY_USER_INFO,
+            key = "#root.target.getUsername()",
+            unless = "#result == null "
+    )
     public UserResponse getMyInfo() {
         var context = SecurityContextHolder.getContext();
         String name = context.getAuthentication().getName();
