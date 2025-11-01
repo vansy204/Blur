@@ -1,0 +1,28 @@
+server:
+  port: 8083
+  address: 0.0.0.0
+  servlet:
+    context-path: /chat
+
+spring:
+  application:
+    name: chat-service
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+  data:
+    mongodb:
+      uri: mongodb://root:root@localhost:27017/chat-service?authSource=admin
+      auto-index-creation: true
+  websocket:
+    enabled: true
+
+app:
+  services:
+    profile:
+      url: http://localhost:8081/profile
+    identity:
+      url: http://localhost:8080/identity

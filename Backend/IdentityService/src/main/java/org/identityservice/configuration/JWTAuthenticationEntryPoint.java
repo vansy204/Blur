@@ -2,11 +2,11 @@ package org.identityservice.configuration;
 
 import java.io.IOException;
 
+import com.blur.commonlibrary.dto.ApiResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.identityservice.dto.request.ApiResponse;
 import org.identityservice.exception.ErrorCode;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;

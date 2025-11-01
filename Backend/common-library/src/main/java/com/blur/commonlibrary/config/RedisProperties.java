@@ -5,12 +5,14 @@ import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 @Data
 @Component
 @ConfigurationProperties(prefix = "app.redis")
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Primary
 public class RedisProperties {
     String host = "localhost";
     Integer port = 6379;
@@ -20,6 +22,8 @@ public class RedisProperties {
     String keyPrefix;
      Pool pool = new Pool();
      CacheTtl cacheTtl = new CacheTtl();
+
+
     @Data
     public static class CacheTtl {
          long defaultTtl = 600;

@@ -1,6 +1,6 @@
 package com.blur.profileservice.exception;
 
-import com.blur.profileservice.dto.response.ApiResponse;
+import com.blur.commonlibrary.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;

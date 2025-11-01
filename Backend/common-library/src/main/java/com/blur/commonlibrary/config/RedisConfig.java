@@ -11,6 +11,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -38,6 +39,13 @@ import java.time.Duration;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RedisConfig {
     RedisProperties redisProperties;
+
+
+    @Bean
+    @ConditionalOnMissingBean(RedisProperties.class) // ⭐ Chỉ tạo nếu chưa có bean
+    public RedisProperties redisProperties() {
+        return new RedisProperties();
+    }
 
     @Bean
     @ConditionalOnMissingBean(RedisConnectionFactory.class)

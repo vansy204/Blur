@@ -1,9 +1,9 @@
 package com.blur.apigateway.service;
 
 import com.blur.apigateway.dto.request.IntrospectRequest;
-import com.blur.apigateway.dto.response.ApiResponse;
 import com.blur.apigateway.dto.response.IntrospectResponse;
 import com.blur.apigateway.repository.IdentityClient;
+import com.blur.commonlibrary.dto.ApiResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;

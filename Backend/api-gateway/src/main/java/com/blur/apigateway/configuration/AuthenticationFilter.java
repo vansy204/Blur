@@ -1,7 +1,7 @@
 package com.blur.apigateway.configuration;
 
-import com.blur.apigateway.dto.response.ApiResponse;
 import com.blur.apigateway.service.IdentityService;
+import com.blur.commonlibrary.dto.ApiResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;

@@ -1,10 +1,6 @@
-server:
-  port: 8080
-  servlet:
-    context-path: /identity
-  address: 0.0.0.0
-
 spring:
+  application:
+    name: identity-service
   datasource:
     url: jdbc:mysql://localhost:3306/Identity_service?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
@@ -19,8 +15,15 @@ spring:
     redis:
       host: localhost
       port: 6379
-  application:
-    name: identity-service
+
+
+
+server:
+  port: 8080
+  servlet:
+    context-path: /identity
+  address: 0.0.0.0
+
 
 outbound:
   identity:

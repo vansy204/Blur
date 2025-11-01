@@ -3,9 +3,9 @@ package org.identityservice.exception;
 import java.util.Map;
 import java.util.Objects;
 
+import com.blur.commonlibrary.dto.ApiResponse;
 import jakarta.validation.ConstraintViolation;
 
-import org.identityservice.dto.request.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;

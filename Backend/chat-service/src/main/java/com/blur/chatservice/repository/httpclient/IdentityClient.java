@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import com.blur.chatservice.configuration.AuthenticationRequestInterceptor;
-import com.blur.chatservice.dto.ApiResponse;
 import com.blur.chatservice.dto.request.IntrospectRequest;
 import com.blur.chatservice.dto.response.IntrospecResponse;
 import com.nimbusds.jose.JOSEException;

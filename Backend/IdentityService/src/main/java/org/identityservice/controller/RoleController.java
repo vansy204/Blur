@@ -2,7 +2,7 @@ package org.identityservice.controller;
 
 import java.util.List;
 
-import org.identityservice.dto.request.ApiResponse;
+import com.blur.commonlibrary.dto.ApiResponse;
 import org.identityservice.dto.request.RoleRequest;
 import org.identityservice.dto.response.RoleResponse;
 import org.identityservice.service.RoleService;

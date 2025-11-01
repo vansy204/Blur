@@ -1,7 +1,7 @@
 package org.identityservice.repository.httpclient;
 
+import com.blur.commonlibrary.dto.ApiResponse;
 import org.identityservice.configuration.AuthenticationRequestInterceptor;
-import org.identityservice.dto.request.ApiResponse;
 import org.identityservice.dto.request.ProfileCreationRequest;
 import org.identityservice.dto.response.UserProfileResponse;
 import org.springframework.cloud.openfeign.FeignClient;

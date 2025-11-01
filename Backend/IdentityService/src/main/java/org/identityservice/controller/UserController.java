@@ -3,9 +3,9 @@ package org.identityservice.controller;
 import java.util.HashSet;
 import java.util.List;
 
+import com.blur.commonlibrary.dto.ApiResponse;
 import jakarta.validation.Valid;
 
-import org.identityservice.dto.request.ApiResponse;
 import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
 import org.identityservice.dto.request.UserUpdateRequest;

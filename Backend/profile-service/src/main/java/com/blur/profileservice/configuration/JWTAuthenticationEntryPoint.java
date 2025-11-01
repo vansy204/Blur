@@ -1,6 +1,6 @@
 package com.blur.profileservice.configuration;
 
-import com.blur.profileservice.dto.response.ApiResponse;
+import com.blur.commonlibrary.dto.ApiResponse;
 import com.blur.profileservice.exception.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;

@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-import com.blur.commonlibrary.service.RedisService;
 import org.identityservice.dto.request.*;
 import org.identityservice.dto.response.AuthResponse;
 import org.identityservice.dto.response.IntrospecResponse;
@@ -24,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import com.blur.commonlibrary.service.RedisService;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
@@ -70,7 +70,7 @@ public class AuthenticationService {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
         var token = generateToken(user);
-       // redisService.setOnline(user.getId());
+        // redisService.setOnline(user.getId());
         return AuthResponse.builder().token(token).authenticated(true).build();
     }
 
@@ -118,7 +118,7 @@ public class AuthenticationService {
             InvalidatedToken invalidatedToken =
                     InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
             tokenRepository.save(invalidatedToken);
-        //    redisService.setOffline(signToken.getJWTClaimsSet().getSubject());
+            //    redisService.setOffline(signToken.getJWTClaimsSet().getSubject());
         } catch (AppException e) {
             log.error("Token already expired");
         }
