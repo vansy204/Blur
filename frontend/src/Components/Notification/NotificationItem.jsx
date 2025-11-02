@@ -1,15 +1,14 @@
-
-// ============= NotificationItem.jsx =============
 import { Dot, MoreHorizontal } from 'lucide-react';
 import React from 'react';
 import NotificationIcon from './NotificationIcon';
 import { timeDifference } from "../../Config/Logic";
 
-const NotificationItem = ({ notification, onMarkRead }) => {
+const NotificationItem = ({ notification, onMarkRead, onClick }) => {  // ✅ thêm onClick vào props
   const { id, senderName, senderImageUrl, content, timestamp, type, seen } = notification;
 
   return (
-    <div 
+    <div
+      onClick={() => onClick(notification)}   // ✅ khi click vào toàn bộ khối, gọi onClick
       className={`group flex items-center p-4 hover:bg-sky-50/50 transition-all duration-200 cursor-pointer border-l-4 ${
         seen 
           ? 'border-l-transparent bg-white' 
@@ -67,8 +66,6 @@ const NotificationItem = ({ notification, onMarkRead }) => {
                 Reply
               </button>
             )}
-         
-            {/* More options */}
             <button className="p-1.5 hover:bg-sky-100 rounded-full transition-colors opacity-0 group-hover:opacity-100">
               <MoreHorizontal size={18} className="text-gray-600" />
             </button>
@@ -79,7 +76,7 @@ const NotificationItem = ({ notification, onMarkRead }) => {
         {!seen && (
           <button
             onClick={(e) => {
-              e.stopPropagation();
+              e.stopPropagation();   // ✅ tránh click mark as read kích hoạt onClick bên ngoài
               onMarkRead(id);
             }}
             className="mt-2 flex items-center text-xs text-sky-600 hover:text-sky-700 font-semibold transition-colors"

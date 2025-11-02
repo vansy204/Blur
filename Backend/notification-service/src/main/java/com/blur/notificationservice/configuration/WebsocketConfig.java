@@ -28,7 +28,6 @@ public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws-notification")
                 .addInterceptors(jwtHandshakeInterceptor)
-
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
 
