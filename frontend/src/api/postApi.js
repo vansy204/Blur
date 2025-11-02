@@ -27,6 +27,29 @@ export const createPost = async (token, postData) => {
     throw error;
   }
 };
+//Lấy id của post
+export const fetchPostById = async (postId, token) => {
+  try {
+    const response = await axios.get(
+      `http://localhost:8888/api/post/${postId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.data?.code !== 1000) {
+      throw new Error(`Fetch post error: ${response.data?.code}`);
+    }
+
+    return response.data.result;
+  } catch (error) {
+    console.error("Fetch post by ID error:", error);
+    return null;
+  }
+};
 
 // ✅ Lấy tất cả bài posts của user hiện tại
 export const fetchUserPosts = async (token) => {

@@ -3,9 +3,11 @@ import { Bell } from 'lucide-react';
 import Header from '../../Components/Notification/Header';
 import NotificationItem from '../../Components/Notification/NotificationItem';
 import { getToken } from '../../service/LocalStorageService';
+import { fetchPostById } from "../../api/postApi";
 import { jwtDecode } from 'jwt-decode';
 import { getAllNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '../../api/notificationAPI';
 import { useToast } from '@chakra-ui/react';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
@@ -13,8 +15,9 @@ const NotificationsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const token = getToken();
   const toast = useToast();
+  const navigate = useNavigate();
+
   let userId = "";
-  
   if (token) {
     const decodedToken = jwtDecode(token);
     userId = decodedToken.sub;
@@ -42,7 +45,7 @@ const NotificationsPage = () => {
       } finally {
         setIsLoading(false);
       }
-    }
+    };
     getNotifications();
   }, [token, userId]);
 
@@ -51,25 +54,11 @@ const NotificationsPage = () => {
   const handleMarkRead = async (id) => {
     try {
       await markNotificationAsRead(token, id);
-      toast({
-        title: "Marked as read",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-        position: "top-right",
-      });
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, seen: true } : n)
       );
     } catch (error) {
       console.error("Error marking notification as read:", error);
-      toast({
-        title: "Failed to mark as read",
-        status: "error",
-        duration: 2000,
-        isClosable: true,
-        position: "top-right",
-      });
     }
   };
 
@@ -83,13 +72,62 @@ const NotificationsPage = () => {
         isClosable: true,
         position: "top-right",
       });
-      setNotifications(prev => 
-        prev.map(n => ({ ...n, seen: true }))
-      );
+      setNotifications(prev => prev.map(n => ({ ...n, seen: true })));
     } catch (error) {
       console.error("Error marking all as read:", error);
       toast({
         title: "Failed to mark all as read",
+        status: "error",
+        duration: 2000,
+        isClosable: true,
+        position: "top-right",
+      });
+    }
+  };
+
+  // ✅ Khi click vào notification → mở bài viết chi tiết
+  const handleNotificationClick = async (notification) => {
+    if (!notification.postId) {
+      toast({
+        title: "Notification không có bài viết liên kết",
+        status: "info",
+        duration: 2000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return;
+    }
+
+    try {
+      // Mark as read
+      if (!notification.seen) {
+        await markNotificationAsRead(token, notification.id);
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, seen: true } : n)
+        );
+      }
+
+      // Fetch post detail
+      const post = await fetchPostById(notification.postId, token);
+
+      if (!post) {
+        toast({
+          title: "Không tìm thấy bài viết",
+          status: "warning",
+          duration: 2000,
+          isClosable: true,
+          position: "top-right",
+        });
+        return;
+      }
+
+      // Navigate đến PostDetailPage
+      navigate(`/post/${notification.postId}`, { state: { post } });
+
+    } catch (error) {
+      console.error("Error opening post:", error);
+      toast({
+        title: "Không thể mở bài viết",
         status: "error",
         duration: 2000,
         isClosable: true,
@@ -166,6 +204,7 @@ const NotificationsPage = () => {
                 key={notification.id} 
                 notification={notification}
                 onMarkRead={handleMarkRead}
+                onClick={() => handleNotificationClick(notification)} // ✅ thêm vào đây
               />
             ))}
           </div>

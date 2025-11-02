@@ -27,6 +27,11 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
 
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
+        String uri = request.getURI().toString();
+        // ✅ Bỏ qua request /info hoặc không có token
+        if (uri.contains("/info")) {
+            return true;
+        }
         String token = null;
 
         if (request instanceof ServletServerHttpRequest servletRequest) {

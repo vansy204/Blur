@@ -28,9 +28,9 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity
                 // Cho phép OPTIONS requests (CORS preflight)
-                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
-                        .permitAll()
-                        .requestMatchers("/ws/websocket/**")
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/ws/websocket/**", "/chat/ws/**")
                         .permitAll()
                         .requestMatchers("/actuator/**")
                         .permitAll() // Health check
