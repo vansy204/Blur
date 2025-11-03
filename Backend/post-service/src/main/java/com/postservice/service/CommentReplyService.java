@@ -62,6 +62,7 @@ public class CommentReplyService {
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
         var user = identityClient.getUser(post.getUserId());
         Event event = Event.builder()
+                .postId(post.getId())
                 .senderId(commentReply.getId())
                 .senderName(commentReply.getUserName())
                 .receiverId(user.getResult().getId())

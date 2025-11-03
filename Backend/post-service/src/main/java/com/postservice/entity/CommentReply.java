@@ -17,6 +17,7 @@ public class CommentReply {
     @MongoId
     String id;
     String userId;
+    String postId;
     String userName;
     String content;
     String commentId;

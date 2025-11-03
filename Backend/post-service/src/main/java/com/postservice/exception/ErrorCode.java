@@ -15,6 +15,9 @@ public enum ErrorCode {
     POST_NOT_FOUND(1020, "Post not found", HttpStatus.NOT_FOUND),
     USER_NOT_FOUND(1021, "User not found", HttpStatus.NOT_FOUND),
     CANNOT_SAVE_YOUR_POST(1022,"Can't save your post", HttpStatus.BAD_REQUEST),
+    CANNOT_LIKE_YOUR_POST(1023,"Can't like your post", HttpStatus.BAD_REQUEST),
+    ALREADY_LIKED(1024,"you already liked this post", HttpStatus.BAD_REQUEST),
+    POST_NOT_LIKED(1025,"Can't like posts", HttpStatus.BAD_REQUEST),
     ;
     private final int code;
     private final String message;
