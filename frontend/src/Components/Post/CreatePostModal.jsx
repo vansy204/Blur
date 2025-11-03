@@ -135,9 +135,17 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
       console.log('✅ [Modal] Normalized post:', normalizedPost);
       console.log('🎯 [Modal] Calling onPostCreate with:', normalizedPost);
       console.log('🎯 [Modal] onPostCreate function exists?', typeof onPostCreate === 'function');
-      
+      console.log('🎯 [Modal] About to call onPostCreate. Is onPostCreate defined?', typeof onPostCreate);
+console.log('🎯 [Modal] normalizedPost:', normalizedPost);
+
+if (onPostCreate) {
+  onPostCreate(normalizedPost);
+  console.log('✅ [Modal] onPostCreate called successfully');
+} else {
+  console.error('❌ [Modal] onPostCreate is not defined or falsy!');
+}
       // 5️⃣ Call parent callback
-      onPostCreate(normalizedPost);
+      //onPostCreate(normalizedPost);
       
       console.log('✅ [Modal] onPostCreate called successfully');
       

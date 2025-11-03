@@ -41,6 +41,7 @@ public class PostService {
     NotificationClient notificationClient;
     IdentityClient identityClient;
 
+    /*
     public PostResponse createPost(PostRequest postRequest) {
         // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -58,6 +59,46 @@ public class PostService {
         post = postRepository.save(post);
         return postMapper.toPostResponse(post);
     }
+
+ */
+    public PostResponse createPost(PostRequest postRequest) {
+        // Lấy thông tin user từ token
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        var userId = authentication.getName();
+
+        // Gọi sang Profile service để lấy thông tin profile
+        var profileResponse = profileClient.getProfile(userId);
+        var profile = profileResponse.getResult();
+
+        // Tạo entity Post
+        Post post = Post.builder()
+                .content(postRequest.getContent())
+                .mediaUrls(postRequest.getMediaUrls())
+                .userId(userId)
+                .profileId(profile.getId())
+                .firstName(profile.getFirstName())
+                .lastName(profile.getLastName())
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        // Lưu vào DB
+        post = postRepository.save(post);
+
+        // ✅ Trả về PostResponse đầy đủ thông tin user
+        return PostResponse.builder()
+                .id(post.getId())
+                .userId(post.getUserId())
+                .profileId(post.getProfileId())
+                .userName(profile.getFirstName() + " " + profile.getLastName())
+                .userImageUrl(profile.getImageUrl())
+                .content(post.getContent())
+                .mediaUrls(post.getMediaUrls())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .build();
+    }
+
 
     public PostResponse updatePost(String postId, PostRequest postRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
