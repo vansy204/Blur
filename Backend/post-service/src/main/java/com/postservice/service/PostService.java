@@ -174,37 +174,56 @@ public class PostService {
 
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = authentication.getName();
+        var userId = authentication.getName();
 
-        PostLike postLike = PostLike.builder()
-                .postId(postId)
-                .userId(userId)
-                .createdAt(Instant.now())
-                .build();
-        postLikeRepository.save(postLike);
-        Post postResponse = postRepository.findById(postLike.getPostId())
-                .orElseThrow(()->new AppException(ErrorCode.POST_NOT_FOUND));
+        var post = postRepository.findById(postId)
+                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
 
-        var sender = identityClient.getUser(postLike.getUserId());
-        var receiver = identityClient.getUser(postResponse.getUserId());
-        Event event = Event.builder()
-                .senderId(sender.getResult().getId())
-                .senderName(sender.getResult().getUsername())
-                .receiverId(receiver.getResult().getId())
-                .receiverName(receiver.getResult().getUsername())
-                .receiverEmail(receiver.getResult().getEmail())
-                .timestamp(LocalDateTime.now())
-                .build();
-        log.info("Sending like post event: {}", event);
-        notificationClient.sendLikePostNotification(event);
-        return "like";
+        // Không cho tự like bài viết của mình
+        if (userId.equals(post.getUserId())) {
+            throw new AppException(ErrorCode.CANNOT_LIKE_YOUR_POST);
+        }
+
+        // Nếu chưa like thì thêm mới
+        if (!postLikeRepository.existsByUserIdAndPostId(userId, postId)) {
+            PostLike like = PostLike.builder()
+                    .userId(userId)
+                    .postId(postId)
+                    .createdAt(Instant.now())
+                    .build();
+            postLikeRepository.save(like);
+
+            // Gửi thông báo đến chủ bài viết
+            var sender = identityClient.getUser(userId);
+            var receiver = identityClient.getUser(post.getUserId());
+
+            Event event = Event.builder()
+                    .postId(postId) // ✅ gửi postId
+                    .senderId(sender.getResult().getId())
+                    .senderName(sender.getResult().getUsername())
+                    .receiverId(receiver.getResult().getId())
+                    .receiverEmail(receiver.getResult().getEmail())
+                    .receiverName(receiver.getResult().getUsername())
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+            notificationClient.sendLikePostNotification(event); // ✅ Gửi sang notification-service
+            return "Post liked successfully";
+        } else {
+            throw new AppException(ErrorCode.ALREADY_LIKED);
+        }
     }
+
+    // ==================== UNLIKE POST ====================
     public String unlikePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = authentication.getName();
-        postLikeRepository.deleteByPostIdAndUserId(postId, userId);
-        return "unlike";
+        var userId = authentication.getName();
 
+        PostLike postLike = postLikeRepository.findByUserIdAndPostId(userId, postId)
+                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_LIKED));
+
+        postLikeRepository.delete(postLike);
+        return "Post unliked successfully";
     }
     public List<PostLike> getPostLikesByPostId(String postId) {
         return postLikeRepository.findAllByPostId(postId);
