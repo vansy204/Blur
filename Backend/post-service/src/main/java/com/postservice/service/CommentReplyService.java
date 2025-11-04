@@ -17,6 +17,9 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -39,6 +42,11 @@ public class CommentReplyService {
     IdentityClient identityClient;
     NotificationClient notificationClient;
     PostRepository postRepository;
+
+    @Caching(evict = {
+            @CacheEvict(value = "commentReplies", key = "#commentId"),
+            @CacheEvict(value = "nestedReplies", key = "#parentReplyId", condition = "#parentReplyId != null")
+    })
     public CommentResponse createCommentReply(String commentId, String parentReplyId, CreateCommentRequest commentRequest) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         var comment = commentRepository.findById(commentId)
@@ -73,6 +81,12 @@ public class CommentReplyService {
         return commentMapper.toCommentResponse(commentReplyRepository.save(commentReply));
     }
 
+
+    @Caching(evict = {
+            @CacheEvict(value = "commentReplies", key = "#root.target.getCommentIdByReplyId(#commentReplyId)"),
+            @CacheEvict(value = "nestedReplies", key = "#root.target.getParentReplyId(#commentReplyId)"),
+            @CacheEvict(value = "commentReplyById", key = "#commentReplyId")
+    })
     public CommentResponse updateCommentReply(String commentReplyId, CreateCommentRequest commentReply) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         var userId = auth.getName();
@@ -86,6 +100,12 @@ public class CommentReplyService {
         return commentMapper.toCommentResponse(commentReplyRepository.save(comment));
     }
 
+
+    @Caching(evict = {
+            @CacheEvict(value = "commentReplies", key = "#root.target.getCommentIdByReplyId(#commentId)"),
+            @CacheEvict(value = "nestedReplies", key = "#root.target.getParentReplyId(#commentId)"),
+            @CacheEvict(value = "commentReplyById", key = "#commentId")
+    })
     public String deleteCommentReply(String commentId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         var userId = auth.getName();
@@ -98,18 +118,33 @@ public class CommentReplyService {
         return "Comment deleted";
     }
 
+    @Cacheable(
+            value = "commentReplies",
+            key = "#commentId",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<CommentResponse> getAllCommentReplyByCommentId(String commentId) {
         var commentResponses = commentReplyRepository.findAllByCommentId(commentId);
         return commentResponses.stream().map(commentMapper::toCommentResponse)
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(
+            value = "commentReplyById",
+            key = "#commentReplyId",
+            unless = "#result == null"
+    )
     public CommentResponse getCommentReplyByCommentReplyId(String commentReplyId) {
         var commentReply = commentReplyRepository.findById(commentReplyId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
         return commentMapper.toCommentResponse(commentReply);
     }
 
+    @Cacheable(
+            value = "nestedReplies",
+            key = "#parentReplyId",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<CommentResponse> getRepliesByParentReplyId(String parentReplyId) {
         return commentReplyRepository.findAllByParentReplyId(parentReplyId)
                 .stream()
@@ -117,4 +152,16 @@ public class CommentReplyService {
                 .collect(Collectors.toList());
     }
 
+
+    public String getCommentIdByReplyId(String replyId) {
+        return commentReplyRepository.findById(replyId)
+                .map(CommentReply::getCommentId)
+                .orElse(null);
+    }
+
+    public String getParentReplyId(String replyId) {
+        return commentReplyRepository.findById(replyId)
+                .map(CommentReply::getParentReplyId)
+                .orElse(null);
+    }
 }

@@ -53,7 +53,13 @@ public class UserController {
         var result = userService.createUser(request);
         return ApiResponse.<UserResponse>builder().code(1000).result(result).build();
     }
-
+    @PostMapping("/registrations")
+    public ApiResponse<?> createUsers(@RequestBody @Valid UserCreationRequest request) {
+        userService.createUser(request);
+        return ApiResponse.builder()
+                .result(true)
+                .build();
+    }
     @GetMapping("/all")
     public ApiResponse<List<UserResponse>> getUsers() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -93,4 +99,5 @@ public class UserController {
         userService.deleteUser(userId);
         return ApiResponse.<String>builder().result("User has been deleted").build();
     }
+
 }

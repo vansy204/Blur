@@ -12,6 +12,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class PostSaveService {
     PostMapper postMapper;
 
 
+    @CacheEvict(value = "savedPosts", key = "#root.target.getCurrentUserId()")
     public String savePost(String postId){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
@@ -50,12 +53,18 @@ public class PostSaveService {
         return "Post saved";
     }
 
+    @CacheEvict(value = "savedPosts", key = "#root.target.getCurrentUserId()")
     public String unsavePost(String postId){
         PostSave postSave = postSaveRepository.findByPostId(postId);
         postSaveRepository.delete(postSave);
         return "Post saved";
 
     }
+    @Cacheable(
+            value = "savedPosts",
+            key = "#root.target.getCurrentUserId()",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<PostResponse> getAllSavedPost(){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
@@ -75,5 +84,8 @@ public class PostSaveService {
 
         }
         return postResponses;
+    }
+    public String getCurrentUserId() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }
