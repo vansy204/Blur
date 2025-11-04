@@ -184,7 +184,7 @@ public class PostService {
     @CacheEvict(value = "postLikes", key = "#postId")
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = authentication.getName();
+        var userId = authentication.getName();
 
         PostLike postLike = PostLike.builder()
                 .postId(postId)

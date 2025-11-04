@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class Event {
+    String postId;
     String senderId;
     String senderName;
     String receiverId;

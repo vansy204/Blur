@@ -61,6 +61,7 @@ public class CommentService {
         var sender = identityClient.getUser(userId);
         var receiver = identityClient.getUser(post.getUserId());
         Event event = Event.builder()
+                .postId(post.getId())
                 .senderName(sender.getResult().getUsername())
                 .senderId(sender.getResult().getId())
                 .receiverEmail(receiver.getResult().getEmail())

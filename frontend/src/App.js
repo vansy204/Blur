@@ -6,12 +6,12 @@ import { NotificationSocketProvider } from "./contexts/NotificationSocketContext
 
 function App() {
   return (
-      <SocketProvider>
-        <NotificationProvider>
-          <NotificationSocketProvider>
-            <Router />
-          </NotificationSocketProvider>
-        </NotificationProvider>
+    <SocketProvider>
+      <NotificationProvider>
+        <NotificationSocketProvider>
+          <Router />   {/* ✅ chỉ gọi Router, không lồng lại App */}
+        </NotificationSocketProvider>
+      </NotificationProvider>
     </SocketProvider>
   );
 }

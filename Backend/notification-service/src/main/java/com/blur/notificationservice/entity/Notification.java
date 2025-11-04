@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 public class Notification {
     @Id
     String id;
+    String postId;
     String senderId;
     String senderName;
     String receiverId;

@@ -164,55 +164,45 @@ const HomePage = () => {
     await fetchData();
   };
 
-  // ✅ CẢI TIẾN: Tạm dừng observer khi thêm post mới
-  const handlePostCreated = useCallback((created) => {
-    console.log('📝 [HomePage] Post được tạo từ modal:', created);
-    
-    if (!created) {
-      console.error('❌ [HomePage] No post data received!');
-      return;
-    }
-    
-    // ✅ TẠM DỪNG observer
-    isProcessingNewPostRef.current = true;
-    if (observerRef.current && sentinelRef.current) {
-      observerRef.current.unobserve(sentinelRef.current);
-      console.log('⏸️ Observer đã tạm dừng');
-    }
-    
-    // Normalize post
-    const normalized = { 
-      ...created, 
-      id: created.id || created._id || `temp-${Date.now()}`,
-      userName: created.userName || (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'Unknown User'),
-      userImageUrl: created.userImageUrl || user?.imageUrl || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png',
-      userId: created.userId || user?.id || user?.userId,
-      profileId: created.profileId || user?.profileId || user?.id,
+  // ✅ SỬA: Loại bỏ useCallback, dùng function bình thường để tránh stale closure
+  const handlePostCreated = (created) => {
+  console.log("🚀 [HomePage] handlePostCreated triggered with:", created);
+
+  if (!created) {
+    console.error("❌ [HomePage] No post data received!");
+    return;
+  }
+
+  isProcessingNewPostRef.current = true;
+  if (observerRef.current && sentinelRef.current) {
+    observerRef.current.unobserve(sentinelRef.current);
+    console.log("⏸️ Observer đã tạm dừng");
+  }
+
+  // ✅ Thêm bài viết mới lên đầu feed
+  setPosts((prev) => {
+    const newPost = {
+      ...created,
+      id: created.id || created._id,
       createdAt: created.createdAt || new Date().toISOString(),
-      mediaUrls: created.mediaUrls || [],
-      content: created.content || '',
     };
-    
-    console.log('✅ [HomePage] Post đã được chuẩn hóa:', normalized);
-    
-    // ✅ Thêm vào đầu và loại bỏ duplicate
-    setPosts(prev => {
-      const filtered = prev.filter(p => (p.id || p._id) !== (normalized.id || normalized._id));
-      const newList = [normalized, ...filtered];
-      console.log('📋 [HomePage] Posts sau khi thêm:', newList.length);
-      return newList;
-    });
-    
-    // ✅ BẬT LẠI observer sau 500ms
-    setTimeout(() => {
-      if (observerRef.current && sentinelRef.current) {
-        observerRef.current.observe(sentinelRef.current);
-        console.log('▶️ Observer đã được bật lại');
-      }
-      isProcessingNewPostRef.current = false;
-    }, 500);
-    
-  }, [user]);
+
+    const updatedPosts = [newPost, ...prev];
+    console.log("✅ [HomePage] Updated feed length:", updatedPosts.length);
+    return [...updatedPosts]; // ⚡ Đảm bảo luôn trả mảng mới (force render)
+  });
+
+  // ✅ Cưỡng chế cập nhật UI để tránh React bỏ qua
+  setTimeout(() => {
+    if (observerRef.current && sentinelRef.current) {
+      observerRef.current.observe(sentinelRef.current);
+      console.log("▶️ Observer đã được bật lại");
+    }
+    isProcessingNewPostRef.current = false;
+  }, 500);
+};
+
+
 
   const handlePostDeleted = (deletedPostId) => {
     setPosts(prevPosts => prevPosts.filter(post => post.id !== deletedPostId));
@@ -367,6 +357,8 @@ const HomePage = () => {
         </div>
       </div>
 
+      {/* ✅ Thêm logs khi render modal để debug prop */}
+      {console.log('🔍 [HomePage] Rendering CreatePostModal. onPostCreate defined?', typeof handlePostCreated === 'function')}
       <CreatePostModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
