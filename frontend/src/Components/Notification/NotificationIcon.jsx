@@ -11,7 +11,7 @@ const NotificationIcon = ({ type, className = '' }) => {
       return (
         <div className={`${baseClass} bg-gradient-to-br from-red-400 to-red-500`}>
           <Heart {...iconProps} className="text-white fill-white" />
-        </div>
+        </div> 
       );
     case 'CommentPost':
       return (

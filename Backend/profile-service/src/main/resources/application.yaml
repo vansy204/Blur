@@ -10,6 +10,19 @@ spring:
     authentication:
       username: "neo4j"
       password: "12345678"
+  redis:
+    host: localhost
+    port: 6379
+    # Database riêng cho Profile Service
+    database: 2
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 2
+    cache:
+      type: redis
   application:
     name: profile-service
 
