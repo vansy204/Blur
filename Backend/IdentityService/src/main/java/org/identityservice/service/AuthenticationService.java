@@ -203,15 +203,22 @@ public class AuthenticationService {
 
         // onboarding google user vao he thong
         var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
+
         Set<Role> roles = new HashSet<>();
         roles.add(Role.builder().name("USER").build());
-        var saveUser = userRepository.save(
-                User.builder().username(userInfo.getEmail()).roles(roles).build());
+
+        var user = userRepository.findByUsername(userInfo.getEmail()).orElseGet(
+                () -> userRepository.save(User.builder()
+                                .username(userInfo.getEmail())
+                                .firstName(userInfo.getGivenName())
+                                .lastName(userInfo.getFamilyName())
+                                .roles(roles)
+                        .build()));
 
         // convert token cua google thanh token cua he thong
-        var token = generateToken(saveUser);
+        var token = generateToken(user);
         profileClient.createProfile(ProfileCreationRequest.builder()
-                .userId(saveUser.getId())
+                .userId(user.getId())
                 .firstName(userInfo.getGivenName())
                 .lastName(userInfo.getFamilyName())
                 .city(userInfo.getLocale())
