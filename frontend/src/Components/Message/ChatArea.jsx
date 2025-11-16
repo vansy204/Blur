@@ -1,17 +1,19 @@
+// src/components/Chat/ChatArea.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Image, Send, Loader, Smile, Plus, X, Phone, Video, Info } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import MessageBubble from './MessageBubble';
 import MediaPreview from './MediaPreview';
+import { useCall } from '../../hooks/useCall';
+import IncomingCallModal from '../Call/IncommingCallModal';
+import CallWindow from '../Call/CallWindow';
+import CallEndedModal from '../Call/CallendedModal';
+
 
 export const uploadToCloudnary = async (file) => {
   if (!file) {
-    console.error("No file provided to upload");
     return null;
   }
-
-  console.log(`📤 Uploading file: ${file.name}, type: ${file.type}, size: ${file.size}`);
-
   try {
     const data = new FormData();
     data.append("file", file);
@@ -22,24 +24,17 @@ export const uploadToCloudnary = async (file) => {
     const endpoint = isVideo
       ? "https://api.cloudinary.com/v1_1/dqg5pghlu/video/upload"
       : "https://api.cloudinary.com/v1_1/dqg5pghlu/image/upload";
-
-    console.log(`📍 Uploading to endpoint: ${endpoint}`);
-
     const res = await fetch(endpoint, { method: "POST", body: data });
     
     if (!res.ok) {
-      const errorText = await res.text();
-      console.error("❌ Cloudinary upload failed:", res.status, errorText);
       throw new Error(`Upload failed: ${res.status}`);
     }
 
     const fileData = await res.json();
-    console.log("✅ Cloudinary response:", fileData);
 
     const url = fileData.secure_url || fileData.url;
     
     if (!url) {
-      console.error("❌ No URL returned from Cloudinary:", fileData);
       throw new Error("No URL returned from Cloudinary");
     }
 
@@ -57,17 +52,22 @@ export const uploadToCloudnary = async (file) => {
       resourceType: fileData.resource_type || (isVideo ? 'video' : 'image'),
     };
 
-    console.log("✅ Upload successful, attachment object:", attachment);
     return attachment;
 
   } catch (error) {
-    console.error("❌ Error uploading to Cloudinary:", error);
     alert(`Lỗi upload file ${file.name}: ${error.message}`);
     return null;
   }
 };
 
-const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentUserId }) => {
+const ChatArea = ({ 
+  conversation, 
+  messages, 
+  onSendMessage, 
+  isConnected, 
+  currentUserId,
+  currentUser
+}) => {
   const [input, setInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -75,6 +75,119 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
+  const {
+    callState,
+    mediaState,
+    connectionState,
+    callDuration,
+    localVideoRef,
+    remoteVideoRef,
+    initiateCall,
+    answerCall,
+    rejectCall,
+    endCall,
+    toggleAudio,
+    toggleVideo,
+    callEndedInfo,
+    closeCallEndedModal
+  } = useCall(currentUserId);
+
+  const handleVoiceCall = useCallback(() => {
+    if (!conversation || callState.isInCall) {
+      toast.error('Không thể gọi lúc này', {
+        position: 'top-center',
+        style: { background: '#ef4444', color: '#fff' },
+      });
+      return;
+    }
+    const receiver = conversation.participants.find(
+      p => p.userId !== currentUserId
+    );
+
+    if (!receiver || !receiver.userId) {
+    
+      toast.error('Không tìm thấy thông tin người nhận', {
+        position: 'top-center',
+        style: { background: '#ef4444', color: '#fff' },
+      });
+      return;
+    }
+
+    // ============ FIX: Xác định tên người gọi (current user) ============
+    const currentUserName = (() => {
+      // Ưu tiên 1: firstName + lastName
+      if (currentUser?.firstName && currentUser?.lastName) {
+        return `${currentUser.firstName} ${currentUser.lastName}`.trim();
+      }
+      // Ưu tiên 2: firstName hoặc lastName (nếu chỉ có 1)
+      if (currentUser?.firstName) return currentUser.firstName;
+      if (currentUser?.lastName) return currentUser.lastName;
+      // Ưu tiên 3: username
+      if (currentUser?.username) return currentUser.username;
+      // Ưu tiên 4: name field
+      if (currentUser?.name) return currentUser.name;
+      // Fallback
+      return 'Người dùng Blur';
+    })();
+
+    const receiverData = {
+      userId: receiver.userId,
+      name: receiver.firstName && receiver.lastName 
+        ? `${receiver.firstName} ${receiver.lastName}`.trim()
+        : receiver.username || 'Unknown',
+      avatar: receiver.avatar || conversation.conversationAvatar || null,
+      conversationId: conversation._id || conversation.id,
+      currentUserName: currentUserName,
+      currentUserAvatar: currentUser?.avatar || null
+    };
+    initiateCall(receiverData, 'VOICE');
+  }, [conversation, callState.isInCall, currentUser, currentUserId, initiateCall]);
+
+  const handleVideoCall = useCallback(() => {
+    if (!conversation || callState.isInCall) {
+      toast.error('Không thể gọi lúc này', {
+        position: 'top-center',
+        style: { background: '#ef4444', color: '#fff' },
+      });
+      return;
+    }
+
+    const receiver = conversation.participants.find(
+      p => p.userId !== currentUserId
+    );
+
+    if (!receiver || !receiver.userId) {
+      toast.error('Không tìm thấy thông tin người nhận', {
+        position: 'top-center',
+        style: { background: '#ef4444', color: '#fff' },
+      });
+      return;
+    }
+
+    // ============ FIX: Tương tự với video call ============
+    const currentUserName = (() => {
+      if (currentUser?.firstName && currentUser?.lastName) {
+        return `${currentUser.firstName} ${currentUser.lastName}`.trim();
+      }
+      if (currentUser?.firstName) return currentUser.firstName;
+      if (currentUser?.lastName) return currentUser.lastName;
+      if (currentUser?.username) return currentUser.username;
+      if (currentUser?.name) return currentUser.name;
+      return 'Người dùng Blur';
+    })();
+
+    const receiverData = {
+      userId: receiver.userId,
+      name: receiver.firstName && receiver.lastName 
+        ? `${receiver.firstName} ${receiver.lastName}`.trim()
+        : receiver.username || 'Unknown',
+      avatar: receiver.avatar || conversation.conversationAvatar || null,
+      conversationId: conversation._id || conversation.id,
+      currentUserName: currentUserName,
+      currentUserAvatar: currentUser?.avatar || null
+    };
+    initiateCall(receiverData, 'VIDEO');
+  }, [conversation, callState.isInCall, currentUser, currentUserId, initiateCall]);
 
   // Optimize scroll với useCallback và Intersection Observer
   const scrollToBottom = useCallback(() => {
@@ -209,7 +322,6 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
         inputRef.current?.focus();
       });
     } catch (error) {
-      console.error("❌ Error uploading:", error);
       if (uploadingToast) {
         toast.error('Không thể gửi', {
           id: uploadingToast,
@@ -260,7 +372,7 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white h-full">
+    <div className="flex-1 flex flex-col bg-white h-full relative">
       <Toaster position="bottom-center" />
       
       {/* Header - Instagram Style */}
@@ -289,19 +401,26 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
             </div>
           </div>
           
+          {/* Call Buttons */}
           <div className="flex items-center gap-1 flex-shrink-0">
             <button 
-              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors"
+              onClick={handleVoiceCall}
+              disabled={callState.isInCall}
+              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Gọi thoại"
             >
               <Phone size={22} strokeWidth={1.5} />
             </button>
+
             <button 
-              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors"
+              onClick={handleVideoCall}
+              disabled={callState.isInCall}
+              className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Gọi video"
             >
               <Video size={22} strokeWidth={1.5} />
             </button>
+
             <button 
               className="w-9 h-9 flex items-center justify-center text-black hover:bg-gray-100 rounded-full transition-colors"
               aria-label="Thông tin"
@@ -445,6 +564,46 @@ const ChatArea = ({ conversation, messages, onSendMessage, isConnected, currentU
           )}
         </div>
       </div>
+
+      {/* ============ CALL MODALS ============ */}
+      
+      {/* Incoming Call Modal */}
+      {callState.isIncoming && (
+        <IncomingCallModal
+          callerName={callState.callerName}
+          callerAvatar={callState.callerAvatar}
+          callType={callState.callType}
+          onAnswer={answerCall}
+          onReject={rejectCall}
+        />
+      )}
+
+      {/* Active Call Window */}
+      {callState.isInCall && !callState.isIncoming && (
+        <CallWindow
+          callState={callState}
+          mediaState={mediaState}
+          connectionState={connectionState}
+          callDuration={callDuration}
+          localVideoRef={localVideoRef}
+          remoteVideoRef={remoteVideoRef}
+          onEndCall={endCall}
+          onToggleAudio={toggleAudio}
+          onToggleVideo={toggleVideo}
+        />
+      )}
+
+      {/* Call Ended Modal */}
+      {callEndedInfo && (
+        <CallEndedModal
+          callerName={callEndedInfo.callerName}
+          callerAvatar={callEndedInfo.callerAvatar}
+          callType={callEndedInfo.callType}
+          duration={callEndedInfo.duration}
+          endReason={callEndedInfo.endReason}
+          onClose={closeCallEndedModal}
+        />
+      )}
     </div>
   );
 };

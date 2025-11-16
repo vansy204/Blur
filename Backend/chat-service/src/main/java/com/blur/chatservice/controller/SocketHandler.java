@@ -5,6 +5,13 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import com.blur.chatservice.entity.CallSession;
+import com.blur.chatservice.enums.CallStatus;
+import com.blur.chatservice.enums.CallType;
+import com.blur.chatservice.exception.AppException;
+import com.blur.chatservice.exception.ErrorCode;
+import com.blur.chatservice.service.CallService;
+import com.corundumstudio.socketio.AckRequest;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
@@ -24,65 +31,75 @@ import com.corundumstudio.socketio.SocketIOServer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 
 @Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Slf4j
 public class SocketHandler {
     SocketIOServer socketIOServer;
     IdentityService identityService;
     WebsocketSessionService websocketSessionService;
     ChatMessageService chatMessageService;
     ConversationRepository conversationRepository;
+    CallService callService;
 
+    Map<String, String> userSocketMap = new ConcurrentHashMap<>();
     ConcurrentHashMap<String, Long> processedMessages = new ConcurrentHashMap<>();
     ConcurrentHashMap<String, Set<UUID>> userSessions = new ConcurrentHashMap<>();
 
     static final long DUPLICATE_THRESHOLD = 3000;
-    static final long CLEANUP_INTERVAL = 300000; // 5 phút
+    static final long CLEANUP_INTERVAL = 300000;
 
     @PostConstruct
     public void startServer() {
         socketIOServer.addConnectListener(this::handleConnect);
         socketIOServer.addDisconnectListener(this::handleDisconnect);
+
         socketIOServer.addEventListener("send_message", Map.class, this::handleSendMessage);
         socketIOServer.addEventListener("typing", Map.class, this::handleTyping);
+
+        socketIOServer.addEventListener("call:initiate", Map.class, this::onCallInitiate);
+        socketIOServer.addEventListener("call:answer", Map.class, this::onCallAnswer);
+        socketIOServer.addEventListener("call:reject", Map.class, this::onCallReject);
+        socketIOServer.addEventListener("call:end", Map.class, this::onCallEnd);
+
+        socketIOServer.addEventListener("webrtc:offer", Map.class, this::onWebRTCOffer);
+        socketIOServer.addEventListener("webrtc:answer", Map.class, this::onWebRTCAnswer);
+        socketIOServer.addEventListener("webrtc:ice-candidate", Map.class, this::onICECandidate);
+
         socketIOServer.start();
-        log.info("✅ SocketIO Server started successfully");
     }
 
     @PreDestroy
     public void stopServer() {
         processedMessages.clear();
         userSessions.clear();
+        userSocketMap.clear();
         socketIOServer.stop();
-        log.info("🔴 SocketIO Server stopped");
     }
 
     private void handleConnect(SocketIOClient client) {
-        String token = extractToken(client);
-
-        if (token == null || token.isEmpty()) {
-            sendError(client, "auth_error", "TOKEN_REQUIRED", "Token required");
-            client.disconnect();
-            return;
-        }
-
         try {
-            var introspectRes = identityService.introspect(com.blur.chatservice.dto.request.IntrospectRequest.builder()
-                    .token(token)
-                    .build());
+            String token = extractToken(client);
+
+            if (token == null || token.isEmpty()) {
+                throw new AppException(ErrorCode.TOKEN_REQUIRED);
+            }
+
+            var introspectRes = identityService.introspect(
+                    com.blur.chatservice.dto.request.IntrospectRequest.builder()
+                            .token(token)
+                            .build()
+            );
 
             if (!introspectRes.isValid()) {
-                sendError(client, "auth_error", "INVALID_TOKEN", "Invalid token");
-                client.disconnect();
-                return;
+                throw new AppException(ErrorCode.INVALID_TOKEN);
             }
 
             String userId = introspectRes.getUserId();
             client.set("userId", userId);
+
+            userSocketMap.put(userId, client.getSessionId().toString());
 
             userSessions
                     .computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
@@ -93,14 +110,16 @@ public class SocketHandler {
             Map<String, Object> connectedData = Map.of(
                     "userId", userId,
                     "sessionId", client.getSessionId().toString(),
-                    "timestamp", Instant.now().toString());
+                    "timestamp", Instant.now().toString()
+            );
 
             client.sendEvent("connected", connectedData);
-            log.info("✅ User connected: {} (session: {})", userId, client.getSessionId());
 
+        } catch (AppException e) {
+            sendError(client, "auth_error", e.getErrorCode());
+            client.disconnect();
         } catch (Exception e) {
-            log.error("❌ Auth failed for client {}: {}", client.getSessionId(), e.getMessage());
-            sendError(client, "auth_error", "AUTH_FAILED", "Authentication failed");
+            sendError(client, "auth_error", ErrorCode.AUTH_FAILED);
             client.disconnect();
         }
     }
@@ -109,6 +128,7 @@ public class SocketHandler {
         String userId = client.get("userId");
         try {
             if (userId != null) {
+                userSocketMap.remove(userId);
                 Set<UUID> sessions = userSessions.get(userId);
                 if (sessions != null) {
                     sessions.remove(client.getSessionId());
@@ -118,9 +138,8 @@ public class SocketHandler {
                 }
             }
             websocketSessionService.deleteSession(client.getSessionId().toString());
-            log.info("🔌 User disconnected: {} (session: {})", userId, client.getSessionId());
         } catch (Exception e) {
-            log.error("❌ Error handling disconnect: {}", e.getMessage());
+            throw new AppException(ErrorCode.DISCONNECT_FAILED);
         }
     }
 
@@ -128,8 +147,7 @@ public class SocketHandler {
         try {
             String senderId = client.get("userId");
             if (senderId == null) {
-                sendError(client, "message_error", "SESSION_EXPIRED", "Session expired");
-                return;
+                throw new AppException(ErrorCode.SESSION_EXPIRED);
             }
 
             String conversationId = (String) data.get("conversationId");
@@ -139,115 +157,425 @@ public class SocketHandler {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> attachmentsData = (List<Map<String, Object>>) data.get("attachments");
 
-            if (conversationId == null) {
-                sendError(client, "message_error", "INVALID_DATA", "Conversation ID required");
-                return;
+            if (conversationId == null || conversationId.isEmpty()) {
+                throw new AppException(ErrorCode.CONVERSATION_ID_REQUIRED);
             }
 
             boolean hasMessage = message != null && !message.trim().isEmpty();
             boolean hasAttachments = attachmentsData != null && !attachmentsData.isEmpty();
 
             if (!hasMessage && !hasAttachments) {
-                sendError(client, "message_error", "EMPTY_MESSAGE", "Message or attachments required");
-                return;
+                throw new AppException(ErrorCode.EMPTY_MESSAGE);
             }
 
-            // === CHECK DUPLICATE ===
             String messageKey = conversationId + ":" + tempMessageId;
             if (isDuplicate(messageKey)) {
-                log.warn("⚠️ Duplicate message ignored: {}", messageKey);
-                return;
+                throw new AppException(ErrorCode.DUPLICATE_MESSAGE);
             }
 
-            // === BUILD REQUEST ===
             ChatMessageRequest.ChatMessageRequestBuilder builder =
-                    ChatMessageRequest.builder().conversationId(conversationId).message(message);
+                    ChatMessageRequest.builder()
+                            .conversationId(conversationId)
+                            .message(message);
 
             if (hasAttachments) {
-                List<MediaAttachment> attachments =
-                        attachmentsData.stream().map(this::mapToAttachment).collect(Collectors.toList());
+                List<MediaAttachment> attachments = attachmentsData.stream()
+                        .map(this::mapToAttachment)
+                        .collect(Collectors.toList());
                 builder.attachments(attachments);
             }
 
             ChatMessageRequest request = builder.build();
-
-            // === LƯU MESSAGE VÀO DATABASE ===
             ChatMessageResponse savedMessage = chatMessageService.create(request, senderId);
-            log.info("💾 Message saved: {} in conversation {}", savedMessage.getId(), conversationId);
 
-            // === TÌM RECEIVER ===
             var conversation = conversationRepository
                     .findById(conversationId)
-                    .orElseThrow(() -> new RuntimeException("Conversation not found"));
+                    .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
             if (conversation.getParticipants().size() != 2) {
-                sendError(client, "message_error", "INVALID_CONVERSATION", "Invalid conversation");
-                return;
+                throw new AppException(ErrorCode.INVALID_CONVERSATION);
             }
 
             String receiverId = conversation.getParticipants().stream()
                     .map(ParticipantInfo::getUserId)
                     .filter(id -> !id.equals(senderId))
                     .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Receiver not found"));
+                    .orElseThrow(() -> new AppException(ErrorCode.RECEIVER_NOT_FOUND));
 
-            // === BUILD PAYLOAD ===
             Map<String, Object> payload = buildMessagePayload(savedMessage, tempMessageId);
 
-            // === SỰ KIỆN 1: GỬI "message_sent" CHO NGƯỜI GỬI ===
-            int senderCount = sendToUser(senderId, "message_sent", payload);
-            log.info("✅ Sent 'message_sent' to sender {} ({} sessions)", senderId, senderCount);
+            sendToUser(senderId, "message_sent", payload);
+            sendToUser(receiverId, "message_received", payload);
 
-            int receiverCount = sendToUser(receiverId, "message_received", payload);
-            log.info("📨 Sent 'message_received' to receiver {} ({} sessions)", receiverId, receiverCount);
-
-            // === MARK AS PROCESSED ===
             markAsProcessed(messageKey);
 
+        } catch (AppException e) {
+            sendError(client, "message_error", e.getErrorCode());
         } catch (Exception e) {
-            log.error("❌ Error handling send_message: {}", e.getMessage(), e);
-            sendError(client, "message_error", "INTERNAL_ERROR", "Failed to send message");
+            sendError(client, "message_error", ErrorCode.MESSAGE_SEND_FAILED);
         }
     }
 
-    /**
-     * XỬ LÝ TYPING INDICATOR
-     */
     private void handleTyping(SocketIOClient client, Map<String, Object> data, Object ack) {
         try {
             String senderId = client.get("userId");
             String conversationId = (String) data.get("conversationId");
             Boolean isTyping = (Boolean) data.getOrDefault("isTyping", false);
 
-            if (senderId == null || conversationId == null) return;
+            if (senderId == null) {
+                throw new AppException(ErrorCode.SESSION_EXPIRED);
+            }
+            if (conversationId == null) {
+                throw new AppException(ErrorCode.CONVERSATION_ID_REQUIRED);
+            }
 
-            var conversation = conversationRepository.findById(conversationId).orElse(null);
-            if (conversation == null) return;
+            var conversation = conversationRepository.findById(conversationId)
+                    .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
             String receiverId = conversation.getParticipants().stream()
                     .map(ParticipantInfo::getUserId)
                     .filter(id -> !id.equals(senderId))
                     .findFirst()
-                    .orElse(null);
-
-            if (receiverId == null) return;
+                    .orElseThrow(() -> new AppException(ErrorCode.RECEIVER_NOT_FOUND));
 
             Map<String, Object> typingData = Map.of(
                     "conversationId", conversationId,
                     "userId", senderId,
-                    "isTyping", isTyping);
+                    "isTyping", isTyping
+            );
 
             sendToUser(receiverId, "user_typing", typingData);
-            log.debug("⌨️ Typing indicator sent: {} -> {}", senderId, receiverId);
 
+        } catch (AppException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("❌ Error handling typing: {}", e.getMessage());
+            throw new AppException(ErrorCode.SEND_EVENT_FAILED);
         }
     }
 
-    /**
-     * MAP ATTACHMENT DATA
-     */
+    public void onCallInitiate(SocketIOClient client, Map<String, Object> data, Object ack) {
+        String sessionId = null;
+        try {
+            String callerId = (String) data.get("callerId");
+            String callerName = (String) data.get("callerName");
+            String callerAvatar = (String) data.get("callerAvatar");
+            String receiverId = (String) data.get("receiverId");
+            String receiverName = (String) data.get("receiverName");
+            String receiverAvatar = (String) data.get("receiverAvatar");
+            String callTypeStr = (String) data.get("callType");
+            String conversationId = (String) data.get("conversationId");
+
+            if (callerId == null || receiverId == null || callTypeStr == null) {
+                throw new AppException(ErrorCode.INVALID_DATA);
+            }
+
+            CallType callType;
+            try {
+                callType = CallType.valueOf(callTypeStr);
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_CALL_TYPE);
+            }
+
+            CallSession session = callService.initiateCall(
+                    callerId, callerName, callerAvatar,
+                    receiverId, receiverName, receiverAvatar,
+                    callType,
+                    client.getSessionId().toString(),
+                    conversationId
+            );
+
+            sessionId = session.getId();
+
+            client.sendEvent("call:initiated", Map.of(
+                    "success", true,
+                    "callId", session.getId()
+            ));
+
+            String receiverSocketId = userSocketMap.get(receiverId);
+
+            if (receiverSocketId == null) {
+                throw new AppException(ErrorCode.USER_NOT_AVAILABLE);
+            }
+
+            UUID receiverUUID;
+            try {
+                receiverUUID = UUID.fromString(receiverSocketId);
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.CALL_INITIATE_FAILED);
+            }
+
+            SocketIOClient receiverClient = socketIOServer.getClient(receiverUUID);
+
+            if (receiverClient == null || !receiverClient.isChannelOpen()) {
+                throw new AppException(ErrorCode.USER_OFFLINE);
+            }
+
+            receiverClient.sendEvent("call:incoming", Map.of(
+                    "callId", session.getId(),
+                    "callerId", callerId,
+                    "callerName", callerName,
+                    "callerAvatar", callerAvatar != null ? callerAvatar : "",
+                    "callType", callType.name()
+            ));
+
+            callService.updateCallStatus(
+                    session.getId(),
+                    CallStatus.RINGING,
+                    receiverSocketId
+            );
+
+        } catch (AppException e) {
+            if (sessionId != null) {
+                try {
+                    CallStatus failedStatus = (e.getErrorCode() == ErrorCode.USER_NOT_AVAILABLE ||
+                            e.getErrorCode() == ErrorCode.USER_OFFLINE) ?
+                            CallStatus.MISSED : CallStatus.FAILED;
+                    callService.updateCallStatus(sessionId, failedStatus, null);
+                } catch (Exception ignored) {
+                    throw new AppException(ErrorCode.CALL_STATUS_UPDATE_FAILED);
+                }
+            }
+
+            client.sendEvent("call:failed", Map.of(
+                    "code", e.getErrorCode().getCode(),
+                    "reason", e.getErrorCode().getMessage()
+            ));
+        } catch (Exception e) {
+            if (sessionId != null) {
+                try {
+                    callService.updateCallStatus(sessionId, CallStatus.FAILED, null);
+                } catch (Exception ignored) {
+                    throw new AppException(ErrorCode.CALL_STATUS_UPDATE_FAILED);
+                }
+            }
+
+            client.sendEvent("call:failed", Map.of(
+                    "code", ErrorCode.CALL_INITIATE_FAILED.getCode(),
+                    "reason", ErrorCode.CALL_INITIATE_FAILED.getMessage()
+            ));
+        }
+    }
+
+    public void onCallAnswer(SocketIOClient client, Map<String, Object> data, Object ack) {
+        try {
+            String callId = (String) data.get("callId");
+            String userId = client.get("userId");
+
+            if (callId == null || callId.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_DATA);
+            }
+
+            CallSession session = callService.updateCallStatus(
+                    callId,
+                    CallStatus.ANSWERED,
+                    client.getSessionId().toString()
+            );
+
+            if (session == null) {
+                throw new AppException(ErrorCode.CALL_NOT_FOUND);
+            }
+
+            client.sendEvent("call:answer:success", Map.of("callId", session.getId()));
+
+            new Thread(() -> {
+                try {
+                    Thread.sleep(800);
+
+                    String callerId = session.getCallerId();
+                    String receiverId = session.getReceiverId();
+
+                    sendToUser(callerId, "call:answered", Map.of(
+                            "callId", callId,
+                            "receiverId", receiverId
+                    ));
+
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new AppException(ErrorCode.THREAD_INTERRUPTED);
+                }
+            }).start();
+
+        } catch (AppException e) {
+            client.sendEvent("call:failed", Map.of(
+                    "code", e.getErrorCode().getCode(),
+                    "reason", e.getErrorCode().getMessage()
+            ));
+        } catch (Exception e) {
+            client.sendEvent("call:failed", Map.of(
+                    "code", ErrorCode.CALL_ANSWER_FAILED.getCode(),
+                    "reason", ErrorCode.CALL_ANSWER_FAILED.getMessage()
+            ));
+        }
+    }
+
+    public void onCallReject(SocketIOClient client, Map<String, Object> data, Object ack) {
+        try {
+            String callId = (String) data.get("callId");
+            String userId = client.get("userId");
+
+            if (callId == null || callId.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_DATA);
+            }
+
+            CallSession session = callService.updateCallStatus(
+                    callId,
+                    CallStatus.REJECTED,
+                    null
+            );
+
+            if (session == null) {
+                throw new AppException(ErrorCode.CALL_NOT_FOUND);
+            }
+
+            client.sendEvent("call:reject:success", Map.of("callId", callId));
+
+            sendToUser(session.getCallerId(), "call:rejected", Map.of(
+                    "callId", callId,
+                    "reason", "Call was rejected"
+            ));
+
+        } catch (AppException e) {
+            client.sendEvent("call:failed", Map.of(
+                    "code", e.getErrorCode().getCode(),
+                    "reason", e.getErrorCode().getMessage()
+            ));
+        } catch (Exception e) {
+            client.sendEvent("call:failed", Map.of(
+                    "code", ErrorCode.CALL_REJECT_FAILED.getCode(),
+                    "reason", ErrorCode.CALL_REJECT_FAILED.getMessage()
+            ));
+        }
+    }
+
+    public void onCallEnd(SocketIOClient client, Map<String, Object> data, Object ack) {
+        try {
+            String callId = (String) data.get("callId");
+            String userId = client.get("userId");
+
+            if (callId == null || callId.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_DATA);
+            }
+
+            CallSession session = callService.endCall(callId, userId);
+
+            if (session == null) {
+                throw new AppException(ErrorCode.CALL_NOT_FOUND);
+            }
+
+            Map<String, Object> endData = Map.of(
+                    "callId", callId,
+                    "duration", session.getDuration() != null ? session.getDuration() : 0
+            );
+
+            sendToUser(session.getCallerId(), "call:ended", endData);
+            sendToUser(session.getReceiverId(), "call:ended", endData);
+
+        } catch (AppException e) {
+            client.sendEvent("call:failed", Map.of(
+                    "code", e.getErrorCode().getCode(),
+                    "reason", e.getErrorCode().getMessage()
+            ));
+        } catch (Exception e) {
+            client.sendEvent("call:failed", Map.of(
+                    "code", ErrorCode.CALL_END_FAILED.getCode(),
+                    "reason", ErrorCode.CALL_END_FAILED.getMessage()
+            ));
+        }
+    }
+
+    private void onWebRTCOffer(SocketIOClient client, Map<String, Object> data, AckRequest ack) {
+        try {
+            String to = (String) data.get("to");
+            String from = client.get("userId");
+
+            if (to == null || to.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_DATA);
+            }
+
+            Map<String, Object> forwardData = new HashMap<>(data);
+            forwardData.put("from", from);
+
+            int sent = sendToUser(to, "webrtc:offer", forwardData);
+
+            if (sent == 0) {
+                throw new AppException(ErrorCode.PEER_NOT_FOUND);
+            }
+
+        } catch (AppException e) {
+            client.sendEvent("webrtc:error", Map.of(
+                    "code", e.getErrorCode().getCode(),
+                    "message", e.getErrorCode().getMessage()
+            ));
+        } catch (Exception e) {
+            client.sendEvent("webrtc:error", Map.of(
+                    "code", ErrorCode.WEBRTC_OFFER_FAILED.getCode(),
+                    "message", ErrorCode.WEBRTC_OFFER_FAILED.getMessage()
+            ));
+        }
+    }
+
+    private void onWebRTCAnswer(SocketIOClient client, Map<String, Object> data, AckRequest ack) {
+        try {
+            String to = (String) data.get("to");
+            String from = client.get("userId");
+
+            if (to == null || to.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_DATA);
+            }
+
+            Map<String, Object> forwardData = new HashMap<>(data);
+            forwardData.put("from", from);
+
+            int sent = sendToUser(to, "webrtc:answer", forwardData);
+
+            if (sent == 0) {
+                throw new AppException(ErrorCode.PEER_NOT_FOUND);
+            }
+
+        } catch (AppException e) {
+            client.sendEvent("webrtc:error", Map.of(
+                    "code", e.getErrorCode().getCode(),
+                    "message", e.getErrorCode().getMessage()
+            ));
+        } catch (Exception e) {
+            client.sendEvent("webrtc:error", Map.of(
+                    "code", ErrorCode.WEBRTC_ANSWER_FAILED.getCode(),
+                    "message", ErrorCode.WEBRTC_ANSWER_FAILED.getMessage()
+            ));
+        }
+    }
+
+    private void onICECandidate(SocketIOClient client, Map<String, Object> data, AckRequest ack) {
+        try {
+            String to = (String) data.get("to");
+            String from = client.get("userId");
+
+            if (to == null || to.isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_DATA);
+            }
+
+            Map<String, Object> forwardData = new HashMap<>(data);
+            forwardData.put("from", from);
+
+            int sent = sendToUser(to, "webrtc:ice-candidate", forwardData);
+
+            if (sent == 0) {
+                throw new AppException(ErrorCode.PEER_NOT_FOUND);
+            }
+
+        } catch (AppException e) {
+            client.sendEvent("webrtc:error", Map.of(
+                    "code", e.getErrorCode().getCode(),
+                    "message", e.getErrorCode().getMessage()
+            ));
+        } catch (Exception e) {
+            client.sendEvent("webrtc:error", Map.of(
+                    "code", ErrorCode.ICE_CANDIDATE_FAILED.getCode(),
+                    "message", ErrorCode.ICE_CANDIDATE_FAILED.getMessage()
+            ));
+        }
+    }
+
     private MediaAttachment mapToAttachment(Map<String, Object> data) {
         if (data == null) return null;
 
@@ -277,9 +605,6 @@ public class SocketHandler {
         return null;
     }
 
-    /**
-     * BUILD MESSAGE PAYLOAD
-     */
     private Map<String, Object> buildMessagePayload(ChatMessageResponse msg, String tempId) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("id", msg.getId());
@@ -287,9 +612,7 @@ public class SocketHandler {
         payload.put("tempMessageId", tempId);
         payload.put("conversationId", msg.getConversationId());
         payload.put("message", msg.getMessage());
-        payload.put(
-                "messageType",
-                msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
+        payload.put("messageType", msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
         payload.put("createdDate", msg.getCreatedDate().toString());
 
         if (msg.getSender() != null) {
@@ -301,7 +624,8 @@ public class SocketHandler {
                     "username", orEmpty(sender.getUsername()),
                     "firstName", orEmpty(sender.getFirstName()),
                     "lastName", orEmpty(sender.getLastName()),
-                    "avatar", orEmpty(sender.getAvatar()));
+                    "avatar", orEmpty(sender.getAvatar())
+            );
             payload.put("sender", senderMap);
         }
 
@@ -312,14 +636,9 @@ public class SocketHandler {
         return payload;
     }
 
-    /**
-     * GỬI EVENT ĐÉN TẤT CẢ SESSIONS CỦA 1 USER
-     * @return Số lượng sessions đã gửi thành công
-     */
     private int sendToUser(String userId, String event, Object data) {
         Set<UUID> sessions = userSessions.get(userId);
         if (sessions == null || sessions.isEmpty()) {
-            log.warn("⚠️ No active sessions for user: {}", userId);
             return 0;
         }
 
@@ -332,15 +651,12 @@ public class SocketHandler {
                     count++;
                 }
             } catch (Exception e) {
-                log.error("❌ Error sending to session {}: {}", sessionId, e.getMessage());
+                throw new AppException(ErrorCode.SEND_EVENT_FAILED);
             }
         }
         return count;
     }
 
-    /**
-     * EXTRACT TOKEN TỪ HANDSHAKE
-     */
     private String extractToken(SocketIOClient client) {
         String token = client.getHandshakeData().getSingleUrlParam("token");
 
@@ -356,39 +672,27 @@ public class SocketHandler {
         return token;
     }
 
-    /**
-     * KIỂM TRA DUPLICATE MESSAGE
-     */
     private boolean isDuplicate(String key) {
         Long lastTime = processedMessages.get(key);
         return lastTime != null && (System.currentTimeMillis() - lastTime) < DUPLICATE_THRESHOLD;
     }
 
-    /**
-     * ĐÁNH DẤU MESSAGE ĐÃ XỬ LÝ
-     */
     private void markAsProcessed(String key) {
         processedMessages.put(key, System.currentTimeMillis());
 
-        // Cleanup old entries (giữ ConcurrentHashMap nhỏ gọn)
         long now = System.currentTimeMillis();
         processedMessages.entrySet().removeIf(e -> (now - e.getValue()) > CLEANUP_INTERVAL);
     }
 
-    /**
-     * GỬI ERROR ĐÉN CLIENT
-     */
-    private void sendError(SocketIOClient client, String event, String code, String message) {
+    private void sendError(SocketIOClient client, String event, ErrorCode errorCode) {
         Map<String, Object> error = Map.of(
-                "code", code,
-                "message", message,
-                "timestamp", Instant.now().toString());
+                "code", errorCode.getCode(),
+                "message", errorCode.getMessage(),
+                "timestamp", Instant.now().toString()
+        );
         client.sendEvent(event, error);
     }
 
-    /**
-     * HELPER: RETURN EMPTY STRING IF NULL
-     */
     private String orEmpty(String value) {
         return value != null ? value : "";
     }

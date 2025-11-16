@@ -16,6 +16,7 @@ export default function MessagePage() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const currentConversationRef = useRef(null);
   const messagesFetchedRef = useRef(new Set());
 
@@ -40,17 +41,57 @@ export default function MessagePage() {
   useEffect(() => {
     const userId = getUserId();
     setCurrentUserId(userId);
-    console.log("👤 Current user ID:", userId);
   }, []);
+
+  // === FETCH CURRENT USER INFO ===
+  useEffect(() => {
+    const fetchCurrentUserInfo = async () => {
+      if (!currentUserId) return;
+      
+      try {
+        // Try API first
+        try {
+          const response = await apiCall('http://localhost:8888/api/profile/users/myInfo');
+          
+          if (response?.result) {
+            setCurrentUser(response.result);
+            return;
+          }
+        } catch (apiError) {
+          // API not available
+        }
+        
+        // Fallback: Get from conversation participants
+        if (conversations.length > 0) {
+          for (const conv of conversations) {
+            if (conv.participants && Array.isArray(conv.participants)) {
+              const currentUserParticipant = conv.participants.find(
+                p => p.userId === currentUserId
+              );
+              
+              if (currentUserParticipant) {
+                setCurrentUser(currentUserParticipant);
+                return;
+              }
+            }
+          }
+        }
+        
+      } catch (error) {
+        // Error fetching user info
+      }
+    };
+    
+    fetchCurrentUserInfo();
+  }, [currentUserId, conversations]);
 
   // === FETCH CONVERSATIONS ===
   const fetchConversations = useCallback(async () => {
     try {
-      console.log("📋 Fetching conversations...");
       const data = await apiCall("/conversations/my-conversations");
       const convs = data.result || [];
       
-      // Sort conversations: mới nhất lên đầu
+      // Sort: newest first
       const sortedConvs = convs.sort((a, b) => {
         const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
         const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
@@ -58,9 +99,8 @@ export default function MessagePage() {
       });
       
       setConversations(sortedConvs);
-      console.log(`✅ Loaded ${sortedConvs.length} conversations`);
     } catch (err) {
-      console.error("❌ Error fetching conversations:", err);
+      // Error fetching conversations
     }
   }, []);
 
@@ -71,7 +111,6 @@ export default function MessagePage() {
   // === FETCH MESSAGES ===
   const fetchMessages = useCallback(async (conversationId) => {
     try {
-      console.log(`📥 Fetching messages for conversation: ${conversationId}`);
       const data = await apiCall(`/messages?conversationId=${conversationId}`);
       const msgs = (data.result || []).map((msg) => ({
         id: msg.id,
@@ -86,26 +125,23 @@ export default function MessagePage() {
         isRead: msg.isRead,
       }));
       
-      // Sort messages: CŨ NHẤT LÊN ĐẦU, MỚI NHẤT Ở DƯỚI
+      // Sort: oldest first, newest last
       const sortedMsgs = msgs.sort((a, b) => {
         const timeA = new Date(a.createdDate).getTime();
         const timeB = new Date(b.createdDate).getTime();
         return timeA - timeB;
       });
       
-      console.log(`✅ Loaded ${sortedMsgs.length} messages`);
       setMessages(sortedMsgs);
       messagesFetchedRef.current.add(conversationId);
     } catch (err) {
-      console.error("❌ Error fetching messages:", err);
+      // Error fetching messages
     }
   }, []);
 
   // === HANDLE SELECT CONVERSATION ===
   const handleSelectConversation = useCallback(async (conv) => {
     if (!currentUserId || !conv) return;
-    
-    console.log("📍 Selected conversation:", conv.id);
     
     setSelectedChat(conv);
     currentConversationRef.current = conv.id;
@@ -115,18 +151,14 @@ export default function MessagePage() {
     
     // Mark as read (non-blocking)
     try {
-      markConversationAsRead(conv.id).catch(err => 
-        console.error('Failed to mark as read:', err)
-      );
+      markConversationAsRead(conv.id).catch(err => {});
     } catch (err) {
-      console.error('Error marking as read:', err);
+      // Error marking as read
     }
   }, [currentUserId, fetchMessages]);
 
   // === HANDLE CONVERSATION DELETED ===
   const handleConversationDeleted = useCallback((deletedConversationId) => {
-    console.log('🗑️ Handling conversation deletion:', deletedConversationId);
-    
     // Remove from list
     setConversations((prev) => 
       prev.filter((conv) => conv.id !== deletedConversationId)
@@ -138,18 +170,10 @@ export default function MessagePage() {
       setMessages([]);
       currentConversationRef.current = null;
     }
-    
-    console.log('✅ Conversation removed from UI');
   }, [selectedChat]);
 
   // === CALLBACK: MESSAGE SENT ===
   const handleMessageSent = useCallback((data) => {
-    console.log("✅ [Callback] Message sent:", {
-      realId: data.id,
-      tempId: data.tempMessageId,
-      conversationId: data.conversationId,
-    });
-    
     // Update conversation list
     setConversations((prev) => {
       const idx = prev.findIndex((c) => c.id === data.conversationId);
@@ -173,7 +197,6 @@ export default function MessagePage() {
         const tempIdx = prev.findIndex((m) => m.id === data.tempMessageId);
         
         if (tempIdx === -1) {
-          console.warn("⚠️ Temp message not found:", data.tempMessageId);
           return prev;
         }
 
@@ -191,7 +214,6 @@ export default function MessagePage() {
           isRead: data.isRead,
         };
         
-        console.log(`✅ Updated temp message ${data.tempMessageId} → ${data.id}`);
         return updated;
       });
     }
@@ -199,12 +221,6 @@ export default function MessagePage() {
 
   // === CALLBACK: MESSAGE RECEIVED ===
   const handleMessageReceived = useCallback((data) => {
-    console.log("📨 [Callback] Message received:", {
-      messageId: data.id,
-      from: data.sender?.username || data.senderId,
-      conversationId: data.conversationId,
-    });
-    
     const messageSenderId = data.senderId || data.sender?.userId;
     const isCurrentConversation = data.conversationId === currentConversationRef.current;
 
@@ -212,7 +228,6 @@ export default function MessagePage() {
     setConversations((prev) => {
       const idx = prev.findIndex((c) => c.id === data.conversationId);
       if (idx === -1) {
-        console.warn("⚠️ Conversation not found:", data.conversationId);
         return prev;
       }
       
@@ -244,8 +259,6 @@ export default function MessagePage() {
         attachments: data.attachments,
         createdDate: data.createdDate,
         onClick: (notification) => {
-          console.log("📍 Navigating to conversation:", notification.conversationId);
-          
           setConversations(prev => {
             const conv = prev.find(c => c.id === notification.conversationId);
             if (conv) {
@@ -259,15 +272,12 @@ export default function MessagePage() {
           }
         },
       });
-
-      console.log("🔔 Notification added for message:", data.id);
     }
 
     // Add message to current conversation
     if (isCurrentConversation) {
       setMessages((prev) => {
         if (prev.some((m) => m.id === data.id)) {
-          console.log("⚠️ Duplicate message ignored:", data.id);
           return prev;
         }
 
@@ -284,24 +294,20 @@ export default function MessagePage() {
           isRead: data.isRead,
         };
 
-        console.log("✅ Added new message to chat:", data.id);
         return [...prev, newMessage];
       });
       
       // Auto mark as read
       try {
-        markConversationAsRead(data.conversationId).catch(err => 
-          console.error('Failed to auto-mark as read:', err)
-        );
+        markConversationAsRead(data.conversationId).catch(err => {});
       } catch (err) {
-        console.error('Error auto-marking as read:', err);
+        // Error auto-marking as read
       }
     }
   }, [addNotification, navigate, handleSelectConversation]);
 
   // === REGISTER CALLBACKS ===
   useEffect(() => {
-    console.log("🔗 Registering socket callbacks...");
     registerMessageCallbacks({
       onMessageSent: handleMessageSent,
       onMessageReceived: handleMessageReceived,
@@ -311,8 +317,6 @@ export default function MessagePage() {
   // === HANDLE SELECT USER ===
   const handleSelectUser = useCallback(
     async (user) => {
-      console.log("👤 Selected user:", user);
-      
       const existingConv = conversations.find(
         (conv) =>
           conv.conversationName === `${user.firstName} ${user.lastName}` ||
@@ -320,10 +324,8 @@ export default function MessagePage() {
       );
 
       if (existingConv) {
-        console.log("✅ Found existing conversation:", existingConv.id);
         handleSelectConversation(existingConv);
       } else {
-        console.log("🆕 Creating new conversation placeholder");
         const tempConv = {
           id: `temp-${user.userId}`,
           conversationName: `${user.firstName} ${user.lastName}`,
@@ -343,7 +345,6 @@ export default function MessagePage() {
   const handleSendMessage = useCallback(
     async (text, attachments = []) => {
       if ((!text.trim() && attachments.length === 0) || !selectedChat || !currentUserId) {
-        console.warn("⚠️ Cannot send message: invalid input");
         return;
       }
 
@@ -361,12 +362,6 @@ export default function MessagePage() {
         (att) => att && att.url && att.url.trim() !== ""
       );
 
-      console.log("📤 Preparing to send message:", {
-        tempId,
-        text: text.substring(0, 50) + (text.length > 50 ? "..." : ""),
-        attachmentsCount: validAttachments.length,
-      });
-
       const tempMessage = {
         id: tempId,
         message: text,
@@ -379,7 +374,6 @@ export default function MessagePage() {
       };
 
       setMessages((prev) => [...prev, tempMessage]);
-      console.log("✅ Added temp message to UI:", tempId);
 
       const payload = {
         conversationId: selectedChat.id,
@@ -390,15 +384,11 @@ export default function MessagePage() {
 
       if (selectedChat.isTemporary) {
         payload.recipientUserId = selectedChat.userId;
-        console.log("🆕 Sending to new conversation with user:", selectedChat.userId);
       }
 
-      console.log("🚀 Emitting send_message event");
-      
       const success = sendMessage(payload);
       
       if (!success) {
-        console.error("❌ Failed to send message via socket");
         setMessages((prev) =>
           prev.map((m) =>
             m.id === tempId ? { ...m, isPending: false, isFailed: true } : m
@@ -442,6 +432,7 @@ export default function MessagePage() {
           onSendMessage={handleSendMessage}
           isConnected={isConnected}
           currentUserId={currentUserId}
+          currentUser={currentUser}
           onBack={handleBack}
         />
       </div>
