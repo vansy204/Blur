@@ -24,8 +24,8 @@ spring:
 
 outbound:
   identity:
-    client-id: "604644834253-m2m9gls1kpt697dovkj91betr93ckk2g.apps.googleusercontent.com"
-    client-secret: "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"
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
     redirect-url: "http://localhost:3000/authenticate"
     grant-type: "authorization_code"
     authUri: "https://accounts.google.com/o/oauth2/auth"

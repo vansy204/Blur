@@ -131,10 +131,14 @@ public class AuthenticationService {
         InvalidatedToken invalidatedToken =
                 InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
         tokenRepository.save(invalidatedToken);
-        var username = signJWT.getJWTClaimsSet().getSubject();
-        var user =
-                userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        var token = generateToken(user);
+
+        // subject hiện tại là userId (do generateToken dùng user.getId())
+        String userId = signJWT.getJWTClaimsSet().getSubject();
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        String token = generateToken(user);
 
         return AuthResponse.builder().token(token).authenticated(true).build();
     }

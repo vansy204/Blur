@@ -38,6 +38,7 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
+    //Create for google
     @PostMapping("/create-password")
     public ApiResponse<Void> createPassword(@RequestBody @Valid UserCreationPasswordRequest request) {
         userService.createPassword(request);
@@ -59,21 +60,26 @@ public class UserController {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("username: {}", authentication.getName());
         return ApiResponse.<List<UserResponse>>builder()
+                .code(1000)
                 .result(userService.getUsers())
                 .build();
     }
 
-    @GetMapping("/")
+    @GetMapping("/me")
     public ApiResponse<UserResponse> myInfo() {
         return ApiResponse.<UserResponse>builder()
+                .code(1000) //Phía FE đang kiểm tra 1000
                 .result(userService.getMyInfo())
                 .build();
     }
 
+
     @GetMapping("/{userId}")
     public ApiResponse<UserResponse> getUser(@PathVariable String userId) {
         var userResponse = userMapper.toUserResponse(userService.getUserById(userId));
-        return ApiResponse.<UserResponse>builder().result(userResponse).build();
+        return ApiResponse.<UserResponse>builder()
+                .code(1000)
+                .result(userResponse).build();
     }
 
     @PutMapping("/{userId}")
