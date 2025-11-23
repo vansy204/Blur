@@ -2,7 +2,6 @@ package com.blur.chatservice.controller;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import com.blur.chatservice.entity.CallSession;
@@ -11,6 +10,7 @@ import com.blur.chatservice.enums.CallType;
 import com.blur.chatservice.exception.AppException;
 import com.blur.chatservice.exception.ErrorCode;
 import com.blur.chatservice.service.CallService;
+import com.blur.chatservice.service.RedisCacheService;
 import com.corundumstudio.socketio.AckRequest;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -32,23 +32,28 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+/**
+ * Optimized SocketHandler with Redis Cache
+ * - User socket mapping in Redis
+ * - Message deduplication in Redis
+ * - User sessions in Redis
+ * - Better scalability and persistence
+ */
 @Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SocketHandler {
+
     SocketIOServer socketIOServer;
     IdentityService identityService;
     WebsocketSessionService websocketSessionService;
     ChatMessageService chatMessageService;
     ConversationRepository conversationRepository;
     CallService callService;
+    RedisCacheService redisCacheService;
 
-    Map<String, String> userSocketMap = new ConcurrentHashMap<>();
-    ConcurrentHashMap<String, Long> processedMessages = new ConcurrentHashMap<>();
-    ConcurrentHashMap<String, Set<UUID>> userSessions = new ConcurrentHashMap<>();
-
-    static final long DUPLICATE_THRESHOLD = 3000;
-    static final long CLEANUP_INTERVAL = 300000;
+    static final long DUPLICATE_THRESHOLD = 3000; // 3 seconds
+    static final long SESSION_TTL = 7200; // 2 hours in seconds
 
     @PostConstruct
     public void startServer() {
@@ -72,12 +77,13 @@ public class SocketHandler {
 
     @PreDestroy
     public void stopServer() {
-        processedMessages.clear();
-        userSessions.clear();
-        userSocketMap.clear();
         socketIOServer.stop();
     }
 
+    /**
+     * Handle client connection
+     * Store mapping in Redis for scalability
+     */
     private void handleConnect(SocketIOClient client) {
         try {
             String token = extractToken(client);
@@ -97,19 +103,20 @@ public class SocketHandler {
             }
 
             String userId = introspectRes.getUserId();
+            String sessionId = client.getSessionId().toString();
+
             client.set("userId", userId);
 
-            userSocketMap.put(userId, client.getSessionId().toString());
+            // Store in Redis instead of in-memory map
+            redisCacheService.cacheUserSocket(userId, sessionId);
+            redisCacheService.addUserSession(userId, sessionId);
 
-            userSessions
-                    .computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
-                    .add(client.getSessionId());
-
-            websocketSessionService.createSession(client.getSessionId().toString(), userId);
+            // Create websocket session
+            websocketSessionService.createSession(sessionId, userId);
 
             Map<String, Object> connectedData = Map.of(
                     "userId", userId,
-                    "sessionId", client.getSessionId().toString(),
+                    "sessionId", sessionId,
                     "timestamp", Instant.now().toString()
             );
 
@@ -124,25 +131,31 @@ public class SocketHandler {
         }
     }
 
+    /**
+     * Handle client disconnection
+     * Clean up Redis cache
+     */
     private void handleDisconnect(SocketIOClient client) {
         String userId = client.get("userId");
+        String sessionId = client.getSessionId().toString();
+
         try {
             if (userId != null) {
-                userSocketMap.remove(userId);
-                Set<UUID> sessions = userSessions.get(userId);
-                if (sessions != null) {
-                    sessions.remove(client.getSessionId());
-                    if (sessions.isEmpty()) {
-                        userSessions.remove(userId);
-                    }
-                }
+                redisCacheService.removeUserSocket(userId);
+                redisCacheService.removeUserSession(userId, sessionId);
             }
-            websocketSessionService.deleteSession(client.getSessionId().toString());
+
+            websocketSessionService.deleteSession(sessionId);
+
         } catch (Exception e) {
             throw new AppException(ErrorCode.DISCONNECT_FAILED);
         }
     }
 
+    /**
+     * Handle send message event
+     * Use Redis for message deduplication
+     */
     private void handleSendMessage(SocketIOClient client, Map<String, Object> data, Object ack) {
         try {
             String senderId = client.get("userId");
@@ -168,8 +181,9 @@ public class SocketHandler {
                 throw new AppException(ErrorCode.EMPTY_MESSAGE);
             }
 
+            // Check duplicate in Redis
             String messageKey = conversationId + ":" + tempMessageId;
-            if (isDuplicate(messageKey)) {
+            if (isDuplicateMessage(messageKey)) {
                 throw new AppException(ErrorCode.DUPLICATE_MESSAGE);
             }
 
@@ -207,7 +221,8 @@ public class SocketHandler {
             sendToUser(senderId, "message_sent", payload);
             sendToUser(receiverId, "message_received", payload);
 
-            markAsProcessed(messageKey);
+            // Mark as processed in Redis
+            markMessageAsProcessed(messageKey);
 
         } catch (AppException e) {
             sendError(client, "message_error", e.getErrorCode());
@@ -216,6 +231,10 @@ public class SocketHandler {
         }
     }
 
+    /**
+     * Handle typing indicator
+     * Use Redis to check user online status
+     */
     private void handleTyping(SocketIOClient client, Map<String, Object> data, Object ack) {
         try {
             String senderId = client.get("userId");
@@ -253,6 +272,10 @@ public class SocketHandler {
         }
     }
 
+    /**
+     * Initiate call
+     * Use Redis for user availability check
+     */
     public void onCallInitiate(SocketIOClient client, Map<String, Object> data, Object ack) {
         String sessionId = null;
         try {
@@ -291,7 +314,8 @@ public class SocketHandler {
                     "callId", session.getId()
             ));
 
-            String receiverSocketId = userSocketMap.get(receiverId);
+            // Get receiver socket from Redis
+            String receiverSocketId = redisCacheService.getUserSocket(receiverId);
 
             if (receiverSocketId == null) {
                 throw new AppException(ErrorCode.USER_NOT_AVAILABLE);
@@ -576,6 +600,8 @@ public class SocketHandler {
         }
     }
 
+    // ==================== HELPER METHODS ====================
+
     private MediaAttachment mapToAttachment(Map<String, Object> data) {
         if (data == null) return null;
 
@@ -636,22 +662,27 @@ public class SocketHandler {
         return payload;
     }
 
+    /**
+     * Send event to user's all active sessions
+     * Use Redis to get user sessions
+     */
     private int sendToUser(String userId, String event, Object data) {
-        Set<UUID> sessions = userSessions.get(userId);
+        Set<Object> sessions = redisCacheService.getUserSessions(userId);
         if (sessions == null || sessions.isEmpty()) {
             return 0;
         }
 
         int count = 0;
-        for (UUID sessionId : sessions) {
+        for (Object sessionObj : sessions) {
             try {
+                UUID sessionId = UUID.fromString(sessionObj.toString());
                 SocketIOClient client = socketIOServer.getClient(sessionId);
                 if (client != null && client.isChannelOpen()) {
                     client.sendEvent(event, data);
                     count++;
                 }
             } catch (Exception e) {
-                throw new AppException(ErrorCode.SEND_EVENT_FAILED);
+                // Skip invalid session
             }
         }
         return count;
@@ -672,16 +703,18 @@ public class SocketHandler {
         return token;
     }
 
-    private boolean isDuplicate(String key) {
-        Long lastTime = processedMessages.get(key);
-        return lastTime != null && (System.currentTimeMillis() - lastTime) < DUPLICATE_THRESHOLD;
+    /**
+     * Check duplicate message using Redis
+     */
+    private boolean isDuplicateMessage(String key) {
+        return redisCacheService.isMessageProcessed(key);
     }
 
-    private void markAsProcessed(String key) {
-        processedMessages.put(key, System.currentTimeMillis());
-
-        long now = System.currentTimeMillis();
-        processedMessages.entrySet().removeIf(e -> (now - e.getValue()) > CLEANUP_INTERVAL);
+    /**
+     * Mark message as processed in Redis
+     */
+    private void markMessageAsProcessed(String key) {
+        redisCacheService.markMessageAsProcessed(key, DUPLICATE_THRESHOLD);
     }
 
     private void sendError(SocketIOClient client, String event, ErrorCode errorCode) {

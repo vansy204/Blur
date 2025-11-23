@@ -32,4 +32,7 @@ public class Conversation {
     List<ParticipantInfo> participants;
     Instant createdDate;
     Instant modifiedDate;
+    String lastMessage;
+    Instant lastMessageTime;
+    String lastMessageSender;
 }

@@ -16,6 +16,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -38,7 +40,9 @@ public class CallService {
     private final CacheManager cacheManager;
 
 
+
     // tao 1 cuoc goi moi
+    @Transactional
     public CallSession initiateCall(
             String callerId,
             String callerName,
@@ -50,7 +54,6 @@ public class CallService {
             String callerSocketId,
             String conversationId
     ) {
-        log.info("Initiating call: {} -> {}", callerId, receiverId);
 
         // 1. Check cache trước để tránh DB query
         if (redisCacheService.isUserInCall(receiverId)) {
@@ -89,6 +92,7 @@ public class CallService {
     }
 
     // cap nhat trang thai cuoc goi
+    @Transactional
     @CacheEvict(value = "callSessions", key = "#callId")
     public CallSession updateCallStatus(
             String callId,

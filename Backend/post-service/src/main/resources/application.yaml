@@ -23,6 +23,13 @@ spring:
           min-idle: 2
       cache:
         type: redis
+        redis:
+          time-to-live: 300000
+          cache-null-values: false
+          use-key-prefix: true
+          key-prefix: "post-service:"
+          enable-statistics: true
+
 app:
   service:
     profile:
@@ -31,3 +38,4 @@ app:
       url: "http://localhost:8082/notification"
     identity:
       url: "http://localhost:8080/identity"
+

@@ -49,7 +49,6 @@ export default function MessagePage() {
       if (!currentUserId) return;
       
       try {
-        // Try API first
         try {
           const response = await apiCall('http://localhost:8888/api/profile/users/myInfo');
           
@@ -61,7 +60,6 @@ export default function MessagePage() {
           // API not available
         }
         
-        // Fallback: Get from conversation participants
         if (conversations.length > 0) {
           for (const conv of conversations) {
             if (conv.participants && Array.isArray(conv.participants)) {
@@ -85,14 +83,20 @@ export default function MessagePage() {
     fetchCurrentUserInfo();
   }, [currentUserId, conversations]);
 
-  // === FETCH CONVERSATIONS ===
+  // === FETCH CONVERSATIONS WITH LAST MESSAGES ===
   const fetchConversations = useCallback(async () => {
     try {
       const data = await apiCall("/conversations/my-conversations");
       const convs = data.result || [];
       
-      // Sort: newest first
+      console.log('✅ Fetched conversations with last messages:', convs);
+      
+      // ✅ Backend đã trả về lastMessage và lastMessageTime
+      // Sort: unread first, then by lastMessageTime
       const sortedConvs = convs.sort((a, b) => {
+        // Priority 1: Unread conversations first (handled by ConversationList)
+        
+        // Priority 2: Sort by lastMessageTime
         const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
         const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
         return timeB - timeA;
@@ -100,10 +104,15 @@ export default function MessagePage() {
       
       setConversations(sortedConvs);
     } catch (err) {
-      // Error fetching conversations
+      console.error('❌ Error fetching conversations:', err);
+      toast.error('Không thể tải danh sách trò chuyện', {
+        duration: 2000,
+        style: { borderRadius: '12px', fontSize: '14px' }
+      });
     }
   }, []);
 
+  // ✅ Initial load
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
@@ -125,7 +134,6 @@ export default function MessagePage() {
         isRead: msg.isRead,
       }));
       
-      // Sort: oldest first, newest last
       const sortedMsgs = msgs.sort((a, b) => {
         const timeA = new Date(a.createdDate).getTime();
         const timeB = new Date(b.createdDate).getTime();
@@ -135,7 +143,7 @@ export default function MessagePage() {
       setMessages(sortedMsgs);
       messagesFetchedRef.current.add(conversationId);
     } catch (err) {
-      // Error fetching messages
+      console.error('❌ Error fetching messages:', err);
     }
   }, []);
 
@@ -149,7 +157,6 @@ export default function MessagePage() {
     
     await fetchMessages(conv.id);
     
-    // Mark as read (non-blocking)
     try {
       markConversationAsRead(conv.id).catch(err => {});
     } catch (err) {
@@ -159,12 +166,10 @@ export default function MessagePage() {
 
   // === HANDLE CONVERSATION DELETED ===
   const handleConversationDeleted = useCallback((deletedConversationId) => {
-    // Remove from list
     setConversations((prev) => 
       prev.filter((conv) => conv.id !== deletedConversationId)
     );
     
-    // Clear if currently selected
     if (selectedChat?.id === deletedConversationId) {
       setSelectedChat(null);
       setMessages([]);
@@ -174,22 +179,10 @@ export default function MessagePage() {
 
   // === CALLBACK: MESSAGE SENT ===
   const handleMessageSent = useCallback((data) => {
-    // Update conversation list
-    setConversations((prev) => {
-      const idx = prev.findIndex((c) => c.id === data.conversationId);
-      if (idx === -1) return prev;
-      
-      const updated = [...prev];
-      const conv = {
-        ...updated[idx],
-        lastMessage: data.message || "Tệp đính kèm",
-        lastMessageTime: data.createdDate || new Date().toISOString(),
-      };
-      
-      updated.splice(idx, 1);
-      updated.unshift(conv);
-      return updated;
-    });
+    console.log('📤 Message sent event:', data);
+    
+    // ✅ Refresh conversations để lấy lastMessage mới
+    fetchConversations();
 
     // Update messages if current conversation
     if (data.conversationId === currentConversationRef.current) {
@@ -217,31 +210,17 @@ export default function MessagePage() {
         return updated;
       });
     }
-  }, []);
+  }, [fetchConversations]);
 
   // === CALLBACK: MESSAGE RECEIVED ===
   const handleMessageReceived = useCallback((data) => {
+    console.log('📥 Message received event:', data);
+    
     const messageSenderId = data.senderId || data.sender?.userId;
     const isCurrentConversation = data.conversationId === currentConversationRef.current;
 
-    // Update conversation list
-    setConversations((prev) => {
-      const idx = prev.findIndex((c) => c.id === data.conversationId);
-      if (idx === -1) {
-        return prev;
-      }
-      
-      const updated = [...prev];
-      const conv = {
-        ...updated[idx],
-        lastMessage: data.message || "Tệp đính kèm",
-        lastMessageTime: data.createdDate || new Date().toISOString(),
-      };
-      
-      updated.splice(idx, 1);
-      updated.unshift(conv);
-      return updated;
-    });
+    // ✅ Refresh conversations để lấy lastMessage mới
+    fetchConversations();
 
     // Show notification if needed
     if (!isCurrentConversation || document.hidden) {
@@ -297,14 +276,13 @@ export default function MessagePage() {
         return [...prev, newMessage];
       });
       
-      // Auto mark as read
       try {
         markConversationAsRead(data.conversationId).catch(err => {});
       } catch (err) {
         // Error auto-marking as read
       }
     }
-  }, [addNotification, navigate, handleSelectConversation]);
+  }, [addNotification, navigate, handleSelectConversation, fetchConversations]);
 
   // === REGISTER CALLBACKS ===
   useEffect(() => {

@@ -7,6 +7,9 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
+import com.mongodb.client.model.ValidationAction;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +27,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -32,17 +36,29 @@ import lombok.extern.slf4j.Slf4j;
 public class ConversationService {
     ConversationMapper conversationMapper;
     ProfileClient profileClient;
-    private final ConversationRepository conversationRepository;
+    ConversationRepository conversationRepository;
+    RedisCacheService redisCacheService;
 
+    @Cacheable(
+            value = "userConversations",
+            key = "#root.target.getCurrentUserId()",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<ConversationResponse> myConversations() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         var userResponse = profileClient.getProfile(userId);
         List<Conversation> conversations = conversationRepository.findAllByParticipantIdsContains(
                 userResponse.getResult().getUserId());
 
-        return conversations.stream().map(this::toConversationResponse).collect(Collectors.toList());
+        return conversations.stream()
+                .map(this::toConversationResponse)
+                .collect(Collectors.toList());
     }
 
+    @Transactional
+    @CacheEvict(
+            value = "userConversations", allEntries = true
+    )
     public ConversationResponse createConversation(ConversationRequest request) {
         // fetch user infos
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -92,6 +108,7 @@ public class ConversationService {
                             .build();
                     return conversationRepository.save(newConversation);
                 });
+        redisCacheService.cacheConversation(conversation.getId(),conversation,15);
         return toConversationResponse(conversation);
     }
 
@@ -121,8 +138,16 @@ public class ConversationService {
         return conversationResponse;
     }
 
+    @Transactional
+    @CacheEvict(
+            value = "userConversations", allEntries = true
+    )
     public String deleteConversation(String conversationId) {
         conversationRepository.deleteById(conversationId);
+        redisCacheService.evictConversation(conversationId);
         return "Deleted conversation successfully";
+    }
+    public String getCurrentUserId() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }

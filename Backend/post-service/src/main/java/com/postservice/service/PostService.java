@@ -19,10 +19,12 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -40,7 +42,9 @@ public class PostService {
     PostLikeRepository postLikeRepository;
     NotificationClient notificationClient;
     IdentityClient identityClient;
+    CacheService cacheService;
 
+    @Transactional
     public PostResponse createPost(PostRequest postRequest) {
         // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -56,9 +60,12 @@ public class PostService {
                 .updatedAt(Instant.now())
                 .build();
         post = postRepository.save(post);
+        cacheService.evictPostCaches(post.getId(),userId);
         return postMapper.toPostResponse(post);
     }
 
+
+    @Transactional
     public PostResponse updatePost(String postId, PostRequest postRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Post post = postRepository.findById(postId)
@@ -71,9 +78,11 @@ public class PostService {
         post.setMediaUrls(postRequest.getMediaUrls());
         post.setUpdatedAt(Instant.now());
         post = postRepository.save(post);
+        cacheService.evictPostCaches(post.getId(),userId);
         return postMapper.toPostResponse(post);
     }
 
+    @Transactional
     public String deletePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Post post = postRepository.findById(postId)
@@ -83,6 +92,7 @@ public class PostService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
         postRepository.deleteById(postId);
+        cacheService.evictPostCaches(post.getId(),userId);
         return "Post deleted successfully";
     }
     /*
@@ -120,6 +130,12 @@ public class PostService {
     }
     */
 
+
+    @Cacheable(
+            value = "posts",
+            key = "#page + ':' + #limit",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public Page<PostResponse> getAllPots(int page, int limit) {
         Pageable pageable = PageRequest.of(page -1 , limit, Sort.by("createdAt").descending());
         Page<Post> postPage = postRepository.findAllByOrderByCreatedAtDesc(pageable);
@@ -157,6 +173,11 @@ public class PostService {
         return new PageImpl<>(responses, pageable, postPage.getTotalElements());
     }
 
+    @Cacheable(
+        value = "userPosts",
+        key = "#root.target.getCurrentUserId()",
+        unless = "#result == null"
+    )
     public List<PostResponse> getMyPosts() {
         // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -172,6 +193,7 @@ public class PostService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
@@ -206,7 +228,7 @@ public class PostService {
                     .receiverName(receiver.getResult().getUsername())
                     .timestamp(LocalDateTime.now())
                     .build();
-
+            cacheService.evictPostLikeCache(postId);
             notificationClient.sendLikePostNotification(event); // ✅ Gửi sang notification-service
             return "Post liked successfully";
         } else {
@@ -215,6 +237,7 @@ public class PostService {
     }
 
     // ==================== UNLIKE POST ====================
+    @Transactional
     public String unlikePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
@@ -223,12 +246,25 @@ public class PostService {
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_LIKED));
 
         postLikeRepository.delete(postLike);
+        cacheService.evictPostLikeCache(postId);
         return "Post unliked successfully";
     }
+
+    @Cacheable(
+            value = "postsLikes",
+            key = "#postId",
+            unless = "#result == null"
+    )
     public List<PostLike> getPostLikesByPostId(String postId) {
         return postLikeRepository.findAllByPostId(postId);
     }
 
+
+    @Cacheable(
+            value = "userPosts",
+            key = "#userId",
+            unless ="#result == null"
+    )
     public List<PostResponse> getPostsByUserId(String userId) {
         return postRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
