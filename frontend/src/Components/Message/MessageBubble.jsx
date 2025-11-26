@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, Phone, Video } from 'lucide-react';
 import MessageAttachment from './MessageAttachment';
 
 const MessageBubble = React.memo(({ msg, currentUserId }) => {
@@ -24,7 +24,7 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
 
   // Determine message status icon - chỉ render khi status thay đổi
   const StatusIcon = useMemo(() => {
-    if (msg.isPending) return null; // Instagram không show pending icon trong bubble
+    if (msg.isPending) return null;
     if (msg.isRead) return <CheckCheck size={12} strokeWidth={2.5} />;
     return <Check size={12} strokeWidth={2.5} />;
   }, [msg.isPending, msg.isRead]);
@@ -41,6 +41,75 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
     [msg.message]
   );
 
+  // ✅ Check if message is a call
+  const isCallMessage = useMemo(() => 
+    msg.messageType === 'VOICE_CALL' || msg.messageType === 'VIDEO_CALL',
+    [msg.messageType]
+  );
+
+  // ✅ RENDER CALL MESSAGE
+  if (isCallMessage) {
+    const isVideoCall = msg.messageType === 'VIDEO_CALL';
+    
+    return (
+      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-0.5 group`}>
+        <div className={`flex items-end gap-2 max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+          {/* Avatar - Chỉ hiển thị cho người khác */}
+          {!isMe && (
+            <div className="w-7 h-7 rounded-full flex-shrink-0 mb-0.5 overflow-hidden">
+              <img 
+                src={msg.sender?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png'} 
+                alt={senderName}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+          
+          <div className="flex flex-col max-w-full">
+            {/* Tên người gửi - Chỉ cho người khác */}
+            {!isMe && senderName && (
+              <span className="text-xs font-normal text-gray-500 mb-1 px-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                {senderName}
+              </span>
+            )}
+            
+            {/* Call Message Bubble */}
+            <div className={`relative ${msg.isPending ? 'opacity-60' : ''}`}>
+              <div className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-[20px] ${
+                isMe 
+                  ? 'bg-blue-500 text-white rounded-br-md' 
+                  : 'bg-gray-100 text-gray-700 rounded-bl-md border border-gray-200'
+              }`}>
+                {/* Call Icon */}
+                {isVideoCall ? (
+                  <Video size={18} className={isMe ? 'text-white' : 'text-gray-600'} />
+                ) : (
+                  <Phone size={18} className={isMe ? 'text-white' : 'text-gray-600'} />
+                )}
+                
+                {/* Call Message */}
+                <span className="text-[15px] font-normal whitespace-nowrap">
+                  {msg.message}
+                </span>
+              </div>
+              
+              {/* Time - Hiển thị bên ngoài bubble */}
+              <div className={`flex items-center gap-1 mt-0.5 ${
+                isMe ? 'justify-end' : 'justify-start'
+              } opacity-0 group-hover:opacity-100 transition-opacity`}>
+                <span className="text-[11px] text-gray-400 font-normal">
+                  {time}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ RENDER NORMAL MESSAGE (TEXT/IMAGE/VIDEO/FILE)
   return (
     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-0.5 group`}>
       <div className={`flex items-end gap-2 max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -124,6 +193,7 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
   return (
     prevProps.msg.id === nextProps.msg.id &&
     prevProps.msg.message === nextProps.msg.message &&
+    prevProps.msg.messageType === nextProps.msg.messageType && // ✅ ADD THIS
     prevProps.msg.isPending === nextProps.msg.isPending &&
     prevProps.msg.isRead === nextProps.msg.isRead &&
     prevProps.msg.attachments === nextProps.msg.attachments &&

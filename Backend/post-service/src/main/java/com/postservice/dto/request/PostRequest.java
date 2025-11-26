@@ -1,9 +1,6 @@
 package com.postservice.dto.request;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.util.List;
@@ -12,7 +9,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-
+@NoArgsConstructor
 public class PostRequest {
     String content;
     List<String> mediaUrls;

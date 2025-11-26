@@ -108,7 +108,7 @@ const ProfileUserDetails = () => {
       );
 
       // Navigate đến trang chat với conversationId
-      navigate(`/`);
+      navigate(`/message`);
     } catch (error) {
       console.error("Error creating conversation:", error);
       // Có thể hiển thị toast notification ở đây

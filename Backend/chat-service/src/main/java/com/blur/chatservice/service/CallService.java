@@ -1,47 +1,46 @@
 package com.blur.chatservice.service;
 
 import com.blur.chatservice.entity.CallSession;
+import com.blur.chatservice.entity.ChatMessage;
+import com.blur.chatservice.entity.ParticipantInfo;
 import com.blur.chatservice.enums.CallStatus;
 import com.blur.chatservice.enums.CallType;
+import com.blur.chatservice.enums.MessageType;
 import com.blur.chatservice.repository.CallSessionRepository;
+import com.blur.chatservice.repository.ChatMessageRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
-@FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CallService {
+
     CallSessionRepository callSessionRepository;
+    ChatMessageRepository chatMessageRepository;  // ✅ ADD THIS
     RedisCacheService redisCacheService;
     NotificationService notificationService;
+    CacheManager cacheManager;
 
     private static final int RING_TIMEOUT = 60;
     private static final int ACTIVATE_CALL_TIMEOUT = 3600;
-    private final CacheManager cacheManager;
 
-
-
-    // tao 1 cuoc goi moi
     @Transactional
     public CallSession initiateCall(
             String callerId,
@@ -54,8 +53,7 @@ public class CallService {
             String callerSocketId,
             String conversationId
     ) {
-
-        // 1. Check cache trước để tránh DB query
+        // 1. Check if users are in call
         if (redisCacheService.isUserInCall(receiverId)) {
             throw new IllegalStateException("User is currently in another call");
         }
@@ -64,7 +62,7 @@ public class CallService {
             throw new IllegalStateException("You are currently in another call");
         }
 
-        // 2. Tạo call session
+        // 2. Create call session
         CallSession session = CallSession.builder()
                 .id(UUID.randomUUID().toString())
                 .callerId(callerId)
@@ -80,10 +78,10 @@ public class CallService {
                 .conversationId(conversationId)
                 .build();
 
-        // 3. Lưu vào MongoDB
+        // 3. Save to MongoDB
         CallSession saved = callSessionRepository.save(session);
 
-        // 4. Cache vào Redis
+        // 4. Cache to Redis
         redisCacheService.cacheCallSession(saved.getId(), saved, RING_TIMEOUT);
         redisCacheService.markUserInCall(callerId, saved.getId(), RING_TIMEOUT);
         redisCacheService.markUserInCall(receiverId, saved.getId(), RING_TIMEOUT);
@@ -91,46 +89,47 @@ public class CallService {
         return saved;
     }
 
-    // cap nhat trang thai cuoc goi
+    /**
+     * ✅ UPDATE: Save call message when call ends
+     */
     @Transactional
     @CacheEvict(value = "callSessions", key = "#callId")
     public CallSession updateCallStatus(
             String callId,
             CallStatus newStatus,
             String receiverSocketId
-    ){
-        // lay tu cache truoc
-        CallSession session = redisCacheService.getCallSession(callId,CallSession.class);
-
-        // neu khong co trong cache lay tu db
-        if(session == null){
+    ) {
+        CallSession session = redisCacheService.getCallSession(callId, CallSession.class);
+        if (session == null) {
             session = callSessionRepository.findById(callId)
-                    .orElseThrow(()-> new IllegalStateException("CallSession not found"));
+                    .orElseThrow(() -> new IllegalStateException("CallSession not found"));
         }
+
         CallStatus oldStatus = session.getCallStatus();
         session.setCallStatus(newStatus);
 
-        if(receiverSocketId != null){
+        if (receiverSocketId != null) {
             session.setReceiverSockerId(receiverSocketId);
         }
 
-        // xu ly theo tranh thai
-        switch (newStatus){
+        // Handle status transitions
+        switch (newStatus) {
             case RINGING:
                 redisCacheService.cacheCallSession(session.getId(), session, RING_TIMEOUT);
                 notificationService.sendIncomingCallNotification(
                         session.getReceiverId(),
                         session.getCallerName(),
                         session.getCallType()
-                        );
+                );
                 break;
+
             case ANSWERED:
                 session.setStartTime(LocalDateTime.now());
-
                 redisCacheService.cacheCallSession(session.getId(), session, ACTIVATE_CALL_TIMEOUT);
                 redisCacheService.markUserInCall(session.getCallerId(), session.getId(), ACTIVATE_CALL_TIMEOUT);
-                redisCacheService.markUserInCall(session.getReceiverId(), session.getCallerName(), ACTIVATE_CALL_TIMEOUT);
+                redisCacheService.markUserInCall(session.getReceiverId(), session.getId(), ACTIVATE_CALL_TIMEOUT);
                 break;
+
             case ENDED:
             case REJECTED:
             case MISSED:
@@ -139,16 +138,21 @@ public class CallService {
                 session.setEndTime(LocalDateTime.now());
                 session.setEndReason(newStatus.name());
 
-                if(session.getStartTime() != null){
+                if (session.getStartTime() != null) {
                     Duration duration = Duration.between(session.getStartTime(), LocalDateTime.now());
                     session.setDuration(duration.toSeconds());
                 }
 
-                //clean redis
+                // ✅ CREATE CALL MESSAGE
+                if (session.getConversationId() != null) {
+                    createCallMessage(session);
+                }
+
+                // Clean Redis
                 redisCacheService.cleanupCallCaches(callId, session.getCallerId(), session.getReceiverId());
 
-                // tang so cuoc goi bi nho
-                if(newStatus == CallStatus.MISSED) {
+                // Increment missed calls
+                if (newStatus == CallStatus.MISSED) {
                     redisCacheService.incrementMissedCalls(session.getReceiverId());
                     notificationService.sendMissedCallNotification(
                             session.getReceiverId(),
@@ -158,83 +162,154 @@ public class CallService {
                 }
                 break;
         }
-        // save to db
+
+        // Save to DB
         return callSessionRepository.save(session);
     }
 
-    public CallSession endCall(String callerId,String userId){
-        return updateCallStatus(callerId, CallStatus.ENDED, null);
+    /**
+     * ✅ NEW METHOD: Create call message in chat history
+     */
+    private void createCallMessage(CallSession session) {
+        try {
+            String messageContent = formatCallMessage(session);
+
+            ChatMessage callMessage = ChatMessage.builder()
+                    .conversationId(session.getConversationId())
+                    .message(messageContent)
+                    .messageType(session.getCallType() == CallType.VOICE
+                            ? MessageType.VOICE_CALL
+                            : MessageType.VIDEO_CALL)
+                    .sender(ParticipantInfo.builder()
+                            .userId(session.getCallerId())
+                            .firstName(session.getCallerName())
+                            .avatar(session.getCallerAvatar())
+                            .build())
+                    .createdDate(Instant.now())
+                    .isRead(false)
+                    .readBy(List.of(session.getCallerId()))
+                    .attachments(null)
+                    .build();
+
+            chatMessageRepository.save(callMessage);
+
+            // ✅ EVICT CACHES to refresh conversation list
+            redisCacheService.evictLastMessage(session.getConversationId());
+            redisCacheService.invalidateConversationMessages(session.getConversationId());
+
+        } catch (Exception e) {
+            // Silent fail - don't break the call flow
+        }
     }
-    public CallSession rejectCall(String callerId,String userId){
-        return updateCallStatus(callerId, CallStatus.REJECTED, null);
+
+    /**
+     * ✅ Format call message based on status and duration
+     */
+    private String formatCallMessage(CallSession session) {
+        String callType = session.getCallType() == CallType.VOICE ? "📞 Cuộc gọi thoại" : "📹 Cuộc gọi video";
+
+        switch (session.getCallStatus()) {
+            case ENDED:
+                if (session.getDuration() != null && session.getDuration() > 0) {
+                    return String.format("%s • %s", callType, formatDuration(session.getDuration()));
+                }
+                return String.format("%s • Đã kết thúc", callType);
+
+            case MISSED:
+                return String.format("%s • Nhớ cuộc gọi", callType);
+
+            case REJECTED:
+                return String.format("%s • Đã từ chối", callType);
+
+            case FAILED:
+            case BUSY:
+                return String.format("%s • Không thành công", callType);
+
+            default:
+                return callType;
+        }
     }
-    public boolean isUserInCall(String userId){
+
+    /**
+     * Format call duration (e.g., "2:35" for 2 minutes 35 seconds)
+     */
+    private String formatDuration(Long seconds) {
+        if (seconds < 60) {
+            return seconds + "s";
+        }
+
+        long minutes = seconds / 60;
+        long remainingSeconds = seconds % 60;
+
+        if (minutes < 60) {
+            return String.format("%d:%02d", minutes, remainingSeconds);
+        }
+
+        long hours = minutes / 60;
+        long remainingMinutes = minutes % 60;
+        return String.format("%d:%02d:%02d", hours, remainingMinutes, remainingSeconds);
+    }
+
+    public CallSession endCall(String callId, String userId) {
+        return updateCallStatus(callId, CallStatus.ENDED, null);
+    }
+
+    public CallSession rejectCall(String callId, String userId) {
+        return updateCallStatus(callId, CallStatus.REJECTED, null);
+    }
+
+    public boolean isUserInCall(String userId) {
         return redisCacheService.isUserInCall(userId);
     }
 
-    // lay current call cua user
-    public Optional<CallSession> getUserCurrentCall(String userId){
+    public Optional<CallSession> getUserCurrentCall(String userId) {
         String callId = redisCacheService.getUserCurrentCallId(userId);
-        if(callId == null){
+        if (callId == null) {
             return Optional.empty();
         }
         return getCallSessionById(callId);
     }
 
-    // lay call Id hien tai cua user
-    public String getUserCurrentCallId(String userId){
+    public String getUserCurrentCallId(String userId) {
         return redisCacheService.getUserCurrentCallId(userId);
     }
 
-    // lay call session hien tai
-    @Cacheable(value = "callSessions", key = "#callId", unless = "#result == null ")
-    public Optional<CallSession> getCallSessionById(String callId){
-        // lay trong cache truoc
+    @Cacheable(value = "callSessions", key = "#callId", unless = "#result == null")
+    public Optional<CallSession> getCallSessionById(String callId) {
         CallSession cached = redisCacheService.getCallSession(callId, CallSession.class);
-        if(cached != null){
+        if (cached != null) {
             return Optional.of(cached);
         }
         return callSessionRepository.findById(callId);
     }
 
-    // lay call history
-    @Cacheable(value = "callHistory", key = "#userId +'_'+ #page + '_'+#size")
-    public Page<CallSession> getCallHistory(String userId, int page, int size){
+    @Cacheable(value = "callHistory", key = "#userId + '_' + #page + '_' + #size")
+    public Page<CallSession> getCallHistory(String userId, int page, int size) {
         PageRequest pageRequest = PageRequest.of(
                 page,
                 size,
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
-        return callSessionRepository.findByCallerIdOrReceiverId(userId,pageRequest);
+        return callSessionRepository.findByCallerIdOrReceiverId(userId, pageRequest);
     }
-
-    // lay missed call
-    public List<CallSession> getMissedCalls(String userId){
+    public List<CallSession> getMissedCalls(String userId) {
         return callSessionRepository.findMissedCallsByReceiverId(userId);
     }
-
-    // dem miss call
-    public long countMissedCalls(String userId){
-        // lay trong cache trc
+    public long countMissedCalls(String userId) {
         long cachedCount = redisCacheService.getMissedCallCount(userId);
-        if(cachedCount > 0){
+        if (cachedCount > 0) {
             return cachedCount;
         }
         long dbCount = callSessionRepository.countMissedCallsByReceiverId(userId);
-        if(dbCount > 0){
-            for(int i = 0; i < dbCount; i++){
+        if (dbCount > 0) {
+            for (int i = 0; i < dbCount; i++) {
                 redisCacheService.incrementMissedCalls(userId);
             }
         }
         return dbCount;
     }
-
-    // danh dau miss call da doc
-    @CacheEvict(value = "callHistory", key = "#userId +'_*'", allEntries = true)
-    public void markMissedCallsAsRead(String userId){
+    @CacheEvict(value = "callHistory", key = "#userId + '_*'", allEntries = true)
+    public void markMissedCallsAsRead(String userId) {
         redisCacheService.resetMissedCalls(userId);
     }
-
-
-
 }

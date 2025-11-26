@@ -1,14 +1,17 @@
-package com.postservice.config;
+package com.postservice.configuration;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -25,6 +28,9 @@ import java.util.Map;
 @EnableCaching
 public class RedisConfig {
 
+    /**
+     * ObjectMapper cho Redis - CÓ type information
+     */
     @Bean
     public ObjectMapper redisObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
@@ -38,10 +44,23 @@ public class RedisConfig {
         return mapper;
     }
 
+    /**
+     * ObjectMapper cho HTTP REST APIs - KHÔNG có type information
+     */
+    @Bean
+    @Primary
+    public ObjectMapper httpObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return mapper;
+    }
+
     @Bean
     public RedisTemplate<String, Object> redisTemplate(
             RedisConnectionFactory connectionFactory,
-            ObjectMapper redisObjectMapper) {
+            @Qualifier("redisObjectMapper") ObjectMapper redisObjectMapper) {
 
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
@@ -62,7 +81,7 @@ public class RedisConfig {
     @Bean
     public CacheManager cacheManager(
             RedisConnectionFactory connectionFactory,
-            ObjectMapper redisObjectMapper) {
+            @Qualifier("redisObjectMapper") ObjectMapper redisObjectMapper) {
 
         GenericJackson2JsonRedisSerializer serializer =
                 new GenericJackson2JsonRedisSerializer(redisObjectMapper);
@@ -96,24 +115,19 @@ public class RedisConfig {
                 defaultConfig.entryTtl(Duration.ofMinutes(3)));
 
         // ==================== SAVED POST CACHES ====================
-        // Saved posts ít thay đổi, TTL dài hơn
         cacheConfigurations.put("savedPosts",
                 defaultConfig.entryTtl(Duration.ofMinutes(10)));
 
         // ==================== COMMENT CACHES ====================
-        // Comments thay đổi thường xuyên (user có thể comment liên tục)
         cacheConfigurations.put("comments",
                 defaultConfig.entryTtl(Duration.ofMinutes(3)));
 
-        // Comment replies (nested structure)
         cacheConfigurations.put("commentReplies",
                 defaultConfig.entryTtl(Duration.ofMinutes(3)));
 
-        // Nested replies (replies to replies)
         cacheConfigurations.put("nestedReplies",
                 defaultConfig.entryTtl(Duration.ofMinutes(3)));
 
-        // Single comment/reply by ID (dùng cho edit/delete)
         cacheConfigurations.put("commentReplyById",
                 defaultConfig.entryTtl(Duration.ofMinutes(5)));
 
