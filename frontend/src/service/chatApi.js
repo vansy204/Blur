@@ -155,7 +155,7 @@ export const getMessages = async (conversationId, token, page = 0, size = 50) =>
 export const markConversationAsRead = async (conversationId, token) => {
   try {
     const response = await axios.put(
-      `${API_BASE_URL}/chat/conversations/${conversationId}/read`,
+      `${API_BASE_URL}/chat/mark-as-read?conversationId=${conversationId}`,
       {},
       {
         headers: {
@@ -169,7 +169,7 @@ export const markConversationAsRead = async (conversationId, token) => {
     // Silent fail for read receipts - không nên block user experience
     // Chỉ log error cho monitoring
     console.error('Error marking conversation as read:', error);
-    
+
     // Return null thay vì throw error để tránh break UI flow
     return null;
   }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from 'react-hot-toast';
-import { getUserId } from "../../utils/auth";
+import { getUserId, getToken } from "../../utils/auth";
 import { apiCall } from "../../service/api";
 import { useSocket } from "../../contexts/SocketContext";
 import { useNotification, requestNotificationPermission } from "../../contexts/NotificationContext";
@@ -176,7 +176,10 @@ export default function MessagePage() {
     await fetchMessages(conv.id);
 
     try {
-      markConversationAsRead(conv.id).catch(err => {});
+      const token = getToken();
+      if (token) {
+        markConversationAsRead(conv.id, token).catch(err => {});
+      }
     } catch (err) {
       // Error marking as read
     }
@@ -295,7 +298,10 @@ export default function MessagePage() {
       });
       
       try {
-        markConversationAsRead(data.conversationId).catch(err => {});
+        const token = getToken();
+        if (token) {
+          markConversationAsRead(data.conversationId, token).catch(err => {});
+        }
       } catch (err) {
         // Error auto-marking as read
       }
