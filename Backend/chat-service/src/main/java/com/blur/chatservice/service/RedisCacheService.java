@@ -10,7 +10,9 @@ import org.springframework.stereotype.Service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -196,6 +198,7 @@ public class RedisCacheService {
             Object value = redisTemplate.opsForValue().get(key);
             return value != null ? type.cast(value) : null;
         } catch (Exception e) {
+            log.warn("Failed to get message from cache: key={}, error={}", MESSAGE_PREFIX + messageId, e.getMessage());
             return null;
         }
     }
@@ -265,6 +268,11 @@ public class RedisCacheService {
             Object value = redisTemplate.opsForValue().get(key);
             return value != null ? Integer.parseInt(value.toString()) : null;
         } catch (Exception e) {
+            log.warn(
+                    "Failed to get unread count from cache: conversationId={}, userId={}, error={}",
+                    conversationId,
+                    userId,
+                    e.getMessage());
             return null;
         }
     }

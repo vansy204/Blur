@@ -7,8 +7,6 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,11 +42,8 @@ public class ConversationService {
     /**
      * Get user's conversations with last messages
      * ✅ FIX: Use toConversationResponseWithLastMessage
+     * Caching disabled to prevent Redis serialization errors
      */
-    @Cacheable(
-            value = "userConversations",
-            key = "#root.target.getCurrentUserId()",
-            unless = "#result == null || #result.isEmpty()")
     public List<ConversationResponse> myConversations() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         var userResponse = profileClient.getProfile(userId);
@@ -63,7 +58,7 @@ public class ConversationService {
     }
 
     @Transactional
-    @CacheEvict(value = "userConversations", allEntries = true)
+    // @CacheEvict disabled to prevent Redis serialization errors
     public ConversationResponse createConversation(ConversationRequest request) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         var userInfoResponse = profileClient.getProfile(userId);
@@ -113,17 +108,19 @@ public class ConversationService {
                     return conversationRepository.save(newConversation);
                 });
 
-        redisCacheService.cacheConversation(conversation.getId(), conversation, 15);
+        // Cache operation disabled to prevent Redis serialization errors
+        // redisCacheService.cacheConversation(conversation.getId(), conversation, 15);
 
         return toConversationResponse(conversation);
     }
 
     @Transactional
-    @CacheEvict(value = "userConversations", allEntries = true)
+    // @CacheEvict disabled to prevent Redis serialization errors
     public String deleteConversation(String conversationId) {
         conversationRepository.deleteById(conversationId);
-        redisCacheService.evictConversation(conversationId);
-        redisCacheService.evictLastMessage(conversationId);
+        // Cache operations disabled:
+        // redisCacheService.evictConversation(conversationId);
+        // redisCacheService.evictLastMessage(conversationId);
 
         return "Deleted conversation successfully";
     }
@@ -193,29 +190,15 @@ public class ConversationService {
     }
 
     /**
-     * Get last message with Redis cache
+     * Get last message from MongoDB
+     * Redis caching disabled to prevent serialization errors
      */
     private ChatMessage getLastMessageCached(String conversationId) {
         try {
-            // 1. Try Redis cache first
-            ChatMessage cached = redisCacheService.getLastMessage(conversationId, ChatMessage.class);
-            if (cached != null) {
-                return cached;
-            }
-
-            // 2. Cache miss - query MongoDB
-            ChatMessage lastMessage =
-                    chatMessageRepository.findFirstByConversationIdOrderByCreatedDateDesc(conversationId);
-
-            // 3. Cache for next time
-            if (lastMessage != null) {
-                redisCacheService.cacheLastMessage(conversationId, lastMessage, 10);
-            }
-
-            return lastMessage;
-        } catch (Exception e) {
-            // Fallback to DB query on error
+            // Direct query to MongoDB (no Redis caching)
             return chatMessageRepository.findFirstByConversationIdOrderByCreatedDateDesc(conversationId);
+        } catch (Exception e) {
+            return null;
         }
     }
 

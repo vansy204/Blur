@@ -3,9 +3,6 @@ package com.blur.chatservice.service;
 import java.time.Instant;
 import java.util.List;
 
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -41,16 +38,9 @@ public class ChatMessageService {
 
     /**
      * Create new message
-     * Evict: conversationMessages, unreadCount, lastMessage, userConversations
+     * Caching disabled to prevent Redis serialization errors
      */
     @Transactional
-    @Caching(
-            evict = {
-                @CacheEvict(value = "conversationMessages", key = "#request.conversationId"),
-                @CacheEvict(value = "unreadCount", key = "#request.conversationId + ':' + #userId"),
-                @CacheEvict(value = "lastMessage", key = "#request.conversationId"),
-                @CacheEvict(value = "userConversations", allEntries = true) // Evict to refresh conversation list
-            })
     public ChatMessageResponse create(ChatMessageRequest request, String userId) {
         if (request.getConversationId() == null || request.getConversationId().isEmpty()) {
             throw new AppException(ErrorCode.CONVERSATION_NOT_FOUND);
@@ -113,15 +103,15 @@ public class ChatMessageService {
 
         chatMessage = chatMessageRepository.save(chatMessage);
 
-        // Cache operations
-        redisCacheService.cacheMessage(chatMessage.getId(), chatMessage, 30);
-        redisCacheService.invalidateConversationMessages(request.getConversationId());
-        redisCacheService.evictLastMessage(request.getConversationId());
+        // Cache operations disabled to prevent Redis serialization errors
+        // redisCacheService.cacheMessage(chatMessage.getId(), chatMessage, 30);
+        // redisCacheService.invalidateConversationMessages(request.getConversationId());
+        // redisCacheService.evictLastMessage(request.getConversationId());
 
         return toChatMessageResponse(chatMessage, userId);
     }
 
-    @Cacheable(value = "conversationMessages", key = "#conversationId", unless = "#result == null || #result.isEmpty()")
+    // @Cacheable disabled to prevent Redis serialization errors
     public List<ChatMessageResponse> getMessages(String conversationId) {
         String userId = null;
         try {
@@ -168,10 +158,7 @@ public class ChatMessageService {
                 .toList();
     }
 
-    @Cacheable(
-            value = "unreadCount",
-            key = "#conversationId + ':' + #root.target.getCurrentUserId()",
-            unless = "#result == null")
+    // @Cacheable disabled to prevent Redis serialization errors
     public Integer unreadCount(String conversationId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String userId = auth != null ? auth.getName() : null;
@@ -217,7 +204,7 @@ public class ChatMessageService {
     }
 
     @Transactional
-    @CacheEvict(value = "unreadCount", key = "#conversationId + ':' + #userId")
+    // @CacheEvict disabled to prevent Redis serialization errors
     public String markAsRead(String conversationId, String userId) {
         List<ChatMessage> messages =
                 chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
@@ -230,7 +217,7 @@ public class ChatMessageService {
         }
 
         chatMessageRepository.saveAll(messages);
-        redisCacheService.evictUnreadCount(conversationId, userId);
+        // Cache operation disabled: redisCacheService.evictUnreadCount(conversationId, userId);
 
         return "mark as read";
     }
