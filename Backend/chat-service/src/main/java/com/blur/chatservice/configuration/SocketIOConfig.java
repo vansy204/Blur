@@ -13,7 +13,7 @@ public class SocketIOConfig {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
 
         config.setHostname("0.0.0.0");
-        config.setPort(8100);
+        config.setPort(8099);
 
         // Cho phép kết nối từ React app
         config.setOrigin("http://localhost:3000");

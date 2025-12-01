@@ -14,7 +14,8 @@
       "Bash(ls -la \"F:\\Blur\\Backend\\chat-service\\src\\main\\resources\"\" 2>/dev/null || dir \"F:BlurBackendchat-servicesrcmainresources\"\")",
       "Bash(mvn clean package:*)",
       "Bash(curl:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
