@@ -738,35 +738,6 @@ Socket Events:
 - webrtc:ice-candidate      - ICE candidate for NAT traversal
 ```
 
-## 🐛 Recent Bug Fixes
-
-### WebRTC Connection Issues (Fixed ✅)
-
-**Problems Identified:**
-1. RTCSessionDescription deprecated constructor causing offer/answer setup to fail
-2. Singleton WebRTCService being destroyed when receiver created new connection
-3. ICE candidates arriving before peer connection creation were being discarded
-4. Pending ICE candidates lost when creating new peer connection
-
-**Solutions Implemented:**
-1. ✅ Removed RTCSessionDescription wrapper - use offer/answer objects directly
-2. ✅ Added peer connection reuse logic - check if active before destroying
-3. ✅ Queue ICE candidates before peer connection exists
-4. ✅ Preserve pending candidates queue when creating new connections
-5. ✅ Process all queued candidates when remote description is set
-
-### Caching & Serialization (Fixed ✅)
-
-**Problem:** Redis serialization errors preventing message fetching
-
-**Solution:** Disabled Spring Cache annotations to use direct database queries instead
-
-### Content Negotiation (Fixed ✅)
-
-**Problem:** 406 Not Acceptable errors from API Gateway
-
-**Solution:** Added `Accept: application/json` header to all API requests
-
 ## 📊 Database Models
 
 ### User (MongoDB)
