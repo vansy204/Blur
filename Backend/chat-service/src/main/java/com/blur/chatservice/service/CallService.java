@@ -1,16 +1,12 @@
 package com.blur.chatservice.service;
 
-import com.blur.chatservice.entity.CallSession;
-import com.blur.chatservice.entity.ChatMessage;
-import com.blur.chatservice.entity.ParticipantInfo;
-import com.blur.chatservice.enums.CallStatus;
-import com.blur.chatservice.enums.CallType;
-import com.blur.chatservice.enums.MessageType;
-import com.blur.chatservice.repository.CallSessionRepository;
-import com.blur.chatservice.repository.ChatMessageRepository;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -20,12 +16,18 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import com.blur.chatservice.entity.CallSession;
+import com.blur.chatservice.entity.ChatMessage;
+import com.blur.chatservice.entity.ParticipantInfo;
+import com.blur.chatservice.enums.CallStatus;
+import com.blur.chatservice.enums.CallType;
+import com.blur.chatservice.enums.MessageType;
+import com.blur.chatservice.repository.CallSessionRepository;
+import com.blur.chatservice.repository.ChatMessageRepository;
+
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 
 @Service
 @RequiredArgsConstructor
@@ -33,13 +35,16 @@ import java.util.UUID;
 public class CallService {
 
     CallSessionRepository callSessionRepository;
-    ChatMessageRepository chatMessageRepository;  // ✅ ADD THIS
+    ChatMessageRepository chatMessageRepository; // ✅ ADD THIS
     RedisCacheService redisCacheService;
     NotificationService notificationService;
     CacheManager cacheManager;
 
     private static final int RING_TIMEOUT = 60;
     private static final int ACTIVATE_CALL_TIMEOUT = 3600;
+
+    // ✅ Temporary storage for last created call message to broadcast
+    private static final ThreadLocal<ChatMessage> lastCreatedCallMessage = new ThreadLocal<>();
 
     @Transactional
     public CallSession initiateCall(
@@ -51,8 +56,7 @@ public class CallService {
             String receiverAvatar,
             CallType callType,
             String callerSocketId,
-            String conversationId
-    ) {
+            String conversationId) {
         // 1. Check if users are in call
         if (redisCacheService.isUserInCall(receiverId)) {
             throw new IllegalStateException("User is currently in another call");
@@ -94,14 +98,11 @@ public class CallService {
      */
     @Transactional
     @CacheEvict(value = "callSessions", key = "#callId")
-    public CallSession updateCallStatus(
-            String callId,
-            CallStatus newStatus,
-            String receiverSocketId
-    ) {
+    public CallSession updateCallStatus(String callId, CallStatus newStatus, String receiverSocketId) {
         CallSession session = redisCacheService.getCallSession(callId, CallSession.class);
         if (session == null) {
-            session = callSessionRepository.findById(callId)
+            session = callSessionRepository
+                    .findById(callId)
                     .orElseThrow(() -> new IllegalStateException("CallSession not found"));
         }
 
@@ -117,10 +118,7 @@ public class CallService {
             case RINGING:
                 redisCacheService.cacheCallSession(session.getId(), session, RING_TIMEOUT);
                 notificationService.sendIncomingCallNotification(
-                        session.getReceiverId(),
-                        session.getCallerName(),
-                        session.getCallType()
-                );
+                        session.getReceiverId(), session.getCallerName(), session.getCallType());
                 break;
 
             case ANSWERED:
@@ -155,10 +153,7 @@ public class CallService {
                 if (newStatus == CallStatus.MISSED) {
                     redisCacheService.incrementMissedCalls(session.getReceiverId());
                     notificationService.sendMissedCallNotification(
-                            session.getReceiverId(),
-                            session.getCallerName(),
-                            session.getCallType()
-                    );
+                            session.getReceiverId(), session.getCallerName(), session.getCallType());
                 }
                 break;
         }
@@ -177,9 +172,8 @@ public class CallService {
             ChatMessage callMessage = ChatMessage.builder()
                     .conversationId(session.getConversationId())
                     .message(messageContent)
-                    .messageType(session.getCallType() == CallType.VOICE
-                            ? MessageType.VOICE_CALL
-                            : MessageType.VIDEO_CALL)
+                    .messageType(
+                            session.getCallType() == CallType.VOICE ? MessageType.VOICE_CALL : MessageType.VIDEO_CALL)
                     .sender(ParticipantInfo.builder()
                             .userId(session.getCallerId())
                             .firstName(session.getCallerName())
@@ -191,7 +185,10 @@ public class CallService {
                     .attachments(null)
                     .build();
 
-            chatMessageRepository.save(callMessage);
+            ChatMessage savedMessage = chatMessageRepository.save(callMessage);
+
+            // ✅ STORE IN THREADLOCAL to retrieve in SocketHandler for broadcasting
+            lastCreatedCallMessage.set(savedMessage);
 
             // ✅ EVICT CACHES to refresh conversation list
             redisCacheService.evictLastMessage(session.getConversationId());
@@ -258,6 +255,15 @@ public class CallService {
         return updateCallStatus(callId, CallStatus.REJECTED, null);
     }
 
+    /**
+     * ✅ Get and clear the last created call message for broadcasting
+     */
+    public ChatMessage getAndClearLastCreatedCallMessage() {
+        ChatMessage message = lastCreatedCallMessage.get();
+        lastCreatedCallMessage.remove();
+        return message;
+    }
+
     public boolean isUserInCall(String userId) {
         return redisCacheService.isUserInCall(userId);
     }
@@ -285,16 +291,14 @@ public class CallService {
 
     @Cacheable(value = "callHistory", key = "#userId + '_' + #page + '_' + #size")
     public Page<CallSession> getCallHistory(String userId, int page, int size) {
-        PageRequest pageRequest = PageRequest.of(
-                page,
-                size,
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return callSessionRepository.findByCallerIdOrReceiverId(userId, pageRequest);
     }
+
     public List<CallSession> getMissedCalls(String userId) {
         return callSessionRepository.findMissedCallsByReceiverId(userId);
     }
+
     public long countMissedCalls(String userId) {
         long cachedCount = redisCacheService.getMissedCallCount(userId);
         if (cachedCount > 0) {
@@ -308,6 +312,7 @@ public class CallService {
         }
         return dbCount;
     }
+
     @CacheEvict(value = "callHistory", key = "#userId + '_*'", allEntries = true)
     public void markMissedCallsAsRead(String userId) {
         redisCacheService.resetMissedCalls(userId);

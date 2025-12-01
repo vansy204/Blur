@@ -1,9 +1,11 @@
 package com.blur.chatservice.service;
 
+import org.springframework.stereotype.Service;
+
 import com.blur.chatservice.enums.CallType;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -14,11 +16,7 @@ public class NotificationService {
      * Gửi notification khi có cuộc gọi đến
      * (Tạm thời chỉ log, có thể tích hợp Firebase FCM sau)
      */
-    public void sendIncomingCallNotification(
-            String userId,
-            String callerName,
-            CallType callType
-    ) {
+    public void sendIncomingCallNotification(String userId, String callerName, CallType callType) {
         log.info("📞 Sending incoming call notification to user: {}", userId);
         log.info("   Caller: {}, Type: {}", callerName, callType);
 
@@ -32,11 +30,7 @@ public class NotificationService {
     /**
      * Gửi notification khi nhỡ cuộc gọi
      */
-    public void sendMissedCallNotification(
-            String userId,
-            String callerName,
-           CallType callType
-    ) {
+    public void sendMissedCallNotification(String userId, String callerName, CallType callType) {
         log.info("📵 Sending missed call notification to user: {}", userId);
         log.info("   Caller: {}, Type: {}", callerName, callType);
 

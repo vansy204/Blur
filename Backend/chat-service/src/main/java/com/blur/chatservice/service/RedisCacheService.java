@@ -1,14 +1,15 @@
 package com.blur.chatservice.service;
 
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,6 @@ public class RedisCacheService {
     private static final String SESSION_PREFIX = "chat-service:session:";
     private static final String USER_SESSIONS_PREFIX = "chat-service:user:sessions:";
     private static final long SESSION_TTL = 7200; // 2 hours in seconds
-
 
     public void cacheCallSession(String callId, Object session, long ttlSeconds) {
         try {
@@ -341,7 +341,6 @@ public class RedisCacheService {
         }
     }
 
-
     public void cleanupCallCaches(String callId, String callerId, String receiverId) {
         try {
             redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
@@ -355,7 +354,6 @@ public class RedisCacheService {
         } catch (Exception e) {
         }
     }
-
 
     private void deleteByPattern(String pattern) {
         try {
@@ -482,6 +480,7 @@ public class RedisCacheService {
             // Silent fail
         }
     }
+
     private static final String LAST_MESSAGE_PREFIX = "chat-service:lastmsg:";
 
     public void cacheLastMessage(String conversationId, Object lastMessage, long ttlMinutes) {
@@ -492,6 +491,7 @@ public class RedisCacheService {
             // Silent fail
         }
     }
+
     public <T> T getLastMessage(String conversationId, Class<T> type) {
         try {
             String key = LAST_MESSAGE_PREFIX + conversationId;

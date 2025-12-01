@@ -1,14 +1,15 @@
 package com.blur.chatservice.repository;
 
-import com.blur.chatservice.entity.CallSession;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import com.blur.chatservice.entity.CallSession;
 
 public interface CallSessionRepository extends MongoRepository<CallSession, String> {
     // Lấy call history của user
@@ -24,8 +25,8 @@ public interface CallSessionRepository extends MongoRepository<CallSession, Stri
     long countMissedCallsByReceiverId(String userId);
 
     // Tìm active call của user
-    @Query("{ $or: [ { 'callerId': ?0 }, { 'receiverId': ?0 } ], " +
-            "'status': { $in: ['INITIATING', 'RINGING', 'ANSWERED'] } }")
+    @Query("{ $or: [ { 'callerId': ?0 }, { 'receiverId': ?0 } ], "
+            + "'status': { $in: ['INITIATING', 'RINGING', 'ANSWERED'] } }")
     Optional<CallSession> findActiveCallByUserId(String userId);
 
     // Statistics: Tổng số cuộc gọi theo ngày

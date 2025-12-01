@@ -223,7 +223,7 @@ const ConversationItem = React.memo(({
 
 ConversationItem.displayName = 'ConversationItem';
 
-const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onConversationDeleted }) => {
+const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onConversationDeleted, onConversationCreated }) => {
   const { unreadByConversation } = useUnreadMessages();
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, conversation: null });
   const [isDeleting, setIsDeleting] = useState(false);
@@ -380,7 +380,10 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
         
         {/* User Search Bar */}
         <div className="border-b border-gray-100 bg-gradient-to-b from-sky-50/50 to-white">
-          <UserSearchBar onSelectUser={onSelectUser} />
+          <UserSearchBar
+            onSelectUser={onSelectUser}
+            onConversationCreated={onConversationCreated}
+          />
         </div>
         
         {/* Conversations List */}
