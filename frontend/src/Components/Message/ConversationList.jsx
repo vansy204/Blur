@@ -253,7 +253,7 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
   // Handle select conversation
   const handleSelect = useCallback(async (conv) => {
     onSelect(conv);
-    
+
     const unreadCount = unreadByConversation[conv.id] || 0;
     if (unreadCount > 0) {
       try {
@@ -261,7 +261,7 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
         
