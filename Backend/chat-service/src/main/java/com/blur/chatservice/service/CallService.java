@@ -141,8 +141,8 @@ public class CallService {
                     session.setDuration(duration.toSeconds());
                 }
 
-                // ✅ CREATE CALL MESSAGE
-                if (session.getConversationId() != null) {
+                // ✅ CREATE CALL MESSAGE (Only once, prevent duplicates)
+                if (session.getConversationId() != null && oldStatus != newStatus) {
                     createCallMessage(session);
                 }
 

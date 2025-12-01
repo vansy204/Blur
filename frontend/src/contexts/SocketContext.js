@@ -129,18 +129,21 @@ export const SocketProvider = ({ children }) => {
 
       // Call events
       socket.on("call:initiated", (data) => {
+        console.log("✅ Received call:initiated event:", data);
         if (callCallbacksRef.current.onCallInitiated) {
           callCallbacksRef.current.onCallInitiated(data);
         }
       });
 
       socket.on("call:incoming", (data) => {
+        console.log("📞 Received call:incoming event:", data);
         if (callCallbacksRef.current.onIncomingCall) {
           callCallbacksRef.current.onIncomingCall(data);
         }
       });
 
       socket.on("call:answered", (data) => {
+        console.log("✅ Received call:answered event:", data);
         if (callCallbacksRef.current.onCallAnswered) {
           callCallbacksRef.current.onCallAnswered(data);
         }
@@ -165,18 +168,21 @@ export const SocketProvider = ({ children }) => {
       });
 
       socket.on("webrtc:offer", (data) => {
+        console.log("📝 Received webrtc:offer event");
         if (callCallbacksRef.current.onWebRTCOffer) {
           callCallbacksRef.current.onWebRTCOffer(data);
         }
       });
 
       socket.on("webrtc:answer", (data) => {
+        console.log("📝 Received webrtc:answer event");
         if (callCallbacksRef.current.onWebRTCAnswer) {
           callCallbacksRef.current.onWebRTCAnswer(data);
         }
       });
 
       socket.on("webrtc:ice-candidate", (data) => {
+        console.log("📥 Received webrtc:ice-candidate event");
         if (callCallbacksRef.current.onICECandidate) {
           callCallbacksRef.current.onICECandidate(data);
         }
@@ -249,13 +255,16 @@ export const SocketProvider = ({ children }) => {
 
   const initiateCall = useCallback((callData) => {
     if (!socketRef.current || !isConnected) {
+      console.error("❌ Socket not connected or socketRef is null");
       return false;
     }
 
     try {
+      console.log("📡 Emitting call:initiate event:", callData);
       socketRef.current.emit("call:initiate", callData);
       return true;
     } catch (error) {
+      console.error("❌ Error emitting call:initiate:", error);
       return false;
     }
   }, [isConnected]);
@@ -327,13 +336,16 @@ export const SocketProvider = ({ children }) => {
 
   const sendICECandidate = useCallback((toUserId, candidate) => {
     if (!socketRef.current || !isConnected) {
+      console.warn('⚠️ Socket not ready for ICE candidate', { isConnected });
       return false;
     }
 
     try {
+      console.log('📤 Sending ICE candidate to', toUserId, candidate.candidate?.substring(0, 50) + '...');
       socketRef.current.emit("webrtc:ice-candidate", { to: toUserId, candidate });
       return true;
     } catch (error) {
+      console.error('❌ Error sending ICE candidate:', error);
       return false;
     }
   }, [isConnected]);
