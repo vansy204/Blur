@@ -104,16 +104,10 @@ public class SocketHandler {
             String userId = introspectRes.getUserId();
             String sessionId = client.getSessionId().toString();
 
-            System.out.println("\n✅ Socket Connected");
-            System.out.println("  - User ID: " + userId);
-            System.out.println("  - Socket ID: " + sessionId);
-
             client.set("userId", userId);
 
             // Store in Redis instead of in-memory map
             redisCacheService.cacheUserSocket(userId, sessionId);
-            System.out.println("  - Cached in Redis: " + userId + " -> " + sessionId);
-
             redisCacheService.addUserSession(userId, sessionId);
 
             // Create websocket session
@@ -289,12 +283,6 @@ public class SocketHandler {
             String callTypeStr = (String) data.get("callType");
             String conversationId = (String) data.get("conversationId");
 
-            // Log incoming data
-            System.out.println("\n=== 📞 CALL INITIATE STARTED ===");
-            System.out.println("Caller Socket ID: " + client.getSessionId().toString());
-            System.out.println("Caller User ID: " + callerId);
-            System.out.println("Receiver User ID: " + receiverId);
-
             if (callerId == null || receiverId == null || callTypeStr == null) {
                 throw new AppException(ErrorCode.INVALID_DATA);
             }
@@ -318,21 +306,12 @@ public class SocketHandler {
                     conversationId);
 
             sessionId = session.getId();
-            System.out.println("Call Session Created: " + sessionId);
 
             // Send to caller
-            System.out.println("📡 SENDING call:initiated to caller");
-            System.out.println("  - Caller ID: " + callerId);
-            System.out.println("  - Caller Socket: " + client.getSessionId().toString());
-            System.out.println("  - Call ID: " + session.getId());
             client.sendEvent("call:initiated", Map.of("success", true, "callId", session.getId()));
-            System.out.println("✅ call:initiated SENT to caller");
 
             // Get receiver socket from Redis
-            System.out.println("\n📍 LOOKING UP RECEIVER SOCKET");
-            System.out.println("  - Receiver ID: " + receiverId);
             String receiverSocketId = redisCacheService.getUserSocket(receiverId);
-            System.out.println("  - Receiver Socket from Redis: " + receiverSocketId);
 
             if (receiverSocketId == null) {
                 throw new AppException(ErrorCode.USER_NOT_AVAILABLE);
@@ -346,22 +325,11 @@ public class SocketHandler {
             }
 
             SocketIOClient receiverClient = socketIOServer.getClient(receiverUUID);
-            System.out.println("  - Receiver Client Found: " + (receiverClient != null));
-            if (receiverClient != null) {
-                System.out.println("  - Receiver Socket ID: "
-                        + receiverClient.getSessionId().toString());
-                System.out.println("  - Channel Open: " + receiverClient.isChannelOpen());
-            }
 
             if (receiverClient == null || !receiverClient.isChannelOpen()) {
                 throw new AppException(ErrorCode.USER_OFFLINE);
             }
 
-            System.out.println("\n📡 SENDING call:incoming to receiver");
-            System.out.println("  - Receiver ID: " + receiverId);
-            System.out.println(
-                    "  - Receiver Socket: " + receiverClient.getSessionId().toString());
-            System.out.println("  - Call ID: " + session.getId());
             receiverClient.sendEvent(
                     "call:incoming",
                     Map.of(
@@ -375,10 +343,8 @@ public class SocketHandler {
                             callerAvatar != null ? callerAvatar : "",
                             "callType",
                             callType.name()));
-            System.out.println("✅ call:incoming SENT to receiver");
 
             callService.updateCallStatus(session.getId(), CallStatus.RINGING, receiverSocketId);
-            System.out.println("✅ Call status updated to RINGING\n");
 
         } catch (AppException e) {
             if (sessionId != null) {

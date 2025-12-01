@@ -664,10 +664,9 @@ export const useCall = (currentUserId) => {
 
   const handleICECandidate = useCallback(async (data) => {
     try {
-      console.log('📥 Received ICE candidate:', data.candidate?.candidate?.substring(0, 50) + '...');
       await webRTCService.addIceCandidate(data.candidate);
     } catch (error) {
-      console.error('❌ Error adding ICE candidate:', error);
+      // Error adding ICE candidate
     }
   }, []);
 

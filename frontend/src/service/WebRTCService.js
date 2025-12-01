@@ -60,9 +60,6 @@ class WebRTCService {
       this.peerConnection &&
       this.peerConnection.connectionState !== 'closed'
     ) {
-      console.log(
-        '✅ Peer connection already exists and is active, reusing it'
-      );
       return this.peerConnection;
     }
 
@@ -70,8 +67,6 @@ class WebRTCService {
     if (this.peerConnection) {
       this.peerConnection.close();
     }
-
-    console.log('🆕 Creating new peer connection');
 
     // ✅ FIX: Don't reset pending ICE candidates here!
     // They may have arrived before the peer connection was created
@@ -83,46 +78,35 @@ class WebRTCService {
     // Add local tracks
     if (this.localStream) {
       const tracks = this.localStream.getTracks();
-      console.log(`📹 Adding ${tracks.length} local tracks to peer connection`);
-      tracks.forEach((track, index) => {
-        console.log(`  - Track ${index + 1}: ${track.kind} (enabled: ${track.enabled})`);
+      tracks.forEach((track) => {
         this.peerConnection.addTrack(track, this.localStream);
       });
-    } else {
-      console.warn('⚠️ No local stream available to add tracks');
     }
 
     // ICE candidate handler
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('🧊 ICE candidate generated:', event.candidate);
         onIceCandidate(event.candidate);
-      } else {
-        console.log('🏁 ICE candidate gathering completed (no more candidates)');
       }
     };
 
     // Remote track handler
     this.peerConnection.ontrack = (event) => {
-      console.log('🎬 Remote track received:', event.track.kind);
       if (event.streams && event.streams[0]) {
-        console.log('📡 Remote stream received');
         this.remoteStream = event.streams[0];
         onTrack(event.streams[0]);
       }
     };
 
-    // Connection state handler - Fixed to properly detect when connected
+    // Connection state handler
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection.connectionState;
-      console.log('🔌 WebRTC connectionState changed:', state);
 
       if (onConnectionStateChange) {
         onConnectionStateChange(state);
       }
 
       if (state === 'failed') {
-        console.log('❌ Connection failed, restarting ICE...');
         this.peerConnection.restartIce();
       }
     };
@@ -131,19 +115,10 @@ class WebRTCService {
     this.peerConnection.oniceconnectionstatechange = () => {
       const iceState = this.peerConnection.iceConnectionState;
       const connState = this.peerConnection.connectionState;
-      console.log(
-        '❄️  ICE connectionState:',
-        iceState,
-        '| WebRTC connectionState:',
-        connState
-      );
       // If ICE is connected but connectionState hasn't updated, manually trigger
       if (iceState === 'connected' || iceState === 'completed') {
         if (connState !== 'connected') {
           // Force update connection state
-          console.log(
-            '⚡ ICE connected but WebRTC not updated, forcing state update...'
-          );
           if (onConnectionStateChange) {
             onConnectionStateChange('connected');
           }
@@ -160,31 +135,24 @@ class WebRTCService {
 
   async createOffer() {
     try {
-      console.log('📝 Creating WebRTC offer...');
       const offer = await this.peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
 
-      console.log('✅ Offer created, setting as local description...');
       await this.peerConnection.setLocalDescription(offer);
-      console.log('✅ Local description set');
       return offer;
     } catch (error) {
-      console.error('❌ Error creating offer:', error);
       throw error;
     }
   }
 
   async createAnswer(offer) {
     try {
-      console.log('📝 Creating WebRTC answer...');
       // Use offer directly without RTCSessionDescription (modern browsers)
       await this.peerConnection.setRemoteDescription(offer);
-      console.log('✅ Remote offer description set');
 
       // Process pending ICE candidates after remote description is set
-      console.log(`📍 Processing ${this.pendingIceCandidates.length} pending ICE candidates...`);
       for (const candidate of this.pendingIceCandidates) {
         try {
           await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -195,26 +163,20 @@ class WebRTCService {
       this.pendingIceCandidates = [];
 
       const answer = await this.peerConnection.createAnswer();
-      console.log('✅ Answer created, setting as local description...');
       await this.peerConnection.setLocalDescription(answer);
-      console.log('✅ Local description set for answer');
 
       return answer;
     } catch (error) {
-      console.error('❌ Error creating answer:', error);
       throw error;
     }
   }
 
   async setRemoteAnswer(answer) {
     try {
-      console.log('📝 Setting remote answer description...');
       // Use answer directly without RTCSessionDescription (modern browsers)
       await this.peerConnection.setRemoteDescription(answer);
-      console.log('✅ Remote answer description set');
 
       // Process pending ICE candidates after remote answer is set
-      console.log(`📍 Processing ${this.pendingIceCandidates.length} pending ICE candidates...`);
       for (const candidate of this.pendingIceCandidates) {
         try {
           await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -225,38 +187,28 @@ class WebRTCService {
       this.pendingIceCandidates = [];
 
     } catch (error) {
-      console.error('❌ Error setting remote answer:', error);
       throw error;
     }
   }
 
   async addIceCandidate(candidate) {
     try {
-      // ✅ FIX: Queue ICE candidates if peer connection doesn't exist yet
-      // This handles the case where ICE candidates arrive before peer connection is created
+      // Queue ICE candidates if peer connection doesn't exist yet
       if (!this.peerConnection) {
-        console.log(
-          '📋 Queuing ICE candidate (peer connection not created yet)'
-        );
         this.pendingIceCandidates.push(candidate);
         return;
       }
 
       // Queue if remote description not set yet
       if (!this.peerConnection.remoteDescription) {
-        console.log(
-          '📋 Queuing ICE candidate (remote description not set yet)'
-        );
         this.pendingIceCandidates.push(candidate);
         return;
       }
 
-      console.log('✅ Adding ICE candidate to peer connection');
       await this.peerConnection.addIceCandidate(
         new RTCIceCandidate(candidate)
       );
     } catch (error) {
-      console.warn('⚠️ Error adding ICE candidate (non-fatal):', error.message);
       // Don't throw - ICE candidate errors shouldn't break the call
     }
   }

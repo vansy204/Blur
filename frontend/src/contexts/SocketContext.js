@@ -168,21 +168,18 @@ export const SocketProvider = ({ children }) => {
       });
 
       socket.on("webrtc:offer", (data) => {
-        console.log("📝 Received webrtc:offer event");
         if (callCallbacksRef.current.onWebRTCOffer) {
           callCallbacksRef.current.onWebRTCOffer(data);
         }
       });
 
       socket.on("webrtc:answer", (data) => {
-        console.log("📝 Received webrtc:answer event");
         if (callCallbacksRef.current.onWebRTCAnswer) {
           callCallbacksRef.current.onWebRTCAnswer(data);
         }
       });
 
       socket.on("webrtc:ice-candidate", (data) => {
-        console.log("📥 Received webrtc:ice-candidate event");
         if (callCallbacksRef.current.onICECandidate) {
           callCallbacksRef.current.onICECandidate(data);
         }
@@ -336,16 +333,13 @@ export const SocketProvider = ({ children }) => {
 
   const sendICECandidate = useCallback((toUserId, candidate) => {
     if (!socketRef.current || !isConnected) {
-      console.warn('⚠️ Socket not ready for ICE candidate', { isConnected });
       return false;
     }
 
     try {
-      console.log('📤 Sending ICE candidate to', toUserId, candidate.candidate?.substring(0, 50) + '...');
       socketRef.current.emit("webrtc:ice-candidate", { to: toUserId, candidate });
       return true;
     } catch (error) {
-      console.error('❌ Error sending ICE candidate:', error);
       return false;
     }
   }, [isConnected]);
