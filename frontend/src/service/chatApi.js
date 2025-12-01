@@ -155,7 +155,7 @@ export const getMessages = async (conversationId, token, page = 0, size = 50) =>
 export const markConversationAsRead = async (conversationId, token) => {
   try {
     const response = await axios.put(
-      `${API_BASE_URL}/chat/mark-as-read?conversationId=${conversationId}`,
+      `${API_BASE_URL}/chat/conversations/mark-as-read?conversationId=${conversationId}`,
       {},
       {
         headers: {

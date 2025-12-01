@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from 'react-hot-toast';
 import { getUserId, getToken } from "../../utils/auth";
-import { apiCall } from "../../service/api";
+import { apiCall, profileApiCall } from "../../service/api";
 import { useSocket } from "../../contexts/SocketContext";
 import { useNotification, requestNotificationPermission } from "../../contexts/NotificationContext";
 import { useUnreadMessages } from "../../hooks/useUnreadMessages";
@@ -52,8 +52,8 @@ export default function MessagePage() {
       
       try {
         try {
-          const response = await apiCall('http://localhost:8888/api/profile/users/myInfo');
-          
+          const response = await profileApiCall('/users/myInfo');
+
           if (response?.result) {
             setCurrentUser(response.result);
             return;
