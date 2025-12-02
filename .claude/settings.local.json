@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(mvn clean compile:*)",
+      "Bash(npm run build)",
+      "Bash(mvn package:*)",
+      "Bash(java:*)",
+      "Bash(timeout 15 bash:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd /c \"taskkill /PID 20936 /F\")",
+      "Bash(ls -la \"F:\\Blur\\Backend\\chat-service\\src\\main\\resources\"\" 2>/dev/null || dir \"F:BlurBackendchat-servicesrcmainresources\"\")",
+      "Bash(mvn clean package:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(mvn:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(tasklist:*)",
+      "Bash(timeout:*)",
+      "Bash(cmd /c \"taskkill /PID 17680 /F\")",
+      "Bash(powershell -Command \"\n$token = ''eyJpc3MiOiJCbHVyLnZuIiwic3ViIjoiMGY0ZjNlMzQtMWFmNS00YmRhLWI4YTgtOTgyZmQ4ZDE5YzY1IiwiZXhwIjoxNzY0NjA4NDU5LCJpYXQiOjE3NjQ2MDQ4NTksImp0aSI6Ijg4NjIwMTQ5LWUxMTYtNDEwMS04N2VhLWU1ODc3NTMwMzRiZiIsInNjb3BlIjoiUk9MRV9VU0VSIn0''\n$decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($token + ''='' * (4 - $token.Length % 4)))\n$obj = ConvertFrom-Json $decoded\nWrite-Host ''Token Payload:''\nWrite-Host $obj\nWrite-Host ''''\nWrite-Host ''Current Unix Time:'' (Get-Date -UFormat %s)\nWrite-Host ''Token Expires:'' $obj.exp\nWrite-Host ''Expired:'' ($obj.exp -lt (Get-Date -UFormat %s))\n\")",
+      "Bash(powershell -Command \"Get-Process java -ErrorAction SilentlyContinue | Stop-Process -Force\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

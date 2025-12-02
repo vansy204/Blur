@@ -9,5 +9,7 @@ import com.blur.chatservice.entity.ChatMessage;
 public interface ChatMessageRepository extends MongoRepository<ChatMessage, String> {
     List<ChatMessage> findAllByConversationIdOrderByCreatedDateDesc(String conversationId);
 
+    ChatMessage findFirstByConversationIdOrderByCreatedDateDesc(String conversationId);
+
     Long countByConversationIdAndReadByNotContains(String conversationId, String userId);
 }

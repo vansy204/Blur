@@ -22,7 +22,7 @@ public enum ErrorCode {
     UNAUTHORIZED(1007, "you do not have permission", HttpStatus.FORBIDDEN),
     INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
     PASSWORD_EXISTED(1010, "Password existed", HttpStatus.BAD_REQUEST),
-    INVALID_SECRET_KEY(1011,"Invalid secret ket", HttpStatus.BAD_REQUEST);
+    INVALID_SECRET_KEY(1011, "Invalid secret ket", HttpStatus.BAD_REQUEST);
     int code;
     String message;
     HttpStatusCode httpStatusCode;

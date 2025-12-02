@@ -15,15 +15,18 @@ public class SocketIOConfig {
         config.setHostname("0.0.0.0");
         config.setPort(8099);
 
-        // Cho phép kết nối từ React app
+        // ✅ FIX: Properly configure CORS for cross-port communication
         config.setOrigin("http://localhost:3000");
 
-        // Tăng timeout để tránh disconnect nhanh
-        config.setPingTimeout(60000);
-        config.setPingInterval(25000);
+        // ✅ Increase timeouts to prevent premature disconnects
+        config.setPingTimeout(120000); // 2 minutes
+        config.setPingInterval(30000); // 30 seconds
 
-        // Allow upgrade protocol
+        // ✅ Allow protocol upgrade
         config.setUpgradeTimeout(10000);
+
+        // ✅ Increase connection pool
+        config.setMaxFramePayloadLength(1024 * 1024); // 1MB
 
         return new SocketIOServer(config);
     }

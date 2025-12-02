@@ -37,23 +37,10 @@ export const uploadToCloudnary = async (file) => {
       throw new Error("No URL returned from Cloudinary");
     }
 
-    // ✅ QUAN TRỌNG: Trả về object thay vì chỉ string
-    const attachment = {
-      id: fileData.public_id || `attachment-${Date.now()}`,
-      url: url,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      width: fileData.width || null,
-      height: fileData.height || null,
-      duration: fileData.duration || null,
-      thumbnailUrl: fileData.thumbnail_url || null,
-      format: fileData.format || null,
-      resourceType: fileData.resource_type || (isVideo ? 'video' : 'image'),
-    };
-
-    console.log("✅ Upload successful, attachment object:", attachment);
-    return attachment;
+    console.log("✅ Upload successful, URL:", url);
+    
+    // ✅ CHỈ TRẢ VỀ URL STRING
+    return url;
 
   } catch (error) {
     console.error("❌ Error uploading to Cloudinary:", error);

@@ -9,7 +9,13 @@ import {
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { FaRegComment } from "react-icons/fa";
 import { RiSendPlaneLine } from "react-icons/ri";
-import { MdVolumeOff, MdVolumeUp, MdPlayArrow, MdPause, MdDelete } from "react-icons/md";
+import {
+  MdVolumeOff,
+  MdVolumeUp,
+  MdPlayArrow,
+  MdPause,
+  MdDelete,
+} from "react-icons/md";
 import { useDisclosure, useToast } from "@chakra-ui/react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination } from "swiper/modules";
@@ -20,7 +26,13 @@ import "swiper/css/pagination";
 import CommentModal from "../Comment/CommentModal";
 import { timeDifference } from "../../Config/Logic";
 import { getToken } from "../../service/LocalStorageService";
-import { fetchLikePost, deletePost } from "../../api/postApi";
+import {
+  fetchLikePost,
+  deletePost,
+  likePost,
+  unlikePost,
+  createComment,
+} from "../../api/postApi";
 import { IoSend } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 
@@ -35,12 +47,15 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const [comments, setComments] = useState([]);
   const [likes, setLikes] = useState([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [mediaDimensions, setMediaDimensions] = useState({});
+  const [primaryAspectRatio, setPrimaryAspectRatio] = useState(null);
   const videoRefs = useRef([]);
   const token = getToken();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [comment, setComment] = useState("");
   const navigate = useNavigate();
 
+  // 🟦 Fetch likes & comments
   useEffect(() => {
     if (!post?.id || !user?.id) return;
 
@@ -63,9 +78,8 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         const likesArray = Array.isArray(likeRes) ? likeRes : [];
         setLikes(likesArray);
         const liked = likesArray.some(
-          (likeItem) => likeItem.userId === post.userId
+          (likeItem) => likeItem.userId === user.id
         );
-
         setIsPostLiked(liked);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -77,6 +91,39 @@ const PostCard = ({ post, user, onPostDeleted }) => {
     fetchData();
   }, [post?.id, user?.id, token]);
 
+  // 🖼️ Load image dimensions for auto-fit
+  const handleImageLoad = (index, e) => {
+    const img = e.target;
+    const aspectRatio = img.naturalWidth / img.naturalHeight;
+    
+    setMediaDimensions((prev) => ({
+      ...prev,
+      [index]: { aspectRatio, width: img.naturalWidth, height: img.naturalHeight },
+    }));
+
+    // Set primary aspect ratio from first media
+    if (index === 0 && primaryAspectRatio === null) {
+      setPrimaryAspectRatio(aspectRatio);
+    }
+  };
+
+  // 🎥 Load video dimensions
+  const handleVideoLoad = (index, e) => {
+    const video = e.target;
+    const aspectRatio = video.videoWidth / video.videoHeight;
+    
+    setMediaDimensions((prev) => ({
+      ...prev,
+      [index]: { aspectRatio, width: video.videoWidth, height: video.videoHeight },
+    }));
+
+    // Set primary aspect ratio from first media
+    if (index === 0 && primaryAspectRatio === null) {
+      setPrimaryAspectRatio(aspectRatio);
+    }
+  };
+
+  // 🟥 Delete Post
   const handleDeletePost = async () => {
     toast({
       title: "Delete Post",
@@ -89,17 +136,32 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         <div className="bg-white rounded-lg shadow-xl border border-sky-200 p-6 max-w-md">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <svg
+                className="w-6 h-6 text-amber-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
               </svg>
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Post</h3>
-              <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this post? This action cannot be undone.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Delete Post
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Are you sure you want to delete this post? This action cannot be
+                undone.
+              </p>
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
                 >
                   Cancel
                 </button>
@@ -108,20 +170,14 @@ const PostCard = ({ post, user, onPostDeleted }) => {
                     onClose();
                     try {
                       await deletePost(token, post.id);
-
                       toast({
                         title: "Post deleted successfully",
                         status: "success",
                         duration: 3000,
                         position: "top-right",
-                        isClosable: true,
                       });
-
                       setShowDropdown(false);
-
-                      if (onPostDeleted) {
-                        onPostDeleted(post.id);
-                      }
+                      if (onPostDeleted) onPostDeleted(post.id);
                     } catch (error) {
                       toast({
                         title: "Failed to delete post",
@@ -129,11 +185,10 @@ const PostCard = ({ post, user, onPostDeleted }) => {
                         status: "error",
                         duration: 3000,
                         position: "top-right",
-                        isClosable: true,
                       });
                     }
                   }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors duration-200"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg"
                 >
                   Delete
                 </button>
@@ -145,13 +200,68 @@ const PostCard = ({ post, user, onPostDeleted }) => {
     });
   };
 
+  // 💬 Create comment
   const handleCreateComment = async (comment) => {
     try {
+      const createdComment = await createComment(token, post.id, comment);
+      setComments((prev) => [...prev, createdComment]);
+      setComment("");
+
+      toast({
+        title: "Comment created successfully.",
+        status: "success",
+        duration: 3000,
+        position: "top-right",
+      });
+    } catch (error) {
+      console.error("Error creating comment:", error);
+      toast({
+        title: "Failed to create comment",
+        status: "error",
+        duration: 3000,
+        position: "top-right",
+      });
+    }
+  };
+
+  // ❤️ Like / Unlike toggle
+  const handlePostLike = async () => {
+    try {
+      if (isPostLiked) {
+        setIsPostLiked(false);
+        setLikes((prev) => prev.filter((like) => like.userId !== user.id));
+        await unlikePost(token, post.id);
+      } else {
+        setIsPostLiked(true);
+        setLikes((prev) => [
+          ...prev,
+          {
+            userId: user.id,
+            postId: post.id,
+            createdAt: new Date().toISOString(),
+            id: `temp-${Date.now()}`,
+          },
+        ]);
+        await likePost(token, post.id);
+      }
+    } catch (error) {
+      console.error("❌ Error toggling like:", error);
+      try {
+        const likeRes = await fetchLikePost(token, post.id);
+        setLikes(Array.isArray(likeRes) ? likeRes : []);
+        setIsPostLiked(likeRes.some((l) => l.userId === user.id));
+      } catch (refetchError) {
+        console.error("Error refetching likes:", refetchError);
+      }
+    }
+  };
+
+  // 💾 Save post
+  const handleSavePost = async () => {
+    try {
       const res = await axios.post(
-        `http://localhost:8888/api/post/comment/${post.id}/create`,
-        {
-          content: comment,
-        },
+        `http://localhost:8888/api/post/save/${post.id}`,
+        {},
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -159,23 +269,36 @@ const PostCard = ({ post, user, onPostDeleted }) => {
           },
         }
       );
-      if (res.data.code !== 1000) throw new Error("Create comment failed");
-      setComments((prev) => [...prev, res.data.result]);
-      setComment(res.data.result.content);
 
+      if (res.data.code !== 1000) {
+        throw new Error(res.data.message || "Save post failed");
+      }
+
+      setIsSaved(true);
+      
       toast({
-        title: "Comment created successfully.",
+        title: "Post saved successfully",
         status: "success",
         duration: 3000,
         position: "top-right",
-        isClosable: true,
       });
-      setComment("");
     } catch (error) {
-      console.error("Error creating comment:", error);
+      console.error("Error saving post:", error);
+      toast({
+        title: "Failed to save post",
+        status: "error",
+        duration: 3000,
+        position: "top-right",
+      });
     }
   };
 
+  const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
+  const handleClickUserName = () =>
+    navigate(`/profile/user/?profileId=${post?.profileId}`);
+  const isCurrentUserPostOwner = post?.userId === user?.userId;
+
+  // 🎥 Video progress
   const handleSeek = (index, value) => {
     const video = videoRefs.current[index];
     if (!video) return;
@@ -183,86 +306,9 @@ const PostCard = ({ post, user, onPostDeleted }) => {
     setProgress((prev) => ({ ...prev, [index]: value }));
   };
 
-  const handlePostLike = async () => {
-    try {
-      const res = await axios.put(
-        `http://localhost:8888/api/post/${post.id}/like`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (res.data.code !== 1000) throw new Error("Like failed");
-
-      setIsPostLiked(true);
-
-      setLikes((prev) => [
-        ...prev,
-        {
-          userId: post.userId,
-          postId: post.id,
-          createdAt: new Date().toISOString(),
-          id: res.data.result?.id || `temp-${Date.now()}`,
-        },
-      ]);
-    } catch (error) {
-      console.error("Error liking post:", error);
-    }
-  };
-
-  const handlePostUnLike = async () => {
-    try {
-      const res = await axios.put(
-        `http://localhost:8888/api/post/${post.id}/unlike`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (res.data.code !== 1000) throw new Error("Unlike failed");
-
-      setIsPostLiked(false);
-      setLikes((prev) =>
-        prev.filter((likeItem) => likeItem.userId !== user.id)
-      );
-    } catch (error) {
-      console.error("Error unliking post:", error);
-    }
-  };
-
-  const handleSavePost = () => setIsSaved(true);
-  const handleUnSavePost = () => setIsSaved(false);
-  const handleClick = () => setShowDropdown(!showDropdown);
-  const handleOpenCommentModal = () => onOpen();
-
-  const togglePlayPause = (index) => {
-    const video = videoRefs.current[index];
-    if (!video) return;
-
-    if (isPlaying[index]) {
-      video.pause();
-    } else {
-      video.play();
-    }
-
-    setIsPlaying((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
-  };
-
   const handleTimeUpdate = (index) => {
     const video = videoRefs.current[index];
     if (!video) return;
-
     const progressPercent = (video.currentTime / video.duration) * 100;
     setProgress((prev) => ({
       ...prev,
@@ -270,61 +316,67 @@ const PostCard = ({ post, user, onPostDeleted }) => {
     }));
   };
 
-  const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
-  
-  const handleClickUserName = () => {
-    navigate(`/profile/user/?profileId=${post?.profileId}`);
+  const togglePlayPause = (index) => {
+    const video = videoRefs.current[index];
+    if (!video) return;
+    if (isPlaying[index]) video.pause();
+    else video.play();
+    setIsPlaying((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
   };
 
-  const isCurrentUserPostOwner = post?.userId === user?.userId;
+  // 🎨 Get container style based on PRIMARY aspect ratio (Instagram style)
+  const getMediaContainerStyle = () => {
+    // Wait until first media loads
+    if (primaryAspectRatio === null) {
+      return { 
+        height: '400px',
+        width: '100%'
+      };
+    }
 
+    const aspectRatio = primaryAspectRatio;
+    
+    // Portrait (dọc): aspect ratio < 0.8
+    if (aspectRatio < 0.8) {
+      return {
+        aspectRatio: aspectRatio.toString(),
+        maxHeight: '600px',
+        width: '100%',
+      };
+    }
+    // Landscape (ngang): aspect ratio > 1.3
+    else if (aspectRatio > 1.3) {
+      return {
+        aspectRatio: aspectRatio.toString(),
+        maxHeight: '500px',
+        width: '100%',
+      };
+    }
+    // Square or near square (0.8 - 1.3)
+    else {
+      return {
+        aspectRatio: aspectRatio.toString(),
+        maxHeight: '600px',
+        width: '100%',
+      };
+    }
+  };
+
+  // 🎨 UI
   return (
     <div className="bg-white shadow-lg hover:shadow-2xl rounded-3xl overflow-hidden mb-8 border-2 border-sky-100 hover:border-sky-300 transition-all duration-300 transform hover:-translate-y-1">
-      <style>{`
-        .swiper-button-next,
-        .swiper-button-prev {
-          color: white !important;
-          background-color: rgba(14, 165, 233, 0.7) !important;
-          width: 36px !important;
-          height: 36px !important;
-          border-radius: 50% !important;
-          transition: all 0.3s ease !important;
-        }
-        
-        .swiper-button-next:after,
-        .swiper-button-prev:after {
-          font-size: 16px !important;
-          font-weight: bold !important;
-        }
-        
-        .swiper-button-next:hover,
-        .swiper-button-prev:hover {
-          background-color: rgba(14, 165, 233, 0.9) !important;
-          transform: scale(1.1);
-        }
-        
-        .swiper-button-disabled {
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-        
-        .swiper-pagination-bullet {
-          background-color: rgba(255, 255, 255, 0.5) !important;
-          opacity: 1 !important;
-        }
-        
-        .swiper-pagination-bullet-active {
-          background-color: rgb(14, 165, 233) !important;
-        }
-      `}</style>
-
       {/* Header */}
       <div className="flex justify-between items-center py-5 px-6 bg-gradient-to-r from-sky-50 via-white to-sky-50">
         <div className="flex items-center gap-4">
-          <div className="relative group cursor-pointer" onClick={handleClickUserName}>
-            <div className="absolute inset-0 bg-gradient-to-br from-sky-400 to-sky-600 rounded-full blur-md opacity-40 group-hover:opacity-60 transition-opacity duration-300"></div>
+          <div
+            className="relative group cursor-pointer"
+            onClick={handleClickUserName}
+          >
             <img
-              className="relative h-14 w-14 rounded-full object-cover border-3 border-white shadow-lg ring-2 ring-sky-200 group-hover:ring-sky-400 transition-all duration-300"
+              className="relative h-14 w-14 rounded-full object-cover border-3 border-white shadow-lg ring-2 ring-sky-200"
               src={
                 post?.userImageUrl ||
                 "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
@@ -334,7 +386,7 @@ const PostCard = ({ post, user, onPostDeleted }) => {
           </div>
           <div>
             <p
-              className="font-bold text-base cursor-pointer hover:text-sky-600 transition-colors duration-200"
+              className="font-bold text-base cursor-pointer hover:text-sky-600"
               onClick={handleClickUserName}
             >
               {post?.userName || "Unknown"}
@@ -346,24 +398,23 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         </div>
         <div className="relative">
           <button
-            onClick={handleClick}
+            onClick={() => setShowDropdown(!showDropdown)}
             className="p-2 rounded-full hover:bg-sky-50 transition-colors duration-200"
           >
             <BsThreeDots className="text-xl text-gray-600" />
           </button>
           {showDropdown && (
             <div className="absolute top-12 right-0 bg-white shadow-xl rounded-xl py-2 z-20 min-w-[140px] border border-sky-100">
-              {isCurrentUserPostOwner && (
+              {isCurrentUserPostOwner ? (
                 <button
                   onClick={handleDeletePost}
-                  className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-200 flex items-center gap-2 font-medium"
+                  className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
                 >
-                  <MdDelete className="w-4 h-4" />
+                  <MdDelete className="inline-block mr-1" />
                   Delete
                 </button>
-              )}
-              {!isCurrentUserPostOwner && (
-                <button className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-sky-50 transition-colors duration-200 font-medium">
+              ) : (
+                <button className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-sky-50">
                   Report
                 </button>
               )}
@@ -379,96 +430,47 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         </div>
       )}
 
-      {/* Media */}
+      {/* Media auto-fit - Instagram Style */}
       {mediaUrls.length > 0 && (
         <div className="relative w-full bg-gradient-to-br from-sky-50 to-gray-50">
           <Swiper
             spaceBetween={0}
             slidesPerView={1}
-            navigation={{
-              nextEl: '.swiper-button-next',
-              prevEl: '.swiper-button-prev',
-            }}
-            pagination={{ 
-              clickable: true,
-              bulletActiveClass: 'swiper-pagination-bullet-active'
-            }}
+            navigation
+            pagination={{ clickable: true }}
             modules={[Navigation, Pagination]}
-            className="post-swiper"
+            className="post-swiper w-full"
           >
             {mediaUrls.map((url, index) => {
               const isVideo = url.match(/\.(mp4|webm|ogg)$/i);
+              const containerStyle = getMediaContainerStyle(); // Same for all slides
+              
               return (
-                <SwiperSlide key={index} className="relative">
-                  {isVideo ? (
-                    <div
-                      className="relative group bg-black"
-                      onMouseEnter={() => setHoveredVideoIndex(index)}
-                      onMouseLeave={() => setHoveredVideoIndex(null)}
-                    >
+                <SwiperSlide key={index}>
+                  <div 
+                    className="flex justify-center items-center w-full bg-black/5 overflow-hidden"
+                    style={containerStyle}
+                  >
+                    {isVideo ? (
                       <video
                         ref={(el) => (videoRefs.current[index] = el)}
                         src={url}
-                        className="max-h-[80vh] w-full object-contain"
+                        className="max-w-full max-h-full w-auto h-auto object-contain"
                         loop
                         muted={isMuted}
+                        onLoadedMetadata={(e) => handleVideoLoad(index, e)}
                         onTimeUpdate={() => handleTimeUpdate(index)}
                         onClick={() => togglePlayPause(index)}
                       />
-
-                      {hoveredVideoIndex === index && (
-                        <div className="absolute inset-0 bg-black/10 transition-opacity duration-300">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsMuted((prev) => !prev);
-                            }}
-                            className="absolute top-4 right-4 bg-sky-500/80 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-sky-600/90 transition-all duration-300 shadow-lg hover:scale-110"
-                          >
-                            {isMuted ? (
-                              <MdVolumeOff className="w-5 h-5" />
-                            ) : (
-                              <MdVolumeUp className="w-5 h-5" />
-                            )}
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePlayPause(index);
-                            }}
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-sky-500/80 backdrop-blur-sm text-white p-4 rounded-full hover:bg-sky-600/90 transition-all duration-300 hover:scale-110 shadow-xl"
-                          >
-                            {isPlaying[index] ? (
-                              <MdPause className="w-8 h-8" />
-                            ) : (
-                              <MdPlayArrow className="w-8 h-8" />
-                            )}
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={progress[index] || 0}
-                          onChange={(e) => handleSeek(index, e.target.value)}
-                          className="w-full h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-sky-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125"
-                          style={{
-                            background: `linear-gradient(to right, rgb(14, 165, 233) 0%, rgb(14, 165, 233) ${progress[index] || 0}%, rgba(255,255,255,0.4) ${progress[index] || 0}%, rgba(255,255,255,0.4) 100%)`
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <img
-                      src={url}
-                      alt={`post-media-${index}`}
-                      className="w-full h-auto max-h-[80vh] object-contain"
-                    />
-                  )}
+                    ) : (
+                      <img
+                        src={url}
+                        alt={`post-media-${index}`}
+                        className="max-w-full max-h-full w-auto h-auto object-contain"
+                        onLoad={(e) => handleImageLoad(index, e)}
+                      />
+                    )}
+                  </div>
                 </SwiperSlide>
               );
             })}
@@ -480,33 +482,31 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       <div className="flex justify-between items-center px-6 py-4 bg-gradient-to-r from-white to-sky-50/30">
         <div className="flex items-center gap-5">
           <button
-            onClick={isPostLiked ? handlePostUnLike : handlePostLike}
+            onClick={handlePostLike}
             className="group transition-transform hover:scale-110 active:scale-95 duration-200"
           >
             {isPostLiked ? (
-              <AiFillHeart className="text-2xl text-red-500 animate-pulse drop-shadow-md" />
+              <AiFillHeart className="text-2xl text-red-500 animate-pulse" />
             ) : (
-              <AiOutlineHeart className="text-2xl text-gray-700 group-hover:text-red-500 transition-colors duration-200" />
+              <AiOutlineHeart className="text-2xl text-gray-700 group-hover:text-red-500" />
             )}
           </button>
           <button
-            onClick={handleOpenCommentModal}
+            onClick={onOpen}
             className="group transition-transform hover:scale-110 active:scale-95 duration-200"
           >
-            <FaRegComment className="text-xl text-gray-700 group-hover:text-sky-500 transition-colors duration-200" />
+            <FaRegComment className="text-xl text-gray-700 group-hover:text-sky-500" />
           </button>
-          <button className="group transition-transform hover:scale-110 active:scale-95 duration-200">
-            <RiSendPlaneLine className="text-xl text-gray-700 group-hover:text-sky-500 transition-colors duration-200" />
-          </button>
+          <RiSendPlaneLine className="text-xl text-gray-700 group-hover:text-sky-500" />
         </div>
         <button
-          onClick={isSaved ? handleUnSavePost : handleSavePost}
+          onClick={handleSavePost}
           className="group transition-transform hover:scale-110 active:scale-95 duration-200"
         >
           {isSaved ? (
-            <BsBookmarkFill className="text-xl text-sky-500 drop-shadow-md" />
+            <BsBookmarkFill className="text-xl text-sky-500" />
           ) : (
-            <BsBookmark className="text-xl text-gray-700 group-hover:text-sky-500 transition-colors duration-200" />
+            <BsBookmark className="text-xl text-gray-700 group-hover:text-sky-500" />
           )}
         </button>
       </div>
@@ -514,23 +514,22 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       {/* Likes & Comments */}
       <div className="px-6 pb-4">
         <p className="text-sm font-semibold text-gray-800">
-          {likes.length} {likes.length === 1 ? 'like' : 'likes'}
+          {likes.length} {likes.length === 1 ? "like" : "likes"}
         </p>
         <button
-          onClick={handleOpenCommentModal}
-          className="text-sm text-gray-500 hover:text-sky-600 mt-1 transition-colors duration-200 font-medium"
+          onClick={onOpen}
+          className="text-sm text-gray-500 hover:text-sky-600 mt-1"
         >
-          View all {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+          View all {comments.length}{" "}
+          {comments.length === 1 ? "comment" : "comments"}
         </button>
       </div>
 
       {/* Add Comment */}
       <div className="border-t border-sky-100 px-6 py-4 flex items-center gap-3 bg-gradient-to-r from-sky-50/50 to-white">
-        <button className="text-gray-400 hover:text-sky-500 transition-colors duration-200 hover:scale-110 transform">
-          <BsEmojiSmile className="text-xl" />
-        </button>
+        <BsEmojiSmile className="text-xl text-gray-400" />
         <input
-          className="flex-1 outline-none text-sm placeholder-gray-400 focus:placeholder-gray-500 bg-transparent border-none py-2 px-1"
+          className="flex-1 outline-none text-sm placeholder-gray-400 bg-transparent py-2 px-1"
           type="text"
           placeholder="Add a comment..."
           value={comment}
@@ -542,16 +541,10 @@ const PostCard = ({ post, user, onPostDeleted }) => {
           }}
         />
         {comment.trim() && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              handleCreateComment(comment);
-              setComment("");
-            }}
-            className="text-sky-500 hover:text-sky-600 transition-all duration-200 hover:scale-110 transform"
-          >
-            <IoSend className="text-xl" />
-          </button>
+          <IoSend
+            onClick={() => handleCreateComment(comment)}
+            className="text-xl text-sky-500 cursor-pointer hover:scale-110"
+          />
         )}
       </div>
 
@@ -566,7 +559,6 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         isSaved={isSaved}
         isPostLike={isPostLiked}
         handlePostLike={handlePostLike}
-        handleSavePost={handleSavePost}
         handleCreateComment={handleCreateComment}
       />
     </div>
