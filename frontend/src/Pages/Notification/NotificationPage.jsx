@@ -1,36 +1,45 @@
-import { useState, useEffect } from 'react';
-import { Bell } from 'lucide-react';
-import Header from '../../Components/Notification/Header';
-import NotificationItem from '../../Components/Notification/NotificationItem';
-import { getToken } from '../../service/LocalStorageService';
-import { jwtDecode } from 'jwt-decode';
-import { getAllNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '../../api/notificationAPI';
-import { useToast } from '@chakra-ui/react';
+import { useState, useEffect, useMemo } from "react";
+import { useNotification } from "../../contexts/NotificationContext";
+import { Bell } from "lucide-react";
+import Header from "../../Components/Notification/Header";
+import NotificationItem from "../../Components/Notification/NotificationItem";
+import { getToken } from "../../service/LocalStorageService";
+import { fetchPostById } from "../../api/postApi";
+import { jwtDecode } from "jwt-decode";
+import {
+  getAllNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from "../../api/notificationAPI";
+import { useToast } from "@chakra-ui/react";
+import { useNavigate } from "react-router-dom";
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const token = getToken();
   const toast = useToast();
-  let userId = "";
-  
-  if (token) {
-    const decodedToken = jwtDecode(token);
-    userId = decodedToken.sub;
-  }
+  const navigate = useNavigate();
+  const token = getToken();
 
-  useEffect(() => {
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.margin = '';
-      document.body.style.padding = '';
-      document.body.style.overflow = '';
-    };
-  }, []);
+  // ✅ Lấy realtime noti từ Context (hiển thị toast)
+  const { 
+    notifications: realtimeNotifications, 
+    notificationCounter // ⭐ THÊM DÒNG NÀY
+  } = useNotification();
 
+  // ✅ Giải mã token để lấy userId
+  const userId = useMemo(() => {
+    if (!token) return "";
+    try {
+      const decoded = jwtDecode(token);
+      return decoded.sub;
+    } catch {
+      return "";
+    }
+  }, [token]);
+
+  // ✅ Lấy danh sách ban đầu từ API
   useEffect(() => {
     const getNotifications = async () => {
       try {
@@ -42,37 +51,60 @@ const NotificationsPage = () => {
       } finally {
         setIsLoading(false);
       }
-    }
-    getNotifications();
+    };
+    if (token && userId) getNotifications();
   }, [token, userId]);
 
-  const unreadCount = notifications.filter(n => !n.seen).length;
+  
+  // ✅ Sửa useEffect để depend vào counter thay vì array
+  useEffect(() => {
+    console.log("🔄 Notification counter changed:", notificationCounter);
+    
+    if (!realtimeNotifications || realtimeNotifications.length === 0) {
+      console.log("⚠️ No realtime notifications");
+      return;
+    }
+    
+    const latest = realtimeNotifications[0];
+    console.log("📥 Processing latest notification:", latest);
 
+    const newNotification = {
+      id: latest.id || Date.now(),
+      senderName: latest.senderName,
+      senderImageUrl: latest.avatar,
+      content: latest.message,
+      timestamp: latest.createdDate || new Date().toISOString(),
+      type: latest.type || "general",
+      postId: latest.postId, // ⭐ Đảm bảo có field này
+      seen: false,
+    };
+
+    setNotifications((prev) => {
+      const exists = prev.some(n => n.id === newNotification.id);
+      
+      if (exists) {
+        console.log("⚠️ Notification already in list:", newNotification.id);
+        return prev;
+      }
+      
+      console.log("✅ Adding notification to page list");
+      return [newNotification, ...prev];
+    });
+  }, [notificationCounter]); // ⭐ THAY ĐỔI DEPENDENCY
+
+  // ✅ Mark 1 thông báo là đã đọc
   const handleMarkRead = async (id) => {
     try {
       await markNotificationAsRead(token, id);
-      toast({
-        title: "Marked as read",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-        position: "top-right",
-      });
-      setNotifications(prev => 
-        prev.map(n => n.id === id ? { ...n, seen: true } : n)
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, seen: true } : n))
       );
     } catch (error) {
       console.error("Error marking notification as read:", error);
-      toast({
-        title: "Failed to mark as read",
-        status: "error",
-        duration: 2000,
-        isClosable: true,
-        position: "top-right",
-      });
     }
   };
 
+  // ✅ Mark tất cả đã đọc
   const handleMarkAllRead = async () => {
     try {
       await markAllNotificationsAsRead(token);
@@ -83,9 +115,7 @@ const NotificationsPage = () => {
         isClosable: true,
         position: "top-right",
       });
-      setNotifications(prev => 
-        prev.map(n => ({ ...n, seen: true }))
-      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, seen: true })));
     } catch (error) {
       console.error("Error marking all as read:", error);
       toast({
@@ -98,20 +128,82 @@ const NotificationsPage = () => {
     }
   };
 
-  const filteredNotifications = notifications.filter(notification =>
-    (notification.user && notification.user.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (notification.content && notification.content.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // ✅ Khi click vào notification → mở bài viết
+  const handleNotificationClick = async (notification) => {
+    if (!notification.postId) {
+      toast({
+        title: "Notification không có bài viết liên kết",
+        status: "info",
+        duration: 2000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return;
+    }
 
-  const sortedNotifications = [...filteredNotifications].sort((a, b) => {
-    if (a.seen === b.seen) return 0;
-    return a.seen ? 1 : -1;
-  });
+    try {
+      if (!notification.seen) {
+        await markNotificationAsRead(token, notification.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, seen: true } : n))
+        );
+      }
 
+      const post = await fetchPostById(notification.postId, token);
+      if (!post) {
+        toast({
+          title: "Không tìm thấy bài viết",
+          status: "warning",
+          duration: 2000,
+          isClosable: true,
+          position: "top-right",
+        });
+        return;
+      }
+
+      navigate(`/post/${notification.postId}`, { state: { post } });
+    } catch (error) {
+      console.error("Error opening post:", error);
+      toast({
+        title: "Không thể mở bài viết",
+        status: "error",
+        duration: 2000,
+        isClosable: true,
+        position: "top-right",
+      });
+    }
+  };
+
+  // ✅ Lọc & sắp xếp
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter(
+      (notification) =>
+        (notification.senderName &&
+          notification.senderName
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())) ||
+        (notification.content &&
+          notification.content.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [notifications, searchTerm]);
+
+  const sortedNotifications = useMemo(() => {
+    return [...filteredNotifications].sort((a, b) => {
+      if (a.seen === b.seen) return 0;
+      return a.seen ? 1 : -1;
+    });
+  }, [filteredNotifications]);
+
+  const unreadCount = notifications.filter((n) => !n.seen).length;
+
+  // ✅ Giao diện Loading & Empty
   const LoadingSkeleton = () => (
     <div className="space-y-3 p-4">
       {[...Array(5)].map((_, index) => (
-        <div key={index} className="flex items-start gap-4 p-4 bg-white rounded-xl border border-gray-100 animate-pulse">
+        <div
+          key={index}
+          className="flex items-start gap-4 p-4 bg-white rounded-xl border border-gray-100 animate-pulse"
+        >
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-100 to-blue-100"></div>
           <div className="flex-1 space-y-2">
             <div className="h-4 bg-gray-200 rounded w-3/4"></div>
@@ -128,17 +220,16 @@ const NotificationsPage = () => {
         <Bell size={40} className="text-sky-500" />
       </div>
       <h3 className="text-xl font-bold text-gray-800 mb-2">
-        {searchTerm ? 'No matching notifications' : 'All caught up!'}
+        {searchTerm ? "No matching notifications" : "All caught up!"}
       </h3>
       <p className="text-gray-500 text-sm max-w-sm mb-4">
-        {searchTerm 
+        {searchTerm
           ? `No notifications found for "${searchTerm}"`
-          : "You're all up to date. New notifications will appear here."
-        }
+          : "You're all up to date. New notifications will appear here."}
       </p>
       {searchTerm && (
         <button
-          onClick={() => setSearchTerm('')}
+          onClick={() => setSearchTerm("")}
           className="px-6 py-2 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded-xl font-semibold hover:from-sky-500 hover:to-blue-600 transition-all shadow-md hover:shadow-lg"
         >
           Clear search
@@ -162,10 +253,11 @@ const NotificationsPage = () => {
         ) : sortedNotifications.length > 0 ? (
           <div className="p-4 space-y-2">
             {sortedNotifications.map((notification) => (
-              <NotificationItem 
-                key={notification.id} 
+              <NotificationItem
+                key={notification.id}
                 notification={notification}
                 onMarkRead={handleMarkRead}
+                onClick={() => handleNotificationClick(notification)}
               />
             ))}
           </div>

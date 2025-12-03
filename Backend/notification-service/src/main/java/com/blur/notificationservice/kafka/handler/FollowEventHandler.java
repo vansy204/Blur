@@ -5,6 +5,7 @@ import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
 import com.blur.notificationservice.repository.httpclient.ProfileClient;
 import com.blur.notificationservice.service.NotificationService;
+import com.blur.notificationservice.service.NotificationWebSocketService;
 import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +32,7 @@ public class FollowEventHandler implements EventHandler<Event>{
     SimpMessagingTemplate simpMessagingTemplate;
     JavaMailSender emailSender;
     NotificationService notificationService;
+    NotificationWebSocketService notificationWebSocketService;
     ObjectMapper objectMapper;
     RedisService  redisService;
     ProfileClient profileClient;
@@ -61,6 +63,7 @@ public class FollowEventHandler implements EventHandler<Event>{
         boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
         if(isOnline){
+            notificationWebSocketService.sendToUser(notification);
             simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
         }else{
             sendFollowNotification(notification);

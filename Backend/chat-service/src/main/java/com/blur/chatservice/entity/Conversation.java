@@ -18,8 +18,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 @Data
-@NoArgsConstructor // ✅ CRITICAL
-@AllArgsConstructor // ✅ CRITICAL
+@NoArgsConstructor
+@AllArgsConstructor
 public class Conversation {
     @Id
     String id;
@@ -32,4 +32,7 @@ public class Conversation {
     List<ParticipantInfo> participants;
     Instant createdDate;
     Instant modifiedDate;
+    String lastMessage;
+    Instant lastMessageTime;
+    String lastMessageSender;
 }
