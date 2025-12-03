@@ -12,15 +12,12 @@ target/
 .settings
 .springBeans
 .sts4-cache
-*.yaml
-*.yml
 
 ### IntelliJ IDEA ###
 .idea
 *.iws
 *.iml
 *.ipr
-.env
 
 ### NetBeans ###
 /nbproject/private/
@@ -34,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment ###
+.env
+application-*.yml
+!application.yml
