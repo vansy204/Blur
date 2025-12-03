@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { X, MessageCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // ===== CONTEXT =====
 const NotificationContext = createContext(null);
@@ -34,6 +35,8 @@ const MessageToast = ({ notification, onClose, onClick }) => {
     }, 5000);
     return () => clearTimeout(timer);
   }, [notification.id, onClose]);
+  // ✅ Kiểm tra xem có postId không để hiển thị hint
+  const hasPost = !!notification.postId;
 
   return (
     <div
@@ -57,7 +60,11 @@ const MessageToast = ({ notification, onClose, onClick }) => {
             <div className="flex items-center gap-2">
               <MessageCircle size={16} className="text-blue-500" />
               <h4 className="font-semibold text-gray-900 truncate">
-                {notification.senderName}
+                {notification.senderFirstName || notification.senderLastName
+                  ? `${notification.senderFirstName || ""} ${
+                      notification.senderLastName || ""
+                    }`.trim()
+                  : notification.senderName || "Unknown User"}
               </h4>
             </div>
             <button
@@ -76,6 +83,10 @@ const MessageToast = ({ notification, onClose, onClick }) => {
           <p className="text-xs text-gray-400 mt-1">
             {formatTime(notification.createdDate)}
           </p>
+          {/* ✅ Hiển thị hint nếu có postId */}
+          {hasPost && (
+            <p className="text-xs text-sky-600 font-medium">Click để xem →</p>
+          )}
         </div>
       </div>
     </div>
@@ -87,36 +98,44 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [mode, setMode] = useState("toast");
   const [notificationCounter, setNotificationCounter] = useState(0);
+  const navigate = useNavigate(); //
 
   const addNotification = useCallback((notificationData) => {
     console.log("🔔 Adding notification:", notificationData); // Debug log
-    
+
     setNotifications((prev) => {
       if (!notificationData?.id) {
         console.warn("⚠️ Notification missing ID");
         return prev;
       }
-      
+
       const exists = prev.some((n) => n.id === notificationData.id);
       if (exists) {
         console.log("⚠️ Notification already exists:", notificationData.id);
         return prev;
       }
 
+      const senderName =
+        [notificationData.senderFirstName, notificationData.senderLastName]
+          .filter(Boolean)
+          .join(" ") || "Unknown User";
+
       const notification = {
         id: notificationData.id,
-        senderName: notificationData.senderName,
+        senderName,
         avatar: notificationData.avatar,
-        message: notificationData.message,
+        message: notificationData.content,
         createdDate: notificationData.createdDate || new Date().toISOString(),
         type: notificationData.type || "general",
         seen: notificationData.seen ?? false,
         postId: notificationData.postId, // ⭐ THÊM DÒNG NÀY
+        senderId: notificationData.senderId,
       };
 
       playNotificationSound();
       if (document.hidden) showBrowserNotification(notification);
-      setNotificationCounter(c => c + 1);
+      setNotificationCounter((c) => c + 1);
+      
       console.log("✅ Notification added to state"); // Debug log
       return [notification, ...prev];
     });
@@ -132,10 +151,19 @@ export const NotificationProvider = ({ children }) => {
 
   const handleNotificationClick = useCallback(
     (notification) => {
-      if (notification.onClick) notification.onClick(notification);
+      // Custom onClick handler (nếu có)
+      if (notification.onClick) {
+        notification.onClick(notification);
+      }
+
+      // ✅ Navigate đến post nếu có postId
+      if (notification.postId) {
+        navigate(`/post/${notification.postId}`);
+      }
+
       removeNotification(notification.id);
     },
-    [removeNotification]
+    [navigate, removeNotification]
   );
 
   const value = {

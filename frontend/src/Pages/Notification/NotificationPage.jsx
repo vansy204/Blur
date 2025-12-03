@@ -23,9 +23,9 @@ const NotificationsPage = () => {
   const token = getToken();
 
   // ✅ Lấy realtime noti từ Context (hiển thị toast)
-  const { 
-    notifications: realtimeNotifications, 
-    notificationCounter // ⭐ THÊM DÒNG NÀY
+  const {
+    notifications: realtimeNotifications,
+    notificationCounter, // ⭐ THÊM DÒNG NÀY
   } = useNotification();
 
   // ✅ Giải mã token để lấy userId
@@ -55,38 +55,52 @@ const NotificationsPage = () => {
     if (token && userId) getNotifications();
   }, [token, userId]);
 
-  
   // ✅ Sửa useEffect để depend vào counter thay vì array
   useEffect(() => {
     console.log("🔄 Notification counter changed:", notificationCounter);
-    
+
     if (!realtimeNotifications || realtimeNotifications.length === 0) {
       console.log("⚠️ No realtime notifications");
       return;
     }
-    
+
     const latest = realtimeNotifications[0];
     console.log("📥 Processing latest notification:", latest);
 
+    // ✅ Ghép firstName + lastName
+    const senderName =
+      latest.senderFirstName || latest.senderLastName
+        ? [latest.senderFirstName, latest.senderLastName]
+            .filter(Boolean)
+            .join(" ")
+        : latest.senderName || "Unknown User";
+    console.log("✅ Sender:", {
+      first: latest.senderFirstName,
+      last: latest.senderLastName,
+      username: latest.senderName,
+    });
+
     const newNotification = {
       id: latest.id || Date.now(),
-      senderName: latest.senderName,
-      senderImageUrl: latest.avatar,
-      content: latest.message,
+      senderName, 
+      senderImageUrl: latest.senderImageUrl,
+      content: latest.content || latest.message,
       timestamp: latest.createdDate || new Date().toISOString(),
       type: latest.type || "general",
       postId: latest.postId, // ⭐ Đảm bảo có field này
+      senderId: latest.senderId,
       seen: false,
     };
+    console.log("📦 Latest notification data:", latest); // ✅ Log để xem cấu trúc
 
     setNotifications((prev) => {
-      const exists = prev.some(n => n.id === newNotification.id);
-      
+      const exists = prev.some((n) => n.id === newNotification.id);
+
       if (exists) {
         console.log("⚠️ Notification already in list:", newNotification.id);
         return prev;
       }
-      
+
       console.log("✅ Adding notification to page list");
       return [newNotification, ...prev];
     });
@@ -130,7 +144,15 @@ const NotificationsPage = () => {
 
   // ✅ Khi click vào notification → mở bài viết
   const handleNotificationClick = async (notification) => {
-    if (!notification.postId) {
+    // ✅ Kiểm tra nhiều field có thể chứa postId
+    const postId =
+      notification.postId || notification.post_id || notification.entityId;
+
+    console.log("🔍 Notification object:", notification);
+    console.log("🔍 Extracted Post ID:", postId);
+    console.log("🔍 Post ID type:", typeof postId);
+
+    if (!postId) {
       toast({
         title: "Notification không có bài viết liên kết",
         status: "info",
@@ -149,10 +171,13 @@ const NotificationsPage = () => {
         );
       }
 
-      const post = await fetchPostById(notification.postId, token);
+      const post = await fetchPostById(postId, token); // ✅ FIX: dùng postId thay vì notification.postId
+      console.log("✅ Post fetched successfully:", post);
+
       if (!post) {
         toast({
           title: "Không tìm thấy bài viết",
+          description: "Bài viết có thể đã bị xóa",
           status: "warning",
           duration: 2000,
           isClosable: true,
@@ -161,11 +186,18 @@ const NotificationsPage = () => {
         return;
       }
 
-      navigate(`/post/${notification.postId}`, { state: { post } });
+      navigate(`/post/${postId}`, { state: { post } });
     } catch (error) {
-      console.error("Error opening post:", error);
+      console.error("❌ Error opening post:", error);
+      console.error("❌ Error response:", error.response);
+
+      const errorMessage =
+        error.response?.data?.message || error.response?.status === 404
+          ? "Bài viết không tồn tại hoặc đã bị xóa"
+          : "Không thể mở bài viết";
+
       toast({
-        title: "Không thể mở bài viết",
+        title: errorMessage,
         status: "error",
         duration: 2000,
         isClosable: true,

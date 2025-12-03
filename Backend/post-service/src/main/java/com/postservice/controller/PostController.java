@@ -38,7 +38,6 @@ public class PostController {
                 .result(postService.getMyPosts())
                 .build();
     }
-
     @PutMapping("/{postId}/like")
     public ApiResponse<String> likePost(@PathVariable String postId) {
         return ApiResponse.<String>builder()

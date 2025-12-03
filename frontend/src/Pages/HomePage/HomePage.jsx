@@ -363,6 +363,7 @@ const HomePage = () => {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onPostCreate={handlePostCreated}
+        user={user} // ✅ thêm dòng này
       />
 
       <style jsx>{`

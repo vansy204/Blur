@@ -45,10 +45,15 @@ public class LikePostEventHandler implements EventHandler<Event> {
         Event event = objectMapper.readValue(jsonEvent, Event.class);
         event.setTimestamp(LocalDateTime.now());
         var profile = profileClient.getProfile(event.getSenderId());
-
+        String senderFullName = String.format("%s %s",
+                profile.getResult().getFirstName(),
+                profile.getResult().getLastName()
+        ).trim();
         Notification notification = Notification.builder()
                 .senderId(event.getSenderId())
-                .senderName(event.getSenderName())
+                .senderName(senderFullName)
+                .senderFirstName(profile.getResult().getFirstName())
+                .senderLastName(profile.getResult().getLastName())
                 .receiverId(event.getReceiverId())
                 .receiverName(event.getReceiverName())
                 .receiverEmail(event.getReceiverEmail())
@@ -56,9 +61,10 @@ public class LikePostEventHandler implements EventHandler<Event> {
                 .senderImageUrl(profile.getResult().getImageUrl())
                 .type(Type.LikePost)
                 .timestamp(event.getTimestamp())
-                .content(event.getSenderName() + " like your post on Blur.")
+                .content(" like your post on Blur.")
                 .postId(event.getPostId())
                 .build();
+        log.info("📨 Sending notification: {}", new ObjectMapper().writeValueAsString(notification));
         boolean isOnline = redisService.isOnline(event.getReceiverId());
         log.info("🔎 Receiver {} online? {}", event.getReceiverId(), isOnline);
         notificationService.save(notification);
