@@ -173,6 +173,7 @@ public class PostService {
         return new PageImpl<>(responses, pageable, postPage.getTotalElements());
     }
 
+
     @Cacheable(
         value = "userPosts",
         key = "#root.target.getCurrentUserId()",
