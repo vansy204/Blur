@@ -30,6 +30,7 @@ export const createPost = async (token, postData) => {
 //Lấy id của post
 export const fetchPostById = async (postId, token) => {
   try {
+     console.log("🌐 Fetching post:", postId); // ✅ Log postId trước khi gọi
     const response = await axios.get(
       `http://localhost:8888/api/post/${postId}`,
       {

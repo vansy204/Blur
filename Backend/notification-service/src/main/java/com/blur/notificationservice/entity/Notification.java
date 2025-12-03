@@ -22,6 +22,8 @@ public class Notification {
     String postId;
     String senderId;
     String senderName;
+    String senderFirstName;
+    String senderLastName;
     String receiverId;
     String receiverName;
     String receiverEmail;

@@ -95,10 +95,14 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const handleImageLoad = (index, e) => {
     const img = e.target;
     const aspectRatio = img.naturalWidth / img.naturalHeight;
-    
+
     setMediaDimensions((prev) => ({
       ...prev,
-      [index]: { aspectRatio, width: img.naturalWidth, height: img.naturalHeight },
+      [index]: {
+        aspectRatio,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      },
     }));
 
     // Set primary aspect ratio from first media
@@ -111,10 +115,14 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const handleVideoLoad = (index, e) => {
     const video = e.target;
     const aspectRatio = video.videoWidth / video.videoHeight;
-    
+
     setMediaDimensions((prev) => ({
       ...prev,
-      [index]: { aspectRatio, width: video.videoWidth, height: video.videoHeight },
+      [index]: {
+        aspectRatio,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      },
     }));
 
     // Set primary aspect ratio from first media
@@ -275,7 +283,7 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       }
 
       setIsSaved(true);
-      
+
       toast({
         title: "Post saved successfully",
         status: "success",
@@ -331,36 +339,36 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const getMediaContainerStyle = () => {
     // Wait until first media loads
     if (primaryAspectRatio === null) {
-      return { 
-        height: '400px',
-        width: '100%'
+      return {
+        height: "400px",
+        width: "100%",
       };
     }
 
     const aspectRatio = primaryAspectRatio;
-    
+
     // Portrait (dọc): aspect ratio < 0.8
     if (aspectRatio < 0.8) {
       return {
         aspectRatio: aspectRatio.toString(),
-        maxHeight: '600px',
-        width: '100%',
+        maxHeight: "600px",
+        width: "100%",
       };
     }
     // Landscape (ngang): aspect ratio > 1.3
     else if (aspectRatio > 1.3) {
       return {
         aspectRatio: aspectRatio.toString(),
-        maxHeight: '500px',
-        width: '100%',
+        maxHeight: "500px",
+        width: "100%",
       };
     }
     // Square or near square (0.8 - 1.3)
     else {
       return {
         aspectRatio: aspectRatio.toString(),
-        maxHeight: '600px',
-        width: '100%',
+        maxHeight: "600px",
+        width: "100%",
       };
     }
   };
@@ -389,8 +397,11 @@ const PostCard = ({ post, user, onPostDeleted }) => {
               className="font-bold text-base cursor-pointer hover:text-sky-600"
               onClick={handleClickUserName}
             >
-              {post?.userName || "Unknown"}
+              {post?.userName ||
+                `${post?.firstName || ""} ${post?.lastName || ""}`.trim() ||
+                "Unknown"}
             </p>
+
             <p className="text-xs text-gray-500 font-medium">
               {post?.createdAt ? timeDifference(post.createdAt) : "Just now"}
             </p>
@@ -444,10 +455,10 @@ const PostCard = ({ post, user, onPostDeleted }) => {
             {mediaUrls.map((url, index) => {
               const isVideo = url.match(/\.(mp4|webm|ogg)$/i);
               const containerStyle = getMediaContainerStyle(); // Same for all slides
-              
+
               return (
                 <SwiperSlide key={index}>
-                  <div 
+                  <div
                     className="flex justify-center items-center w-full bg-black/5 overflow-hidden"
                     style={containerStyle}
                   >
