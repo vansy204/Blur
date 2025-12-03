@@ -15,7 +15,7 @@ import lombok.experimental.FieldDefaults;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class ExchangeTokenResponse {
     String accessToken;
-    String expiresIn;
+    Long expiresIn;
     String refreshToken;
     String scope;
     String tokenType;
