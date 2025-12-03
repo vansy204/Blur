@@ -54,19 +54,31 @@ class WebRTCService {
   }
 
   createPeerConnection(onIceCandidate, onTrack, onConnectionStateChange) {
-    // Clean up existing connection first
+    // ✅ FIX: Don't destroy existing peer connection if it's already being used
+    // Only create a new one if we don't have one or if the current one is closed
+    if (
+      this.peerConnection &&
+      this.peerConnection.connectionState !== 'closed'
+    ) {
+      return this.peerConnection;
+    }
+
+    // Clean up existing closed connection
     if (this.peerConnection) {
       this.peerConnection.close();
     }
 
-    // Reset pending ICE candidates
-    this.pendingIceCandidates = [];
+    // ✅ FIX: Don't reset pending ICE candidates here!
+    // They may have arrived before the peer connection was created
+    // and we need to process them after setting remote description
+    // this.pendingIceCandidates = []; // REMOVED - causes candidates to be lost!
 
     this.peerConnection = new RTCPeerConnection(this.configuration);
 
     // Add local tracks
     if (this.localStream) {
-      this.localStream.getTracks().forEach(track => {
+      const tracks = this.localStream.getTracks();
+      tracks.forEach((track) => {
         this.peerConnection.addTrack(track, this.localStream);
       });
     }
@@ -89,18 +101,29 @@ class WebRTCService {
     // Connection state handler
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection.connectionState;
-      
+
       if (onConnectionStateChange) {
         onConnectionStateChange(state);
       }
-      
+
       if (state === 'failed') {
         this.peerConnection.restartIce();
       }
     };
 
+    // ICE connection state handler - Also monitor ICE state
     this.peerConnection.oniceconnectionstatechange = () => {
-      // ICE connection state changed
+      const iceState = this.peerConnection.iceConnectionState;
+      const connState = this.peerConnection.connectionState;
+      // If ICE is connected but connectionState hasn't updated, manually trigger
+      if (iceState === 'connected' || iceState === 'completed') {
+        if (connState !== 'connected') {
+          // Force update connection state
+          if (onConnectionStateChange) {
+            onConnectionStateChange('connected');
+          }
+        }
+      }
     };
 
     this.peerConnection.onicegatheringstatechange = () => {
@@ -116,7 +139,7 @@ class WebRTCService {
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
-      
+
       await this.peerConnection.setLocalDescription(offer);
       return offer;
     } catch (error) {
@@ -126,10 +149,9 @@ class WebRTCService {
 
   async createAnswer(offer) {
     try {
-      await this.peerConnection.setRemoteDescription(
-        new RTCSessionDescription(offer)
-      );
-      
+      // Use offer directly without RTCSessionDescription (modern browsers)
+      await this.peerConnection.setRemoteDescription(offer);
+
       // Process pending ICE candidates after remote description is set
       for (const candidate of this.pendingIceCandidates) {
         try {
@@ -139,10 +161,10 @@ class WebRTCService {
         }
       }
       this.pendingIceCandidates = [];
-      
+
       const answer = await this.peerConnection.createAnswer();
       await this.peerConnection.setLocalDescription(answer);
-      
+
       return answer;
     } catch (error) {
       throw error;
@@ -151,10 +173,9 @@ class WebRTCService {
 
   async setRemoteAnswer(answer) {
     try {
-      await this.peerConnection.setRemoteDescription(
-        new RTCSessionDescription(answer)
-      );
-      
+      // Use answer directly without RTCSessionDescription (modern browsers)
+      await this.peerConnection.setRemoteDescription(answer);
+
       // Process pending ICE candidates after remote answer is set
       for (const candidate of this.pendingIceCandidates) {
         try {
@@ -164,7 +185,7 @@ class WebRTCService {
         }
       }
       this.pendingIceCandidates = [];
-      
+
     } catch (error) {
       throw error;
     }
@@ -172,11 +193,13 @@ class WebRTCService {
 
   async addIceCandidate(candidate) {
     try {
-      // Queue ICE candidates if remote description not set yet
+      // Queue ICE candidates if peer connection doesn't exist yet
       if (!this.peerConnection) {
+        this.pendingIceCandidates.push(candidate);
         return;
       }
 
+      // Queue if remote description not set yet
       if (!this.peerConnection.remoteDescription) {
         this.pendingIceCandidates.push(candidate);
         return;

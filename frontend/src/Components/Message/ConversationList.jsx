@@ -223,7 +223,7 @@ const ConversationItem = React.memo(({
 
 ConversationItem.displayName = 'ConversationItem';
 
-const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onConversationDeleted }) => {
+const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onConversationDeleted, onConversationCreated }) => {
   const { unreadByConversation } = useUnreadMessages();
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, conversation: null });
   const [isDeleting, setIsDeleting] = useState(false);
@@ -253,7 +253,7 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
   // Handle select conversation
   const handleSelect = useCallback(async (conv) => {
     onSelect(conv);
-    
+
     const unreadCount = unreadByConversation[conv.id] || 0;
     if (unreadCount > 0) {
       try {
@@ -261,7 +261,7 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
         
@@ -380,7 +380,10 @@ const ConversationList = ({ conversations, selected, onSelect, onSelectUser, onC
         
         {/* User Search Bar */}
         <div className="border-b border-gray-100 bg-gradient-to-b from-sky-50/50 to-white">
-          <UserSearchBar onSelectUser={onSelectUser} />
+          <UserSearchBar
+            onSelectUser={onSelectUser}
+            onConversationCreated={onConversationCreated}
+          />
         </div>
         
         {/* Conversations List */}

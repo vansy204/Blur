@@ -7,28 +7,26 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
-import com.blur.chatservice.entity.ChatMessage;
-import com.blur.chatservice.enums.MessageType;
-import com.blur.chatservice.repository.ChatMessageRepository;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.blur.chatservice.dto.request.ConversationRequest;
 import com.blur.chatservice.dto.response.ConversationResponse;
+import com.blur.chatservice.entity.ChatMessage;
 import com.blur.chatservice.entity.Conversation;
 import com.blur.chatservice.entity.ParticipantInfo;
+import com.blur.chatservice.enums.MessageType;
 import com.blur.chatservice.exception.AppException;
 import com.blur.chatservice.exception.ErrorCode;
 import com.blur.chatservice.mapper.ConversationMapper;
+import com.blur.chatservice.repository.ChatMessageRepository;
 import com.blur.chatservice.repository.ConversationRepository;
 import com.blur.chatservice.repository.httpclient.ProfileClient;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,24 +36,20 @@ public class ConversationService {
     ConversationMapper conversationMapper;
     ProfileClient profileClient;
     ConversationRepository conversationRepository;
-    ChatMessageRepository chatMessageRepository;  // ✅ ADD THIS
+    ChatMessageRepository chatMessageRepository; // ✅ ADD THIS
     RedisCacheService redisCacheService;
 
     /**
      * Get user's conversations with last messages
      * ✅ FIX: Use toConversationResponseWithLastMessage
+     * Caching disabled to prevent Redis serialization errors
      */
-    @Cacheable(
-            value = "userConversations",
-            key = "#root.target.getCurrentUserId()",
-            unless = "#result == null || #result.isEmpty()"
-    )
     public List<ConversationResponse> myConversations() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         var userResponse = profileClient.getProfile(userId);
 
-        List<Conversation> conversations = conversationRepository
-                .findAllByParticipantIdsContains(userResponse.getResult().getUserId());
+        List<Conversation> conversations = conversationRepository.findAllByParticipantIdsContains(
+                userResponse.getResult().getUserId());
 
         // ✅ FIX: Map with last message
         return conversations.stream()
@@ -64,11 +58,12 @@ public class ConversationService {
     }
 
     @Transactional
-    @CacheEvict(value = "userConversations", allEntries = true)
+    // @CacheEvict disabled to prevent Redis serialization errors
     public ConversationResponse createConversation(ConversationRequest request) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         var userInfoResponse = profileClient.getProfile(userId);
-        var participantInfoResponse = profileClient.getProfile(request.getParticipantIds().get(0));
+        var participantInfoResponse =
+                profileClient.getProfile(request.getParticipantIds().get(0));
 
         if (Objects.isNull(userInfoResponse) || Objects.isNull(participantInfoResponse)) {
             throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
@@ -113,17 +108,19 @@ public class ConversationService {
                     return conversationRepository.save(newConversation);
                 });
 
-        redisCacheService.cacheConversation(conversation.getId(), conversation, 15);
+        // Cache operation disabled to prevent Redis serialization errors
+        // redisCacheService.cacheConversation(conversation.getId(), conversation, 15);
 
         return toConversationResponse(conversation);
     }
 
     @Transactional
-    @CacheEvict(value = "userConversations", allEntries = true)
+    // @CacheEvict disabled to prevent Redis serialization errors
     public String deleteConversation(String conversationId) {
         conversationRepository.deleteById(conversationId);
-        redisCacheService.evictConversation(conversationId);
-        redisCacheService.evictLastMessage(conversationId);
+        // Cache operations disabled:
+        // redisCacheService.evictConversation(conversationId);
+        // redisCacheService.evictLastMessage(conversationId);
 
         return "Deleted conversation successfully";
     }
@@ -134,7 +131,8 @@ public class ConversationService {
      * ✅ NEW METHOD: Convert conversation to response WITH last message
      */
     private ConversationResponse toConversationResponseWithLastMessage(Conversation conversation) {
-        String currentUserId = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUserId =
+                SecurityContextHolder.getContext().getAuthentication().getName();
         var profileResponse = profileClient.getProfile(currentUserId);
 
         // Build base response using mapper
@@ -147,8 +145,7 @@ public class ConversationService {
                         .equals(profileResponse.getResult().getUserId()))
                 .findFirst()
                 .ifPresent(participantInfo -> {
-                    response.setConversationName(
-                            participantInfo.getFirstName() + " " + participantInfo.getLastName());
+                    response.setConversationName(participantInfo.getFirstName() + " " + participantInfo.getLastName());
                     response.setConversationAvatar(participantInfo.getAvatar());
                 });
 
@@ -160,8 +157,8 @@ public class ConversationService {
             response.setLastMessageTime(lastMessage.getCreatedDate());
 
             if (lastMessage.getSender() != null) {
-                String senderName = lastMessage.getSender().getFirstName() + " " +
-                        lastMessage.getSender().getLastName();
+                String senderName = lastMessage.getSender().getFirstName() + " "
+                        + lastMessage.getSender().getLastName();
                 response.setLastMessageSender(senderName.trim());
             }
         }
@@ -173,7 +170,8 @@ public class ConversationService {
      * Standard conversation response (without last message)
      */
     private ConversationResponse toConversationResponse(Conversation conversation) {
-        String currentUserId = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentUserId =
+                SecurityContextHolder.getContext().getAuthentication().getName();
         var profileResponse = profileClient.getProfile(currentUserId);
 
         ConversationResponse response = conversationMapper.toConversationResponse(conversation);
@@ -184,8 +182,7 @@ public class ConversationService {
                         .equals(profileResponse.getResult().getUserId()))
                 .findFirst()
                 .ifPresent(participantInfo -> {
-                    response.setConversationName(
-                            participantInfo.getFirstName() + " " + participantInfo.getLastName());
+                    response.setConversationName(participantInfo.getFirstName() + " " + participantInfo.getLastName());
                     response.setConversationAvatar(participantInfo.getAvatar());
                 });
 
@@ -193,30 +190,15 @@ public class ConversationService {
     }
 
     /**
-     * Get last message with Redis cache
+     * Get last message from MongoDB
+     * Redis caching disabled to prevent serialization errors
      */
     private ChatMessage getLastMessageCached(String conversationId) {
         try {
-            // 1. Try Redis cache first
-            ChatMessage cached = redisCacheService.getLastMessage(conversationId, ChatMessage.class);
-            if (cached != null) {
-                return cached;
-            }
-
-            // 2. Cache miss - query MongoDB
-            ChatMessage lastMessage = chatMessageRepository
-                    .findFirstByConversationIdOrderByCreatedDateDesc(conversationId);
-
-            // 3. Cache for next time
-            if (lastMessage != null) {
-                redisCacheService.cacheLastMessage(conversationId, lastMessage, 10);
-            }
-
-            return lastMessage;
+            // Direct query to MongoDB (no Redis caching)
+            return chatMessageRepository.findFirstByConversationIdOrderByCreatedDateDesc(conversationId);
         } catch (Exception e) {
-            // Fallback to DB query on error
-            return chatMessageRepository
-                    .findFirstByConversationIdOrderByCreatedDateDesc(conversationId);
+            return null;
         }
     }
 

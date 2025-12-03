@@ -60,13 +60,15 @@ export const uploadToCloudnary = async (file) => {
   }
 };
 
-const ChatArea = ({ 
-  conversation, 
-  messages, 
-  onSendMessage, 
-  isConnected, 
+const ChatArea = ({
+  conversation,
+  messages,
+  onSendMessage,
+  isConnected,
   currentUserId,
-  currentUser
+  currentUser,
+  loadingMessages = false,
+  messagesError = null
 }) => {
   const [input, setInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -433,7 +435,27 @@ const ChatArea = ({
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto bg-white" style={{ scrollbarWidth: 'thin' }}>
-        {messages.length === 0 ? (
+        {loadingMessages ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 px-6">
+            <div className="w-16 h-16 mb-5 rounded-full flex items-center justify-center border-4 border-blue-200 border-t-blue-500 animate-spin">
+            </div>
+            <p className="text-center text-sm font-normal text-gray-500">
+              Đang tải tin nhắn...
+            </p>
+          </div>
+        ) : messagesError ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 px-6">
+            <div className="w-24 h-24 mb-5 border-2 border-red-300 rounded-full flex items-center justify-center">
+              <Send size={40} className="text-red-400" strokeWidth={1.5} />
+            </div>
+            <p className="text-center text-sm font-normal text-red-500 mb-1">
+              {messagesError}
+            </p>
+            <p className="text-center text-xs text-gray-400">
+              Vui lòng thử lại hoặc làm mới trang
+            </p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 px-6">
             <div className="w-24 h-24 mb-5 border-2 border-gray-300 rounded-full flex items-center justify-center">
               <Send size={40} className="text-gray-400" strokeWidth={1.5} />
@@ -448,9 +470,9 @@ const ChatArea = ({
         ) : (
           <div className="py-4 px-5">
             {messages.map((msg) => (
-              <MessageBubble 
-                key={msg.id} 
-                msg={msg} 
+              <MessageBubble
+                key={msg.id}
+                msg={msg}
                 currentUserId={currentUserId}
               />
             ))}

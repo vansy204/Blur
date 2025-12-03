@@ -153,7 +153,6 @@ const MessageBubble = React.memo(({ msg, currentUserId }) => {
                   ))}
                 </div>
               )}
-              
               {/* Text message */}
               {hasText && (
                 <div className={`px-3 py-2 break-words whitespace-pre-wrap text-[15px] leading-[18px] font-normal ${

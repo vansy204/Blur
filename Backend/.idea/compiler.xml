@@ -8,10 +8,11 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="IdentityService" />
-        <module name="api-gateway" />
         <module name="post-service" />
+        <module name="api-gateway" />
         <module name="profile-service" />
         <module name="notification-service" />
+        <module name="ai-service" />
       </profile>
       <profile name="Annotation profile for chat-service" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -41,6 +42,7 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="IdentityService" options="-parameters" />
+      <module name="ai-service" options="-parameters" />
       <module name="api-gateway" options="-parameters" />
       <module name="chat-service" options="-parameters" />
       <module name="file-service" options="-parameters" />

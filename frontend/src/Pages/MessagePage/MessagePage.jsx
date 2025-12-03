@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from 'react-hot-toast';
-import { getUserId } from "../../utils/auth";
-import { apiCall } from "../../service/api";
+import { getUserId, getToken } from "../../utils/auth";
+import { apiCall, profileApiCall } from "../../service/api";
 import { useSocket } from "../../contexts/SocketContext";
 import { useNotification, requestNotificationPermission } from "../../contexts/NotificationContext";
 import { useUnreadMessages } from "../../hooks/useUnreadMessages";
@@ -17,6 +17,8 @@ export default function MessagePage() {
   const [messages, setMessages] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messagesError, setMessagesError] = useState(null);
   const currentConversationRef = useRef(null);
   const messagesFetchedRef = useRef(new Set());
 
@@ -50,8 +52,8 @@ export default function MessagePage() {
       
       try {
         try {
-          const response = await apiCall('http://localhost:8888/api/profile/users/myInfo');
-          
+          const response = await profileApiCall('/users/myInfo');
+
           if (response?.result) {
             setCurrentUser(response.result);
             return;
@@ -119,8 +121,15 @@ export default function MessagePage() {
 
   // === FETCH MESSAGES ===
   const fetchMessages = useCallback(async (conversationId) => {
+    setLoadingMessages(true);
+    setMessagesError(null);
     try {
       const data = await apiCall(`/messages?conversationId=${conversationId}`);
+
+      if (!data) {
+        throw new Error('No response data from server');
+      }
+
       const msgs = (data.result || []).map((msg) => ({
         id: msg.id,
         message: msg.message,
@@ -133,32 +142,44 @@ export default function MessagePage() {
         isPending: false,
         isRead: msg.isRead,
       }));
-      
+
       const sortedMsgs = msgs.sort((a, b) => {
         const timeA = new Date(a.createdDate).getTime();
         const timeB = new Date(b.createdDate).getTime();
         return timeA - timeB;
       });
-      
+
       setMessages(sortedMsgs);
       messagesFetchedRef.current.add(conversationId);
+      setLoadingMessages(false);
     } catch (err) {
       console.error('❌ Error fetching messages:', err);
+      setMessagesError(err.message || 'Failed to load messages');
+      setLoadingMessages(false);
+      toast.error('Không thể tải tin nhắn. Vui lòng thử lại.', {
+        duration: 2000,
+        style: { borderRadius: '12px', fontSize: '14px' }
+      });
     }
   }, []);
 
   // === HANDLE SELECT CONVERSATION ===
   const handleSelectConversation = useCallback(async (conv) => {
     if (!currentUserId || !conv) return;
-    
+
     setSelectedChat(conv);
     currentConversationRef.current = conv.id;
     setMessages([]);
-    
+    setMessagesError(null);
+
+    // Always fetch messages fresh (don't use cache)
     await fetchMessages(conv.id);
-    
+
     try {
-      markConversationAsRead(conv.id).catch(err => {});
+      const token = getToken();
+      if (token) {
+        markConversationAsRead(conv.id, token).catch(err => {});
+      }
     } catch (err) {
       // Error marking as read
     }
@@ -277,7 +298,10 @@ export default function MessagePage() {
       });
       
       try {
-        markConversationAsRead(data.conversationId).catch(err => {});
+        const token = getToken();
+        if (token) {
+          markConversationAsRead(data.conversationId, token).catch(err => {});
+        }
       } catch (err) {
         // Error auto-marking as read
       }
@@ -292,7 +316,26 @@ export default function MessagePage() {
     });
   }, [registerMessageCallbacks, handleMessageSent, handleMessageReceived]);
 
-  // === HANDLE SELECT USER ===
+  // === HANDLE CONVERSATION CREATED (from UserSearchBar) ===
+  const handleConversationCreated = useCallback(
+    (conversation) => {
+      if (conversation) {
+        // Immediately add to conversations list and select it
+        setConversations((prev) => {
+          // Check if already exists
+          if (!prev.find((c) => c.id === conversation.id)) {
+            return [conversation, ...prev];
+          }
+          return prev;
+        });
+        // Immediately select the newly created conversation
+        handleSelectConversation(conversation);
+      }
+    },
+    [handleSelectConversation]
+  );
+
+  // === HANDLE SELECT USER (Fallback if no conversation created) ===
   const handleSelectUser = useCallback(
     async (user) => {
       const existingConv = conversations.find(
@@ -399,6 +442,7 @@ export default function MessagePage() {
           onSelect={handleSelectConversation}
           onSelectUser={handleSelectUser}
           onConversationDeleted={handleConversationDeleted}
+          onConversationCreated={handleConversationCreated}
         />
       </div>
       
@@ -412,6 +456,8 @@ export default function MessagePage() {
           currentUserId={currentUserId}
           currentUser={currentUser}
           onBack={handleBack}
+          loadingMessages={loadingMessages}
+          messagesError={messagesError}
         />
       </div>
     </div>

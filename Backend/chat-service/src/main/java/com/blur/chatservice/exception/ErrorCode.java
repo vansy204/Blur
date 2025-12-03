@@ -1,6 +1,7 @@
 package com.blur.chatservice.exception;
 
 import org.springframework.http.HttpStatus;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

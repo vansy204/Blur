@@ -131,10 +131,14 @@ public class AuthenticationService {
         InvalidatedToken invalidatedToken =
                 InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
         tokenRepository.save(invalidatedToken);
-        var username = signJWT.getJWTClaimsSet().getSubject();
-        var user =
-                userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        var token = generateToken(user);
+
+        // subject hiện tại là userId (do generateToken dùng user.getId())
+        String userId = signJWT.getJWTClaimsSet().getSubject();
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        String token = generateToken(user);
 
         return AuthResponse.builder().token(token).authenticated(true).build();
     }
@@ -203,15 +207,22 @@ public class AuthenticationService {
 
         // onboarding google user vao he thong
         var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
+
         Set<Role> roles = new HashSet<>();
         roles.add(Role.builder().name("USER").build());
-        var saveUser = userRepository.save(
-                User.builder().username(userInfo.getEmail()).roles(roles).build());
+
+        var user = userRepository.findByUsername(userInfo.getEmail()).orElseGet(
+                () -> userRepository.save(User.builder()
+                                .username(userInfo.getEmail())
+                                .firstName(userInfo.getGivenName())
+                                .lastName(userInfo.getFamilyName())
+                                .roles(roles)
+                        .build()));
 
         // convert token cua google thanh token cua he thong
-        var token = generateToken(saveUser);
+        var token = generateToken(user);
         profileClient.createProfile(ProfileCreationRequest.builder()
-                .userId(saveUser.getId())
+                .userId(user.getId())
                 .firstName(userInfo.getGivenName())
                 .lastName(userInfo.getFamilyName())
                 .city(userInfo.getLocale())

@@ -1,15 +1,18 @@
 package com.blur.chatservice.service;
 
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -29,7 +32,6 @@ public class RedisCacheService {
     private static final String SESSION_PREFIX = "chat-service:session:";
     private static final String USER_SESSIONS_PREFIX = "chat-service:user:sessions:";
     private static final long SESSION_TTL = 7200; // 2 hours in seconds
-
 
     public void cacheCallSession(String callId, Object session, long ttlSeconds) {
         try {
@@ -196,6 +198,7 @@ public class RedisCacheService {
             Object value = redisTemplate.opsForValue().get(key);
             return value != null ? type.cast(value) : null;
         } catch (Exception e) {
+            log.warn("Failed to get message from cache: key={}, error={}", MESSAGE_PREFIX + messageId, e.getMessage());
             return null;
         }
     }
@@ -265,6 +268,11 @@ public class RedisCacheService {
             Object value = redisTemplate.opsForValue().get(key);
             return value != null ? Integer.parseInt(value.toString()) : null;
         } catch (Exception e) {
+            log.warn(
+                    "Failed to get unread count from cache: conversationId={}, userId={}, error={}",
+                    conversationId,
+                    userId,
+                    e.getMessage());
             return null;
         }
     }
@@ -341,7 +349,6 @@ public class RedisCacheService {
         }
     }
 
-
     public void cleanupCallCaches(String callId, String callerId, String receiverId) {
         try {
             redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
@@ -355,7 +362,6 @@ public class RedisCacheService {
         } catch (Exception e) {
         }
     }
-
 
     private void deleteByPattern(String pattern) {
         try {
@@ -482,6 +488,7 @@ public class RedisCacheService {
             // Silent fail
         }
     }
+
     private static final String LAST_MESSAGE_PREFIX = "chat-service:lastmsg:";
 
     public void cacheLastMessage(String conversationId, Object lastMessage, long ttlMinutes) {
@@ -492,6 +499,7 @@ public class RedisCacheService {
             // Silent fail
         }
     }
+
     public <T> T getLastMessage(String conversationId, Class<T> type) {
         try {
             String key = LAST_MESSAGE_PREFIX + conversationId;

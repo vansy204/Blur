@@ -22,8 +22,6 @@ public class WebsocketSessionService {
     WebsocketSessionRepository websocketSessionRepository;
     RedisCacheService redisCacheService;
 
-
-
     @Transactional
     public WebsocketSession createSession(String sessionId, String userId) {
         WebsocketSession session = WebsocketSession.builder()
@@ -31,7 +29,7 @@ public class WebsocketSessionService {
                 .userId(userId)
                 .createdAt(Instant.now())
                 .build();
-        redisCacheService.cacheSession(sessionId,userId,120);
+        redisCacheService.cacheSession(sessionId, userId, 120);
         redisCacheService.setUserOnlineStatus(userId, true);
         return websocketSessionRepository.save(session);
     }
@@ -41,19 +39,19 @@ public class WebsocketSessionService {
         String userId = redisCacheService.getSessionUserId(sessionId);
         websocketSessionRepository.deleteBySocketSessionId(sessionId);
 
-        //remove from cache
-        if(userId != null){
-            redisCacheService.removeSession(sessionId,userId);
+        // remove from cache
+        if (userId != null) {
+            redisCacheService.removeSession(sessionId, userId);
 
-            //update online status if no mo sessions
-            if(redisCacheService.getUserActiveSessionCount(userId) == 0){
+            // update online status if no mo sessions
+            if (redisCacheService.getUserActiveSessionCount(userId) == 0) {
                 redisCacheService.setUserOnlineStatus(userId, false);
             }
         }
     }
 
     public boolean isUserOnline(String userId) {
-        if(redisCacheService.isUserOnline(userId)){
+        if (redisCacheService.isUserOnline(userId)) {
             return true;
         }
         return !websocketSessionRepository.findByUserId(userId).isEmpty();

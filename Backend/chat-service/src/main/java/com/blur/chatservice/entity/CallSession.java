@@ -1,13 +1,15 @@
 package com.blur.chatservice.entity;
 
-import com.blur.chatservice.enums.CallStatus;
-import com.blur.chatservice.enums.CallType;
-import lombok.*;
-import lombok.experimental.FieldDefaults;
+import java.time.LocalDateTime;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
+import com.blur.chatservice.enums.CallStatus;
+import com.blur.chatservice.enums.CallType;
+
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 
 @Data
 @Builder
@@ -42,5 +44,4 @@ public class CallSession {
 
     String conversationId;
     String endReason;
-
 }

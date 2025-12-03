@@ -266,7 +266,7 @@ export const useCall = (currentUserId) => {
   const initiateCall = useCallback(async (receiverData, callType) => {
     try {
       const stream = await webRTCService.initializeMedia(callType === 'VIDEO');
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.muted = true;
@@ -292,7 +292,9 @@ export const useCall = (currentUserId) => {
         conversationId: receiverData.conversationId
       });
 
-      if (!success) throw new Error('Socket initiate failed');
+      if (!success) {
+        throw new Error('Socket connection not ready. Please try again.');
+      }
 
       setCallState({
         isInCall: true,
@@ -308,6 +310,26 @@ export const useCall = (currentUserId) => {
 
       verifyAndEnableAudio();
 
+      // Set timeout for call initiation (30 seconds)
+      const initiationTimeout = setTimeout(() => {
+        if (callStateRef.current.status === CALL_STATUS.INITIATING) {
+          // Call didn't progress from INITIATING state
+          const callInfo = pendingCallInfoRef.current || {};
+          setCallEndedInfo({
+            callerName: callInfo.receiverName || 'Người nhận',
+            callerAvatar: callInfo.receiverAvatar || null,
+            callType: callInfo.callType || callType,
+            duration: 0,
+            endReason: 'FAILED',
+            errorMessage: 'Không thể kết nối tới người dùng'
+          });
+          cleanup();
+        }
+      }, 30000);
+
+      // Store timeout for cleanup
+      callTimerRef.current = initiationTimeout;
+
     } catch (error) {
       const callInfo = pendingCallInfoRef.current || {};
       setCallEndedInfo({
@@ -315,7 +337,8 @@ export const useCall = (currentUserId) => {
         callerAvatar: callInfo.receiverAvatar || null,
         callType: callInfo.callType || callType,
         duration: 0,
-        endReason: 'FAILED'
+        endReason: 'FAILED',
+        errorMessage: error.message || 'Không thể khởi tạo cuộc gọi'
       });
       cleanup();
     }
@@ -450,11 +473,17 @@ export const useCall = (currentUserId) => {
   // ============ SOCKET EVENT HANDLERS (Memoized) ============
   const handleCallInitiated = useCallback((data) => {
     const callInfo = pendingCallInfoRef.current;
-    
+
     if (!callInfo) {
       return;
     }
-    
+
+    // Clear initiation timeout since call is progressing
+    if (callTimerRef.current) {
+      clearTimeout(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+
     setCallState(prev => ({
       ...prev,
       callId: data.callId,
@@ -637,6 +666,7 @@ export const useCall = (currentUserId) => {
     try {
       await webRTCService.addIceCandidate(data.candidate);
     } catch (error) {
+      // Error adding ICE candidate
     }
   }, []);
 

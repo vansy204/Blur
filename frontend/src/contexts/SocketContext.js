@@ -129,18 +129,21 @@ export const SocketProvider = ({ children }) => {
 
       // Call events
       socket.on("call:initiated", (data) => {
+        console.log("✅ Received call:initiated event:", data);
         if (callCallbacksRef.current.onCallInitiated) {
           callCallbacksRef.current.onCallInitiated(data);
         }
       });
 
       socket.on("call:incoming", (data) => {
+        console.log("📞 Received call:incoming event:", data);
         if (callCallbacksRef.current.onIncomingCall) {
           callCallbacksRef.current.onIncomingCall(data);
         }
       });
 
       socket.on("call:answered", (data) => {
+        console.log("✅ Received call:answered event:", data);
         if (callCallbacksRef.current.onCallAnswered) {
           callCallbacksRef.current.onCallAnswered(data);
         }
@@ -249,13 +252,16 @@ export const SocketProvider = ({ children }) => {
 
   const initiateCall = useCallback((callData) => {
     if (!socketRef.current || !isConnected) {
+      console.error("❌ Socket not connected or socketRef is null");
       return false;
     }
 
     try {
+      console.log("📡 Emitting call:initiate event:", callData);
       socketRef.current.emit("call:initiate", callData);
       return true;
     } catch (error) {
+      console.error("❌ Error emitting call:initiate:", error);
       return false;
     }
   }, [isConnected]);

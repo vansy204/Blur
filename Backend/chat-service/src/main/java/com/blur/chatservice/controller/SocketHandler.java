@@ -4,14 +4,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import com.blur.chatservice.entity.CallSession;
-import com.blur.chatservice.enums.CallStatus;
-import com.blur.chatservice.enums.CallType;
-import com.blur.chatservice.exception.AppException;
-import com.blur.chatservice.exception.ErrorCode;
-import com.blur.chatservice.service.CallService;
-import com.blur.chatservice.service.RedisCacheService;
-import com.corundumstudio.socketio.AckRequest;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
@@ -19,12 +11,21 @@ import org.springframework.stereotype.Component;
 
 import com.blur.chatservice.dto.request.ChatMessageRequest;
 import com.blur.chatservice.dto.response.ChatMessageResponse;
+import com.blur.chatservice.entity.CallSession;
+import com.blur.chatservice.entity.ChatMessage;
 import com.blur.chatservice.entity.MediaAttachment;
 import com.blur.chatservice.entity.ParticipantInfo;
+import com.blur.chatservice.enums.CallStatus;
+import com.blur.chatservice.enums.CallType;
+import com.blur.chatservice.exception.AppException;
+import com.blur.chatservice.exception.ErrorCode;
 import com.blur.chatservice.repository.ConversationRepository;
+import com.blur.chatservice.service.CallService;
 import com.blur.chatservice.service.ChatMessageService;
 import com.blur.chatservice.service.IdentityService;
+import com.blur.chatservice.service.RedisCacheService;
 import com.blur.chatservice.service.WebsocketSessionService;
+import com.corundumstudio.socketio.AckRequest;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 
@@ -92,11 +93,9 @@ public class SocketHandler {
                 throw new AppException(ErrorCode.TOKEN_REQUIRED);
             }
 
-            var introspectRes = identityService.introspect(
-                    com.blur.chatservice.dto.request.IntrospectRequest.builder()
-                            .token(token)
-                            .build()
-            );
+            var introspectRes = identityService.introspect(com.blur.chatservice.dto.request.IntrospectRequest.builder()
+                    .token(token)
+                    .build());
 
             if (!introspectRes.isValid()) {
                 throw new AppException(ErrorCode.INVALID_TOKEN);
@@ -117,8 +116,7 @@ public class SocketHandler {
             Map<String, Object> connectedData = Map.of(
                     "userId", userId,
                     "sessionId", sessionId,
-                    "timestamp", Instant.now().toString()
-            );
+                    "timestamp", Instant.now().toString());
 
             client.sendEvent("connected", connectedData);
 
@@ -188,14 +186,11 @@ public class SocketHandler {
             }
 
             ChatMessageRequest.ChatMessageRequestBuilder builder =
-                    ChatMessageRequest.builder()
-                            .conversationId(conversationId)
-                            .message(message);
+                    ChatMessageRequest.builder().conversationId(conversationId).message(message);
 
             if (hasAttachments) {
-                List<MediaAttachment> attachments = attachmentsData.stream()
-                        .map(this::mapToAttachment)
-                        .collect(Collectors.toList());
+                List<MediaAttachment> attachments =
+                        attachmentsData.stream().map(this::mapToAttachment).collect(Collectors.toList());
                 builder.attachments(attachments);
             }
 
@@ -248,7 +243,8 @@ public class SocketHandler {
                 throw new AppException(ErrorCode.CONVERSATION_ID_REQUIRED);
             }
 
-            var conversation = conversationRepository.findById(conversationId)
+            var conversation = conversationRepository
+                    .findById(conversationId)
                     .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
             String receiverId = conversation.getParticipants().stream()
@@ -260,8 +256,7 @@ public class SocketHandler {
             Map<String, Object> typingData = Map.of(
                     "conversationId", conversationId,
                     "userId", senderId,
-                    "isTyping", isTyping
-            );
+                    "isTyping", isTyping);
 
             sendToUser(receiverId, "user_typing", typingData);
 
@@ -300,19 +295,20 @@ public class SocketHandler {
             }
 
             CallSession session = callService.initiateCall(
-                    callerId, callerName, callerAvatar,
-                    receiverId, receiverName, receiverAvatar,
+                    callerId,
+                    callerName,
+                    callerAvatar,
+                    receiverId,
+                    receiverName,
+                    receiverAvatar,
                     callType,
                     client.getSessionId().toString(),
-                    conversationId
-            );
+                    conversationId);
 
             sessionId = session.getId();
 
-            client.sendEvent("call:initiated", Map.of(
-                    "success", true,
-                    "callId", session.getId()
-            ));
+            // Send to caller
+            client.sendEvent("call:initiated", Map.of("success", true, "callId", session.getId()));
 
             // Get receiver socket from Redis
             String receiverSocketId = redisCacheService.getUserSocket(receiverId);
@@ -334,36 +330,40 @@ public class SocketHandler {
                 throw new AppException(ErrorCode.USER_OFFLINE);
             }
 
-            receiverClient.sendEvent("call:incoming", Map.of(
-                    "callId", session.getId(),
-                    "callerId", callerId,
-                    "callerName", callerName,
-                    "callerAvatar", callerAvatar != null ? callerAvatar : "",
-                    "callType", callType.name()
-            ));
+            receiverClient.sendEvent(
+                    "call:incoming",
+                    Map.of(
+                            "callId",
+                            session.getId(),
+                            "callerId",
+                            callerId,
+                            "callerName",
+                            callerName,
+                            "callerAvatar",
+                            callerAvatar != null ? callerAvatar : "",
+                            "callType",
+                            callType.name()));
 
-            callService.updateCallStatus(
-                    session.getId(),
-                    CallStatus.RINGING,
-                    receiverSocketId
-            );
+            callService.updateCallStatus(session.getId(), CallStatus.RINGING, receiverSocketId);
 
         } catch (AppException e) {
             if (sessionId != null) {
                 try {
-                    CallStatus failedStatus = (e.getErrorCode() == ErrorCode.USER_NOT_AVAILABLE ||
-                            e.getErrorCode() == ErrorCode.USER_OFFLINE) ?
-                            CallStatus.MISSED : CallStatus.FAILED;
+                    CallStatus failedStatus = (e.getErrorCode() == ErrorCode.USER_NOT_AVAILABLE
+                                    || e.getErrorCode() == ErrorCode.USER_OFFLINE)
+                            ? CallStatus.MISSED
+                            : CallStatus.FAILED;
                     callService.updateCallStatus(sessionId, failedStatus, null);
                 } catch (Exception ignored) {
                     throw new AppException(ErrorCode.CALL_STATUS_UPDATE_FAILED);
                 }
             }
 
-            client.sendEvent("call:failed", Map.of(
-                    "code", e.getErrorCode().getCode(),
-                    "reason", e.getErrorCode().getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", e.getErrorCode().getCode(),
+                            "reason", e.getErrorCode().getMessage()));
         } catch (Exception e) {
             if (sessionId != null) {
                 try {
@@ -373,10 +373,11 @@ public class SocketHandler {
                 }
             }
 
-            client.sendEvent("call:failed", Map.of(
-                    "code", ErrorCode.CALL_INITIATE_FAILED.getCode(),
-                    "reason", ErrorCode.CALL_INITIATE_FAILED.getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", ErrorCode.CALL_INITIATE_FAILED.getCode(),
+                            "reason", ErrorCode.CALL_INITIATE_FAILED.getMessage()));
         }
     }
 
@@ -390,10 +391,7 @@ public class SocketHandler {
             }
 
             CallSession session = callService.updateCallStatus(
-                    callId,
-                    CallStatus.ANSWERED,
-                    client.getSessionId().toString()
-            );
+                    callId, CallStatus.ANSWERED, client.getSessionId().toString());
 
             if (session == null) {
                 throw new AppException(ErrorCode.CALL_NOT_FOUND);
@@ -402,33 +400,38 @@ public class SocketHandler {
             client.sendEvent("call:answer:success", Map.of("callId", session.getId()));
 
             new Thread(() -> {
-                try {
-                    Thread.sleep(800);
+                        try {
+                            Thread.sleep(800);
 
-                    String callerId = session.getCallerId();
-                    String receiverId = session.getReceiverId();
+                            String callerId = session.getCallerId();
+                            String receiverId = session.getReceiverId();
 
-                    sendToUser(callerId, "call:answered", Map.of(
-                            "callId", callId,
-                            "receiverId", receiverId
-                    ));
+                            sendToUser(
+                                    callerId,
+                                    "call:answered",
+                                    Map.of(
+                                            "callId", callId,
+                                            "receiverId", receiverId));
 
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new AppException(ErrorCode.THREAD_INTERRUPTED);
-                }
-            }).start();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new AppException(ErrorCode.THREAD_INTERRUPTED);
+                        }
+                    })
+                    .start();
 
         } catch (AppException e) {
-            client.sendEvent("call:failed", Map.of(
-                    "code", e.getErrorCode().getCode(),
-                    "reason", e.getErrorCode().getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", e.getErrorCode().getCode(),
+                            "reason", e.getErrorCode().getMessage()));
         } catch (Exception e) {
-            client.sendEvent("call:failed", Map.of(
-                    "code", ErrorCode.CALL_ANSWER_FAILED.getCode(),
-                    "reason", ErrorCode.CALL_ANSWER_FAILED.getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", ErrorCode.CALL_ANSWER_FAILED.getCode(),
+                            "reason", ErrorCode.CALL_ANSWER_FAILED.getMessage()));
         }
     }
 
@@ -441,11 +444,7 @@ public class SocketHandler {
                 throw new AppException(ErrorCode.INVALID_DATA);
             }
 
-            CallSession session = callService.updateCallStatus(
-                    callId,
-                    CallStatus.REJECTED,
-                    null
-            );
+            CallSession session = callService.updateCallStatus(callId, CallStatus.REJECTED, null);
 
             if (session == null) {
                 throw new AppException(ErrorCode.CALL_NOT_FOUND);
@@ -453,21 +452,20 @@ public class SocketHandler {
 
             client.sendEvent("call:reject:success", Map.of("callId", callId));
 
-            sendToUser(session.getCallerId(), "call:rejected", Map.of(
-                    "callId", callId,
-                    "reason", "Call was rejected"
-            ));
+            sendToUser(session.getCallerId(), "call:rejected", Map.of("callId", callId, "reason", "Call was rejected"));
 
         } catch (AppException e) {
-            client.sendEvent("call:failed", Map.of(
-                    "code", e.getErrorCode().getCode(),
-                    "reason", e.getErrorCode().getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", e.getErrorCode().getCode(),
+                            "reason", e.getErrorCode().getMessage()));
         } catch (Exception e) {
-            client.sendEvent("call:failed", Map.of(
-                    "code", ErrorCode.CALL_REJECT_FAILED.getCode(),
-                    "reason", ErrorCode.CALL_REJECT_FAILED.getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", ErrorCode.CALL_REJECT_FAILED.getCode(),
+                            "reason", ErrorCode.CALL_REJECT_FAILED.getMessage()));
         }
     }
 
@@ -486,24 +484,35 @@ public class SocketHandler {
                 throw new AppException(ErrorCode.CALL_NOT_FOUND);
             }
 
-            Map<String, Object> endData = Map.of(
-                    "callId", callId,
-                    "duration", session.getDuration() != null ? session.getDuration() : 0
-            );
+            Map<String, Object> endData =
+                    Map.of("callId", callId, "duration", session.getDuration() != null ? session.getDuration() : 0);
 
             sendToUser(session.getCallerId(), "call:ended", endData);
             sendToUser(session.getReceiverId(), "call:ended", endData);
 
+            // ✅ GET THE CREATED CALL MESSAGE AND BROADCAST IT (Only broadcast once)
+            ChatMessage callMessage = callService.getAndClearLastCreatedCallMessage();
+            if (callMessage != null) {
+                Map<String, Object> messagePayload = buildCallMessagePayload(callMessage);
+
+                // Broadcast to both participants using room-based approach
+                socketIOServer
+                        .getRoomOperations("conversation:" + session.getConversationId())
+                        .sendEvent("message_received", messagePayload);
+            }
+
         } catch (AppException e) {
-            client.sendEvent("call:failed", Map.of(
-                    "code", e.getErrorCode().getCode(),
-                    "reason", e.getErrorCode().getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", e.getErrorCode().getCode(),
+                            "reason", e.getErrorCode().getMessage()));
         } catch (Exception e) {
-            client.sendEvent("call:failed", Map.of(
-                    "code", ErrorCode.CALL_END_FAILED.getCode(),
-                    "reason", ErrorCode.CALL_END_FAILED.getMessage()
-            ));
+            client.sendEvent(
+                    "call:failed",
+                    Map.of(
+                            "code", ErrorCode.CALL_END_FAILED.getCode(),
+                            "reason", ErrorCode.CALL_END_FAILED.getMessage()));
         }
     }
 
@@ -526,15 +535,17 @@ public class SocketHandler {
             }
 
         } catch (AppException e) {
-            client.sendEvent("webrtc:error", Map.of(
-                    "code", e.getErrorCode().getCode(),
-                    "message", e.getErrorCode().getMessage()
-            ));
+            client.sendEvent(
+                    "webrtc:error",
+                    Map.of(
+                            "code", e.getErrorCode().getCode(),
+                            "message", e.getErrorCode().getMessage()));
         } catch (Exception e) {
-            client.sendEvent("webrtc:error", Map.of(
-                    "code", ErrorCode.WEBRTC_OFFER_FAILED.getCode(),
-                    "message", ErrorCode.WEBRTC_OFFER_FAILED.getMessage()
-            ));
+            client.sendEvent(
+                    "webrtc:error",
+                    Map.of(
+                            "code", ErrorCode.WEBRTC_OFFER_FAILED.getCode(),
+                            "message", ErrorCode.WEBRTC_OFFER_FAILED.getMessage()));
         }
     }
 
@@ -557,15 +568,17 @@ public class SocketHandler {
             }
 
         } catch (AppException e) {
-            client.sendEvent("webrtc:error", Map.of(
-                    "code", e.getErrorCode().getCode(),
-                    "message", e.getErrorCode().getMessage()
-            ));
+            client.sendEvent(
+                    "webrtc:error",
+                    Map.of(
+                            "code", e.getErrorCode().getCode(),
+                            "message", e.getErrorCode().getMessage()));
         } catch (Exception e) {
-            client.sendEvent("webrtc:error", Map.of(
-                    "code", ErrorCode.WEBRTC_ANSWER_FAILED.getCode(),
-                    "message", ErrorCode.WEBRTC_ANSWER_FAILED.getMessage()
-            ));
+            client.sendEvent(
+                    "webrtc:error",
+                    Map.of(
+                            "code", ErrorCode.WEBRTC_ANSWER_FAILED.getCode(),
+                            "message", ErrorCode.WEBRTC_ANSWER_FAILED.getMessage()));
         }
     }
 
@@ -588,15 +601,17 @@ public class SocketHandler {
             }
 
         } catch (AppException e) {
-            client.sendEvent("webrtc:error", Map.of(
-                    "code", e.getErrorCode().getCode(),
-                    "message", e.getErrorCode().getMessage()
-            ));
+            client.sendEvent(
+                    "webrtc:error",
+                    Map.of(
+                            "code", e.getErrorCode().getCode(),
+                            "message", e.getErrorCode().getMessage()));
         } catch (Exception e) {
-            client.sendEvent("webrtc:error", Map.of(
-                    "code", ErrorCode.ICE_CANDIDATE_FAILED.getCode(),
-                    "message", ErrorCode.ICE_CANDIDATE_FAILED.getMessage()
-            ));
+            client.sendEvent(
+                    "webrtc:error",
+                    Map.of(
+                            "code", ErrorCode.ICE_CANDIDATE_FAILED.getCode(),
+                            "message", ErrorCode.ICE_CANDIDATE_FAILED.getMessage()));
         }
     }
 
@@ -638,7 +653,9 @@ public class SocketHandler {
         payload.put("tempMessageId", tempId);
         payload.put("conversationId", msg.getConversationId());
         payload.put("message", msg.getMessage());
-        payload.put("messageType", msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
+        payload.put(
+                "messageType",
+                msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
         payload.put("createdDate", msg.getCreatedDate().toString());
 
         if (msg.getSender() != null) {
@@ -650,10 +667,47 @@ public class SocketHandler {
                     "username", orEmpty(sender.getUsername()),
                     "firstName", orEmpty(sender.getFirstName()),
                     "lastName", orEmpty(sender.getLastName()),
-                    "avatar", orEmpty(sender.getAvatar())
-            );
+                    "avatar", orEmpty(sender.getAvatar()));
             payload.put("sender", senderMap);
         }
+
+        if (msg.getAttachments() != null && !msg.getAttachments().isEmpty()) {
+            payload.put("attachments", msg.getAttachments());
+        }
+
+        return payload;
+    }
+
+    /**
+     * ✅ Build message payload for ChatMessage (used for call messages)
+     */
+    private Map<String, Object> buildCallMessagePayload(ChatMessage msg) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", msg.getId());
+        payload.put("messageId", msg.getId());
+        payload.put("conversationId", msg.getConversationId());
+        payload.put("message", msg.getMessage());
+        payload.put(
+                "messageType",
+                msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
+        payload.put(
+                "createdDate",
+                msg.getCreatedDate() != null ? msg.getCreatedDate().toString() : System.currentTimeMillis());
+
+        if (msg.getSender() != null) {
+            ParticipantInfo sender = msg.getSender();
+            payload.put("senderId", sender.getUserId());
+
+            Map<String, Object> senderMap = Map.of(
+                    "userId", orEmpty(sender.getUserId()),
+                    "username", orEmpty(sender.getUsername()),
+                    "firstName", orEmpty(sender.getFirstName()),
+                    "lastName", orEmpty(sender.getLastName()),
+                    "avatar", orEmpty(sender.getAvatar()));
+            payload.put("sender", senderMap);
+        }
+
+        payload.put("isRead", msg.getIsRead() != null ? msg.getIsRead() : false);
 
         if (msg.getAttachments() != null && !msg.getAttachments().isEmpty()) {
             payload.put("attachments", msg.getAttachments());
@@ -721,8 +775,7 @@ public class SocketHandler {
         Map<String, Object> error = Map.of(
                 "code", errorCode.getCode(),
                 "message", errorCode.getMessage(),
-                "timestamp", Instant.now().toString()
-        );
+                "timestamp", Instant.now().toString());
         client.sendEvent(event, error);
     }
 
