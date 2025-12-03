@@ -23,4 +23,7 @@ public class ConversationResponse {
     List<ParticipantInfo> participants;
     Instant createdDate;
     Instant modifiedDate;
+    String lastMessage;
+    Instant lastMessageTime;
+    String lastMessageSender;
 }

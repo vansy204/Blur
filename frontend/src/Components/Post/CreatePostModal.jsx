@@ -25,6 +25,7 @@ import {
 import axios from "axios";
 import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
 import { useEffect, useRef, useState } from "react";
+import { createPost } from "../../api/postApi";
 import { getToken } from "../../service/LocalStorageService";
 import { BsEmojiSmile, BsImage, BsCameraVideo } from "react-icons/bs";
 import { MdClose } from "react-icons/md";
@@ -42,6 +43,15 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   const toast = useToast();
   const token = getToken();
 
+  // ✅ Debug: Log when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🔔 CreatePostModal opened');
+      console.log('🔔 onPostCreate function:', typeof onPostCreate);
+      console.log('🔔 onPostCreate is:', onPostCreate);
+    }
+  }, [isOpen, onPostCreate]);
+
   useOutsideClick({
     ref: emojiRef,
     handler: () => setShowEmojiPicker(false),
@@ -56,7 +66,11 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   }, [mediaFiles]);
 
   const handleMediaChange = (e) => {
-    setMediaFiles(Array.from(e.target.files));
+    const newFiles = Array.from(e.target.files);
+    // ✅ Thêm vào mảng cũ thay vì ghi đè
+    setMediaFiles(prev => [...prev, ...newFiles]);
+    // Reset input để có thể chọn lại cùng file
+    e.target.value = '';
   };
 
   const resetAndClose = () => {
@@ -82,23 +96,60 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
+      const token = getToken();
+      
+      console.log('🚀 [Modal] Starting post creation...');
+      console.log('📝 [Modal] Content:', content);
+      console.log('🖼️ [Modal] Media files count:', mediaFiles.length);
+      
+      // 1️⃣ Upload media
       const mediaUrls =
         mediaFiles.length > 0
           ? await Promise.all(mediaFiles.map(uploadToCloudnary))
           : [];
 
-      const newPost = { content, mediaUrls };
-      const response = await axios.post(
-        "http://localhost:8888/api/post/create",
-        newPost,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      console.log('✅ [Modal] Uploaded media URLs:', mediaUrls);
 
+      // 2️⃣ Tạo post với TẤT CẢ ảnh
+      const postData = { 
+        content: content.trim(), 
+        mediaUrls: mediaUrls  // Array chứa tất cả URLs
+      };
+
+      console.log('📤 [Modal] Sending post data to API:', postData);
+
+      // 3️⃣ Gọi API qua postApi.js
+      const createdPost = await createPost(token, postData);
+
+      console.log('📝 [Modal] Created post from API:', createdPost);
+      console.log('📝 [Modal] Post ID:', createdPost.id || createdPost._id);
+
+      // 4️⃣ Callback với post đã được normalize
+      const normalizedPost = {
+        ...createdPost,
+        id: createdPost.id || createdPost._id,
+        mediaUrls: createdPost.mediaUrls || mediaUrls,
+        createdAt: createdPost.createdAt || new Date().toISOString(),
+      };
+
+      console.log('✅ [Modal] Normalized post:', normalizedPost);
+      console.log('🎯 [Modal] Calling onPostCreate with:', normalizedPost);
+      console.log('🎯 [Modal] onPostCreate function exists?', typeof onPostCreate === 'function');
+      console.log('🎯 [Modal] About to call onPostCreate. Is onPostCreate defined?', typeof onPostCreate);
+console.log('🎯 [Modal] normalizedPost:', normalizedPost);
+
+if (onPostCreate) {
+  onPostCreate(normalizedPost);
+  console.log('✅ [Modal] onPostCreate called successfully');
+} else {
+  console.error('❌ [Modal] onPostCreate is not defined or falsy!');
+}
+      // 5️⃣ Call parent callback
+      //onPostCreate(normalizedPost);
+      
+      console.log('✅ [Modal] onPostCreate called successfully');
+      
+      // Show success toast
       toast({
         title: "Post created successfully.",
         status: "success",
@@ -106,11 +157,17 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
         position: "top-right",
         isClosable: true,
       });
-
-      onPostCreate(response.data);
+      
+      // 6️⃣ Wait a bit for state update, then close modal
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       resetAndClose();
+      
+      console.log('✅ [Modal] Modal closed');
+      
     } catch (error) {
-      console.error("Error creating post:", error);
+      console.error("❌ [Modal] Error creating post:", error);
+      console.error("❌ [Modal] Error details:", error.response?.data);
       toast({
         title: "Failed to create post.",
         description: error?.response?.data?.message || error.message,
@@ -171,22 +228,42 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                 maxH="600px"
                 p={4}
                 position="relative"
-                overflow="hidden"
+                overflow="auto"
               >
                 {previewUrls.length > 0 ? (
-                  <Box position="relative" w="100%" h="100%" display="flex" alignItems="center" justifyContent="center">
+                  <Box 
+                    position="relative" 
+                    w="100%" 
+                    h="100%" 
+                    display="grid"
+                    gridTemplateColumns={previewUrls.length === 1 ? "1fr" : "repeat(2, 1fr)"}
+                    gap={3}
+                    alignContent="start"
+                    overflowY="auto"
+                  >
                     {previewUrls.map((media, i) =>
                       media.type.startsWith("video") ? (
-                        <Box key={i} position="relative" maxW="100%" maxH="100%" display="flex" alignItems="center" justifyContent="center">
+                        <Box 
+                          key={i} 
+                          position="relative" 
+                          w="100%"
+                          h={previewUrls.length === 1 ? "100%" : "200px"}
+                          display="flex" 
+                          alignItems="center" 
+                          justifyContent="center"
+                          bg="white"
+                          borderRadius="xl"
+                          overflow="hidden"
+                        >
                           <video
                             src={media.url}
                             controls
                             style={{
                               maxWidth: "100%",
-                              maxHeight: "550px",
-                              borderRadius: "12px",
-                              objectFit: "contain",
-                              boxShadow: "0 4px 20px rgba(14, 165, 233, 0.15)",
+                              maxHeight: "100%",
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
                             }}
                           />
                           <Button
@@ -199,20 +276,30 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                             onClick={() => removeMedia(i)}
                             zIndex={2}
                             shadow="lg"
-                            _hover={{ transform: "scale(1.05)" }}
+                            _hover={{ transform: "scale(1.1)" }}
                           >
                             <MdClose size={16} />
                           </Button>
                         </Box>
                       ) : (
-                        <Box key={i} position="relative" maxW="100%" maxH="100%" display="flex" alignItems="center" justifyContent="center">
+                        <Box 
+                          key={i} 
+                          position="relative" 
+                          w="100%"
+                          h={previewUrls.length === 1 ? "100%" : "200px"}
+                          display="flex" 
+                          alignItems="center" 
+                          justifyContent="center"
+                          bg="white"
+                          borderRadius="xl"
+                          overflow="hidden"
+                        >
                           <Image
                             src={media.url}
-                            maxW="100%"
-                            maxH="550px"
-                            borderRadius="xl"
-                            objectFit="contain"
-                            shadow="lg"
+                            w="100%"
+                            h="100%"
+                            objectFit="cover"
+                            shadow="md"
                           />
                           <Button
                             position="absolute"
@@ -224,7 +311,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                             onClick={() => removeMedia(i)}
                             zIndex={2}
                             shadow="lg"
-                            _hover={{ transform: "scale(1.05)" }}
+                            _hover={{ transform: "scale(1.1)" }}
                           >
                             <MdClose size={16} />
                           </Button>

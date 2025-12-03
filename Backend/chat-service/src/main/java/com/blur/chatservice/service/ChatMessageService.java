@@ -6,16 +6,18 @@ import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.blur.chatservice.dto.ApiResponse;
 import com.blur.chatservice.dto.request.ChatMessageRequest;
 import com.blur.chatservice.dto.response.ChatMessageResponse;
+import com.blur.chatservice.dto.response.UserProfileResponse;
 import com.blur.chatservice.entity.ChatMessage;
 import com.blur.chatservice.entity.MediaAttachment;
 import com.blur.chatservice.entity.ParticipantInfo;
 import com.blur.chatservice.enums.MessageType;
 import com.blur.chatservice.exception.AppException;
 import com.blur.chatservice.exception.ErrorCode;
-import com.blur.chatservice.mapper.ChatMessageMapper;
 import com.blur.chatservice.repository.ChatMessageRepository;
 import com.blur.chatservice.repository.ConversationRepository;
 import com.blur.chatservice.repository.httpclient.ProfileClient;
@@ -23,50 +25,48 @@ import com.blur.chatservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Slf4j
 public class ChatMessageService {
+
     ConversationRepository conversationRepository;
     ProfileClient profileClient;
-    ChatMessageMapper chatMessageMapper;
     ChatMessageRepository chatMessageRepository;
+    RedisCacheService redisCacheService;
 
+    /**
+     * Create new message
+     * Caching disabled to prevent Redis serialization errors
+     */
+    @Transactional
     public ChatMessageResponse create(ChatMessageRequest request, String userId) {
-
         if (request.getConversationId() == null || request.getConversationId().isEmpty()) {
             throw new AppException(ErrorCode.CONVERSATION_NOT_FOUND);
         }
 
-        // Validate message or attachments exists
         boolean hasMessage =
                 request.getMessage() != null && !request.getMessage().trim().isEmpty();
         boolean hasAttachments =
                 request.getAttachments() != null && !request.getAttachments().isEmpty();
 
         if (!hasMessage && !hasAttachments) {
-            throw new AppException(ErrorCode.INVALID_FILE);
+            throw new AppException(ErrorCode.EMPTY_MESSAGE);
         }
 
-        // Validate attachments if present
         if (request.getAttachments() != null) {
-            for (int i = 0; i < request.getAttachments().size(); i++) {
-                MediaAttachment att = request.getAttachments().get(i);
-
+            for (MediaAttachment att : request.getAttachments()) {
                 if (att.getUrl() == null || att.getUrl().isEmpty()) {
                     throw new AppException(ErrorCode.INVALID_FILE);
                 }
 
-                if (att.getFileSize() != null && att.getFileSize() > 10485760) { // 10MB
+                if (att.getFileSize() != null && att.getFileSize() > 10485760) {
                     throw new AppException(ErrorCode.FILE_TOO_LARGE);
                 }
             }
         }
 
-        // Validate user
         var userResponse = profileClient.getProfile(userId);
         if (userResponse == null || userResponse.getResult() == null) {
             throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
@@ -101,47 +101,125 @@ public class ChatMessageService {
                 .readBy(List.of(userInfo.getUserId()))
                 .build();
 
-        if (chatMessage.getAttachments() != null) {
-            for (int i = 0; i < chatMessage.getAttachments().size(); i++) {
-                MediaAttachment att = chatMessage.getAttachments().get(i);
-                if (att.getUrl() == null || att.getUrl().isEmpty()) {
-                    throw new AppException(ErrorCode.FILE_UPLOAD_FAILED);
-                }
-            }
-        }
+        chatMessage = chatMessageRepository.save(chatMessage);
 
-        // Save to database
+        // Cache operations disabled to prevent Redis serialization errors
+        // redisCacheService.cacheMessage(chatMessage.getId(), chatMessage, 30);
+        // redisCacheService.invalidateConversationMessages(request.getConversationId());
+        // redisCacheService.evictLastMessage(request.getConversationId());
+
+        return toChatMessageResponse(chatMessage, userId);
+    }
+
+    // @Cacheable disabled to prevent Redis serialization errors
+    public List<ChatMessageResponse> getMessages(String conversationId) {
+        String userId = null;
         try {
-            chatMessage = chatMessageRepository.save(chatMessage);
+            userId = SecurityContextHolder.getContext().getAuthentication().getName();
         } catch (Exception e) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
 
-        // Verify saved attachments
-        if (chatMessage.getAttachments() != null) {
-            for (int i = 0; i < chatMessage.getAttachments().size(); i++) {
-                MediaAttachment att = chatMessage.getAttachments().get(i);
+        if (userId == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
 
-                if (att.getUrl() == null || att.getUrl().isEmpty()) {
-                } else {
-                }
+        // ✅ Fetch user profile with proper error handling
+        ApiResponse<UserProfileResponse> userProfileResponse = null;
+        try {
+            userProfileResponse = profileClient.getProfile(userId);
+        } catch (Exception e) {
+            // If profile service is unavailable, log and throw appropriate error
+            throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
+        }
+
+        if (userProfileResponse == null || userProfileResponse.getResult() == null) {
+            throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
+        }
+
+        final ApiResponse<UserProfileResponse> userResponse = userProfileResponse;
+
+        var conversation = conversationRepository
+                .findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        boolean isParticipant = conversation.getParticipants().stream()
+                .anyMatch(p -> userResponse.getResult().getUserId().equals(p.getUserId()));
+
+        if (!isParticipant) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        var messages = chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
+
+        final String finalUserId = userId;
+        return messages.stream()
+                .map(msg -> toChatMessageResponse(msg, finalUserId))
+                .toList();
+    }
+
+    // @Cacheable disabled to prevent Redis serialization errors
+    public Integer unreadCount(String conversationId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userId = auth != null ? auth.getName() : null;
+
+        if (userId == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        Integer cachedCount = redisCacheService.getUnreadCount(conversationId, userId);
+        if (cachedCount != null) {
+            return cachedCount;
+        }
+
+        // ✅ Fetch user profile with proper error handling
+        ApiResponse<UserProfileResponse> userResponse = null;
+        try {
+            userResponse = profileClient.getProfile(userId);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
+        }
+
+        if (userResponse == null || userResponse.getResult() == null) {
+            throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
+        }
+
+        var conversation = conversationRepository
+                .findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        boolean isParticipant = conversation.getParticipants().stream()
+                .anyMatch(p -> p.getUserId().equals(userId));
+
+        if (!isParticipant) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        long count = chatMessageRepository.countByConversationIdAndReadByNotContains(conversationId, userId);
+        int intCount = (int) count;
+
+        redisCacheService.cacheUnreadCount(conversationId, userId, intCount);
+
+        return intCount;
+    }
+
+    @Transactional
+    // @CacheEvict disabled to prevent Redis serialization errors
+    public String markAsRead(String conversationId, String userId) {
+        List<ChatMessage> messages =
+                chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
+
+        for (ChatMessage msg : messages) {
+            if (!msg.getReadBy().contains(userId)) {
+                msg.getReadBy().add(userId);
+                msg.setIsRead(true);
             }
-        } else {
         }
 
-        // Build response manually
-        ChatMessageResponse response = ChatMessageResponse.builder()
-                .id(chatMessage.getId())
-                .conversationId(chatMessage.getConversationId())
-                .message(chatMessage.getMessage())
-                .messageType(chatMessage.getMessageType())
-                .attachments(chatMessage.getAttachments())
-                .sender(chatMessage.getSender())
-                .createdDate(chatMessage.getCreatedDate())
-                .me(userId.equals(chatMessage.getSender().getUserId()))
-                .readBy(chatMessage.getReadBy())
-                .build();
-        return response;
+        chatMessageRepository.saveAll(messages);
+        // Cache operation disabled: redisCacheService.evictUnreadCount(conversationId, userId);
+
+        return "mark as read";
     }
 
     private MessageType determineMessageType(ChatMessageRequest request) {
@@ -156,7 +234,7 @@ public class ChatMessageService {
         if (hasMessage) {
             return MessageType.MIXED;
         }
-        // Xác định type từ attachment đầu tiên
+
         String fileType = request.getAttachments().get(0).getFileType();
         if (fileType == null) return MessageType.FILE;
         if (fileType.startsWith("image/")) return MessageType.IMAGE;
@@ -184,83 +262,7 @@ public class ChatMessageService {
         return response;
     }
 
-    public List<ChatMessageResponse> getMessages(String conversationId) {
-        String userId = null;
-        try {
-            userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        } catch (Exception e) {
-        }
-
-        if (userId == null) {
-            throw new AppException(ErrorCode.UNAUTHENTICATED);
-        }
-
-        var userResponse = profileClient.getProfile(userId);
-        if (userResponse == null || userResponse.getResult() == null) {
-            throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
-        }
-
-        var conversation = conversationRepository
-                .findById(conversationId)
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        boolean isParticipant = conversation.getParticipants().stream()
-                .anyMatch(p -> userResponse.getResult().getUserId().equals(p.getUserId()));
-
-        if (!isParticipant) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
-        }
-
-        var messages = chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
-
-        final String finalUserId = userId;
-
-        return messages.stream()
-                .map(msg -> {
-                    return toChatMessageResponse(msg, finalUserId);
-                })
-                .toList();
-    }
-
-    public Integer unreadCount(String conversationId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String userId = auth != null ? auth.getName() : null;
-
-        if (userId == null) {
-            throw new AppException(ErrorCode.UNAUTHENTICATED);
-        }
-
-        var userResponse = profileClient.getProfile(userId);
-        if (userResponse == null || userResponse.getResult() == null) {
-            throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
-        }
-
-        var conversation = conversationRepository
-                .findById(conversationId)
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        boolean isParticipant = conversation.getParticipants().stream()
-                .anyMatch(p -> p.getUserId().equals(userId));
-
-        if (!isParticipant) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
-        }
-
-        long count = chatMessageRepository.countByConversationIdAndReadByNotContains(conversationId, userId);
-        return (int) count;
-    }
-
-    public String markAsRead(String conversationId, String userId) {
-        List<ChatMessage> messages =
-                chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
-
-        for (ChatMessage msg : messages) {
-            if (!msg.getReadBy().contains(userId)) {
-                msg.getReadBy().add(userId);
-                msg.setIsRead(true);
-            }
-        }
-        chatMessageRepository.saveAll(messages);
-        return "mark as read";
+    public String getCurrentUserId() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }

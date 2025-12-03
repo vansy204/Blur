@@ -41,6 +41,10 @@ const CommentModal = ({
   const [comment, setComment] = useState("");
   const videoRefs = useRef([]);
   const [commentUsers, setCommentUsers] = useState({});
+  
+  // ✅ Track aspect ratio để phân biệt ảnh dọc/ngang
+  const [mediaDimensions, setMediaDimensions] = useState({});
+  
   const token = getToken();
 
   const togglePlayPause = (index) => {
@@ -61,6 +65,36 @@ const CommentModal = ({
 
   const handleEmojiClick = (emojiObject) => {
     setComment((prev) => prev + emojiObject.emoji);
+  };
+
+  // ✅ Track image dimensions
+  const handleImageLoad = (index, e) => {
+    const img = e.target;
+    const aspectRatio = img.naturalWidth / img.naturalHeight;
+    setMediaDimensions((prev) => ({
+      ...prev,
+      [index]: { aspectRatio, width: img.naturalWidth, height: img.naturalHeight },
+    }));
+  };
+
+  // ✅ Track video dimensions
+  const handleVideoLoad = (index, e) => {
+    const video = e.target;
+    const aspectRatio = video.videoWidth / video.videoHeight;
+    setMediaDimensions((prev) => ({
+      ...prev,
+      [index]: { aspectRatio, width: video.videoWidth, height: video.videoHeight },
+    }));
+  };
+
+  // ✅ Quyết định object-fit dựa trên aspect ratio (Instagram logic)
+  const getObjectFit = (index) => {
+    const dimension = mediaDimensions[index];
+    if (!dimension) return 'cover'; // Default
+    
+    // Nếu ảnh ngang (width > height) → contain (nằm giữa có viền)
+    // Nếu ảnh dọc hoặc vuông → cover (fill đầy)
+    return dimension.aspectRatio > 1 ? 'contain' : 'cover';
   };
 
   useEffect(() => {
@@ -92,8 +126,8 @@ const CommentModal = ({
       <ModalContent borderRadius="2xl" overflow="hidden" shadow="2xl">
         <ModalBody p={0}>
           <div className="flex h-[85vh] bg-white">
-            {/* Media Section */}
-            <div className="w-[55%] flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 relative">
+            {/* Media Section - INSTAGRAM STYLE */}
+            <div className="w-[55%] bg-black relative overflow-hidden">
               <button
                 onClick={onClose}
                 className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all group"
@@ -103,36 +137,44 @@ const CommentModal = ({
 
               {postMedia?.length > 0 ? (
                 <Swiper
-                  className="w-full h-full flex items-center justify-center"
+                  className="w-full h-full"
                   navigation
                   pagination={{ 
                     clickable: true,
-                    bulletActiveClass: 'swiper-pagination-bullet-active !bg-sky-500'
+                    bulletActiveClass: 'swiper-pagination-bullet-active !bg-white'
                   }}
                   modules={[Navigation, Pagination]}
+                  style={{
+                    '--swiper-navigation-color': '#fff',
+                    '--swiper-pagination-color': '#fff',
+                  }}
                 >
                   {postMedia.map((url, index) => {
                     const isVideo = url.match(/\.(mp4|webm|ogg)$/i);
+                    
                     return (
                       <SwiperSlide
                         key={index}
-                        className="flex items-center justify-center"
+                        className="w-full h-full"
                       >
+                        {/* ✅ INSTAGRAM LOGIC: Dọc=cover, Ngang=contain */}
                         {isVideo ? (
-                          <div className="relative w-full h-full flex items-center justify-center">
-                            <video
-                              ref={(el) => (videoRefs.current[index] = el)}
-                              src={url}
-                              controls
-                              className="max-w-full max-h-full object-contain"
-                              onClick={() => togglePlayPause(index)}
-                            />
-                          </div>
+                          <video
+                            ref={(el) => (videoRefs.current[index] = el)}
+                            src={url}
+                            controls
+                            className="w-full h-full"
+                            style={{ objectFit: getObjectFit(index) }}
+                            onClick={() => togglePlayPause(index)}
+                            onLoadedMetadata={(e) => handleVideoLoad(index, e)}
+                          />
                         ) : (
                           <img
                             src={url}
-                            className="max-w-full max-h-full object-contain"
                             alt={`Post Media ${index}`}
+                            className="w-full h-full"
+                            style={{ objectFit: getObjectFit(index) }}
+                            onLoad={(e) => handleImageLoad(index, e)}
                           />
                         )}
                       </SwiperSlide>
@@ -140,7 +182,9 @@ const CommentModal = ({
                   })}
                 </Swiper>
               ) : (
-                <p className="text-gray-400">No media available</p>
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-gray-400">No media available</p>
+                </div>
               )}
             </div>
 

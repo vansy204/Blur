@@ -10,7 +10,16 @@ spring:
   data:
     mongodb:
       uri: mongodb://root:root@localhost:27017/story-service?authSource=admin
-
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: 3  # Database 3 for Story Service
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
 app:
   service:
     profile:

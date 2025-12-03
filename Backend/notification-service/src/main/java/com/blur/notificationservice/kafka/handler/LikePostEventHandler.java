@@ -5,6 +5,7 @@ import com.blur.notificationservice.entity.Notification;
 import com.blur.notificationservice.kafka.model.Type;
 import com.blur.notificationservice.repository.httpclient.ProfileClient;
 import com.blur.notificationservice.service.NotificationService;
+import com.blur.notificationservice.service.NotificationWebSocketService;
 import com.blur.notificationservice.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,9 +29,9 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class LikePostEventHandler implements EventHandler<Event> {
 
-    SimpMessagingTemplate simpMessagingTemplate;
     JavaMailSender emailSender;
     NotificationService notificationService;
+    NotificationWebSocketService  notificationWebSocketService;
     ObjectMapper objectMapper;
     RedisService redisService;
     ProfileClient profileClient;
@@ -56,12 +57,16 @@ public class LikePostEventHandler implements EventHandler<Event> {
                 .type(Type.LikePost)
                 .timestamp(event.getTimestamp())
                 .content(event.getSenderName() + " like your post on Blur.")
+                .postId(event.getPostId())
                 .build();
         boolean isOnline = redisService.isOnline(event.getReceiverId());
+        log.info("🔎 Receiver {} online? {}", event.getReceiverId(), isOnline);
         notificationService.save(notification);
         if(isOnline) {
-            simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
+            log.info("📡 Sending realtime notification to {}", notification.getReceiverId());
+            notificationWebSocketService.sendToUser(notification);
         }else{
+
             sendLikePostNotification(notification);
         }
     }

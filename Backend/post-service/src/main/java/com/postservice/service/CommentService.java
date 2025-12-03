@@ -16,6 +16,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,10 @@ public class CommentService {
     IdentityClient identityClient;
     NotificationClient notificationClient;
     PostRepository postRepository;
+
+
+
+    @CacheEvict(value = "comments", key = "#postId")
     public CommentResponse createComment(CreateCommentRequest request, String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
@@ -55,6 +61,7 @@ public class CommentService {
         var sender = identityClient.getUser(userId);
         var receiver = identityClient.getUser(post.getUserId());
         Event event = Event.builder()
+                .postId(post.getId())
                 .senderName(sender.getResult().getUsername())
                 .senderId(sender.getResult().getId())
                 .receiverEmail(receiver.getResult().getEmail())
@@ -66,6 +73,12 @@ public class CommentService {
         return commentMapper.toCommentResponse(comment);
     }
 
+
+    @Cacheable(
+            value = "comments",
+            key = "#postId",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<CommentResponse> getAllCommentByPostId(String postId) {
         return commentRepository.findAllByPostId(postId).stream().map(commentMapper::toCommentResponse).collect(Collectors.toList());
     }
@@ -75,6 +88,7 @@ public class CommentService {
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND)));
     }
 
+    @CacheEvict(value = "comments", key = "#root.target.getPostIdByCommentId(#commentId)")
     public CommentResponse updateComment(String commentId, CreateCommentRequest request) {
 
         var comment = commentRepository.findById(commentId).
@@ -92,6 +106,7 @@ public class CommentService {
         return commentMapper.toCommentResponse(comment);
     }
 
+    @CacheEvict(value = "comments", key = "#root.target.getPostIdByCommentId(#commentId)")
     public String deleteComment(String commentId) {
         var comment = commentRepository.findById(commentId).
                 orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
@@ -104,5 +119,11 @@ public class CommentService {
 
         commentRepository.deleteById(comment.getId());
         return "Comment deleted";
+    }
+
+    public String getPostIdByCommentId(String commentId) {
+        return commentRepository.findById(commentId)
+                .map(Comment::getPostId)
+                .orElse(null);
     }
 }
