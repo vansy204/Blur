@@ -39,6 +39,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     String[] publicEnpoints = {
             "/identity/auth/.*",
             "/identity/users/registration",
+            "/identity/users/registrations",
             "/notification/email/send",
             "/chat/messages.*",              // Match: /chat/messages, /chat/messages/create
             "/chat/conversations.*"           // Match: /chat/conversations/my-conversations

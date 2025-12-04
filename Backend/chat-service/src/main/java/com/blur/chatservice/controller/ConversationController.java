@@ -46,12 +46,20 @@ public class ConversationController {
                 .result(chatMessageService.unreadCount(id))
                 .build();
     }
+
     @PutMapping("/mark-as-read")
     ApiResponse<String> markAsRead(@RequestParam("conversationId") String conversationId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
         return ApiResponse.<String>builder()
                 .result(chatMessageService.markAsRead(conversationId, userId))
+                .build();
+    }
+
+    @DeleteMapping("")
+    ApiResponse<String> deleteConversation(@RequestParam("conversationId") String conversationId) {
+        return ApiResponse.<String>builder()
+                .result(conversationService.deleteConversation(conversationId))
                 .build();
     }
 }

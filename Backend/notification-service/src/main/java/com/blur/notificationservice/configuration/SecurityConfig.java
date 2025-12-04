@@ -33,11 +33,13 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity.authorizeHttpRequests(request -> request.requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS)
-                .permitAll()
-                .requestMatchers("/ws-notification/**").permitAll()
-                .anyRequest()
-                .authenticated());
+        httpSecurity
+                .authorizeHttpRequests(request -> request
+                        .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
+                        // 👇 Cho phép WebSocket handshake
+                        .requestMatchers("/ws-notification/**", "/notification/ws-notification/**").permitAll()
+                        .anyRequest().authenticated()
+                );
 
         httpSecurity.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwtConfigurer -> jwtConfigurer
                         .decoder(customJwtDecoder)

@@ -17,6 +17,23 @@ spring:
     mongodb:
       uri: mongodb://root:root@localhost:27017/chat-service?authSource=admin
       auto-index-creation: true
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000
+      cache-null-values: false
+      use-key-prefix: true
+      key-prefix: "chat-service"
+      enable-statistics: true
   websocket:
     enabled: true
 
@@ -26,3 +43,6 @@ app:
       url: http://localhost:8081/profile
     identity:
       url: http://localhost:8080/identity
+  call:
+    ring-timeout: 60 #seconds
+    max-duration: 3600

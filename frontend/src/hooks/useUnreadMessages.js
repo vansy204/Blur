@@ -38,7 +38,10 @@ export const useUnreadMessages = (options = {}) => {
       const conversationsRes = await axios.get(
         `${BASE_URL}/chat/conversations/my-conversations`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
         }
       );
 
@@ -57,7 +60,10 @@ export const useUnreadMessages = (options = {}) => {
           const unreadRes = await axios.get(
             `${BASE_URL}/chat/conversations/${conv.id}/unread-count`,
             {
-              headers: { Authorization: `Bearer ${token}` },
+              headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
             }
           );
           return {
@@ -107,11 +113,15 @@ export const useUnreadMessages = (options = {}) => {
 
     try {
       await axios.put(
-        `${BASE_URL}/conversations/mark-as-read`,
+        `${BASE_URL}/chat/conversations/mark-as-read`,
         null,
         {
           params: { conversationId },
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
         }
       );
 

@@ -30,7 +30,7 @@ public class SecurityConfig {
                 // Cho phép OPTIONS requests (CORS preflight)
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
-                        .requestMatchers("/ws/websocket/**")
+                        .requestMatchers("/ws/websocket/**", "/chat/ws/**")
                         .permitAll()
                         .requestMatchers("/actuator/**")
                         .permitAll() // Health check

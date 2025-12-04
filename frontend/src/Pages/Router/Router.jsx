@@ -13,6 +13,7 @@ import OtherUserProfile from "../../Components/ProfileComponents/OrderUserProfil
 import SearchPage from "../Search/SearchPage";
 import { SidebarComponent } from "../../Components/Sidebar/SidebarComponent";
 import NotificationsPage from "../Notification/NotificationPage";
+import PostDetailPage from "../../Components/Post/PostDetailPage";
 
 const Router = () => {
   const location = useLocation();
@@ -136,6 +137,7 @@ const Router = () => {
             <Route path="/activate" element={<ActivationPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/notification" element={<NotificationsPage />} />
+            <Route path="/post/:postId" element={<PostDetailPage />} />
           </Routes> 
         </div>
       </div>

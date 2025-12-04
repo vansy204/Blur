@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
-import { MdEdit, MdGridOn } from "react-icons/md";
+import { MdGridOn } from "react-icons/md";
+import { BiMessageRounded } from "react-icons/bi";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getToken } from "../../service/LocalStorageService";
 import {
@@ -12,6 +13,7 @@ import {
   unfollowUser,
 } from "../../api/userApi";
 import { getPostsByUserId } from "../../api/postApi";
+import { createConversation } from "../../service/chatApi";
 import ReqUserPostCard from "./ReqUserPostCard";
 
 const ProfileUserDetails = () => {
@@ -23,6 +25,7 @@ const ProfileUserDetails = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isMessageLoading, setIsMessageLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const token = getToken();
   const [params] = useSearchParams();
@@ -56,7 +59,7 @@ const ProfileUserDetails = () => {
         const postData = await getPostsByUserId(profileData.userId, token);
         setPosts(postData);
       } catch (error) {
-       
+        console.error("Error fetching data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -83,9 +86,35 @@ const ProfileUserDetails = () => {
       }
       setIsFollowing(!isFollowing);
     } catch (error) {
-      console.log("Error toggling follow status:", error);
+      console.error("Error toggling follow status:", error);
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!user?.id) return;
+
+    try {
+      setIsMessageLoading(true);
+      
+      // Gọi API tạo conversation
+      const conversationData = await createConversation(
+        {
+          type: "DIRECT",
+          participantIds: [user.userId]
+        },
+        token
+      );
+
+      // Navigate đến trang chat với conversationId
+      navigate(`/message`);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      // Có thể hiển thị toast notification ở đây
+      alert("Unable to start conversation. Please try again.");
+    } finally {
+      setIsMessageLoading(false);
     }
   };
 
@@ -153,26 +182,46 @@ const ProfileUserDetails = () => {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleFollowToggle}
-                    disabled={isActionLoading}
-                    className={`px-8 py-2.5 rounded-xl font-semibold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isFollowing
-                        ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                        : "bg-gradient-to-r from-sky-400 to-blue-500 text-white hover:from-sky-500 hover:to-blue-600"
-                    }`}
-                  >
-                    {isActionLoading ? (
-                      <span className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                        Loading...
-                      </span>
-                    ) : isFollowing ? (
-                      "Following"
-                    ) : (
-                      "Follow"
-                    )}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleFollowToggle}
+                      disabled={isActionLoading}
+                      className={`px-8 py-2.5 rounded-xl font-semibold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isFollowing
+                          ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                          : "bg-gradient-to-r from-sky-400 to-blue-500 text-white hover:from-sky-500 hover:to-blue-600"
+                      }`}
+                    >
+                      {isActionLoading ? (
+                        <span className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                          Loading...
+                        </span>
+                      ) : isFollowing ? (
+                        "Following"
+                      ) : (
+                        "Follow"
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={isMessageLoading}
+                      className="px-6 py-2.5 bg-white border-2 border-gray-200 text-gray-800 rounded-xl font-semibold hover:bg-gray-50 hover:border-sky-300 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isMessageLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                          <span>Loading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <BiMessageRounded className="w-5 h-5" />
+                          <span>Message</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
 
