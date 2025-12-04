@@ -1,4 +1,4 @@
-package com.blur.ai_service.service;
+package com.blur.ai_service.services;
 
 import com.blur.ai_service.config.OpenAiConfig;
 import com.blur.ai_service.dto.ChatRequest;
@@ -29,8 +29,6 @@ public class AiChatService {
             ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
                     .model(openAiConfig.getModel())
                     .messages(List.of(message))
-                    .maxTokens(openAiConfig.getMaxTokens())
-                    .temperature(openAiConfig.getTemperature())
                     .build();
 
             String aiResponse = openAiService

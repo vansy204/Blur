@@ -11,24 +11,16 @@ import java.time.Duration;
 @Configuration
 public class OpenAiConfig {
 
-    @Value("${openai.api-key}")
+    @Getter
+    @Value("${ai.openai.api-key}")
     private String apiKey;
 
     @Getter
-    @Value("${openai.model}")
+    @Value("${ai.openai.option.model}")
     private String model;
-
-    @Getter
-    @Value("${openai.max-tokens}")
-    private Integer maxTokens;
-
-    @Getter
-    @Value("${openai.temperature}")
-    private Double temperature;
 
     @Bean
     public OpenAiService openAiService() {
         return new OpenAiService(apiKey, Duration.ofSeconds(60));
     }
-
 }

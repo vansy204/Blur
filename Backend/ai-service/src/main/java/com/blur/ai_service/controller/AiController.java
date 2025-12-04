@@ -2,7 +2,7 @@ package com.blur.ai_service.controller;
 
 import com.blur.ai_service.dto.ChatRequest;
 import com.blur.ai_service.dto.ChatResponse;
-import com.blur.ai_service.service.AiChatService;
+import com.blur.ai_service.services.AiChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
