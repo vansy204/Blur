@@ -79,7 +79,6 @@ public class UserService {
         // build notification event
 
         var userResponse = userMapper.toUserResponse(user);
-        cacheUserById(user.getId(), userResponse);
 
         return userResponse;
     }
@@ -115,7 +114,7 @@ public class UserService {
             // build notification event
 
             var userResponse = userMapper.toUserResponse(user);
-            cacheUserById(user.getId(), userResponse);
+
 
         }
     }
