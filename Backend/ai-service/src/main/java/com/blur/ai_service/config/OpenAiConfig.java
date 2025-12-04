@@ -19,8 +19,11 @@ public class OpenAiConfig {
     @Value("${ai.openai.option.model}")
     private String model;
 
-    @Bean
-    public OpenAiService openAiService() {
-        return new OpenAiService(apiKey, Duration.ofSeconds(60));
-    }
+    @Getter
+    @Value("${ai.openai.chat.base-url}")
+    private String baseUrl;
+
+    @Getter
+    @Value("${ai.openai.chat.completions-path}")
+    private String completionsPath;
 }
