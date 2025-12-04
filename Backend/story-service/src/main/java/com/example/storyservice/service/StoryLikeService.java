@@ -13,6 +13,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +30,8 @@ public class StoryLikeService {
     StoryRepository storyRepository;
     IdentityClient identityClient;
     NotificationClient notificationClient;
+
+    @CacheEvict(value = "storyLikes", key = "#storyId")
     public String likeStory(String storyId){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
@@ -53,6 +56,8 @@ public class StoryLikeService {
         notificationClient.sendLikeStoryNotification(event);
         return "Like story successfully";
     }
+
+    @CacheEvict(value = "storyLikes", key = "#storyId")
     public String unlikeStory(String storyId){
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
+// src/contexts/SocketContext.jsx
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { SOCKET_URL } from "../utils/constants";
 import { getToken } from "../utils/auth";
 
@@ -9,17 +10,41 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState("");
   
-  // Callback refs để tránh stale closure
   const messageCallbacksRef = useRef({
-    onMessageSent: null,      // Callback khi tin nhắn đã được gửi thành công
-    onMessageReceived: null,   // Callback khi nhận tin nhắn từ người khác
+    onMessageSent: null,
+    onMessageReceived: null,
   });
 
-  // Register callbacks từ components
+  const callCallbacksRef = useRef({
+    onCallInitiated: null,
+    onIncomingCall: null,
+    onCallAnswered: null,
+    onCallRejected: null,
+    onCallEnded: null,
+    onCallFailed: null,
+    onWebRTCOffer: null,
+    onWebRTCAnswer: null,
+    onICECandidate: null,
+  });
+
   const registerMessageCallbacks = useCallback((callbacks) => {
-    console.log("📝 Registering message callbacks");
     messageCallbacksRef.current = {
       ...messageCallbacksRef.current,
+      ...callbacks
+    };
+  }, []);
+
+  const registerCallCallbacks = useCallback((callbacks) => {
+    const hasChanged = Object.keys(callbacks).some(key => 
+      callCallbacksRef.current[key] !== callbacks[key]
+    );
+    
+    if (!hasChanged) {
+      return;
+    }
+    
+    callCallbacksRef.current = {
+      ...callCallbacksRef.current,
       ...callbacks
     };
   }, []);
@@ -27,7 +52,6 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const token = getToken();
     if (!token) {
-      console.warn("⚠️ Không có token — không kết nối socket.");
       return;
     }
 
@@ -37,12 +61,8 @@ export const SocketProvider = ({ children }) => {
 
     script.onload = () => {
       if (socketRef.current) {
-        console.log("♻️ Socket đã tồn tại — bỏ qua tạo mới.");
         return;
       }
-
-      console.log("🔌 Initializing socket connection to:", SOCKET_URL);
-
       const socket = window.io(SOCKET_URL, {
         query: { token },
         autoConnect: true,
@@ -55,117 +75,125 @@ export const SocketProvider = ({ children }) => {
 
       socketRef.current = socket;
 
-      // === SỰ KIỆN KẾT NỐI ===
       socket.on("connect", () => {
-        console.log("🟢 [Socket] Connected successfully");
-        console.log("   - Socket ID:", socket.id);
-        console.log("   - Transport:", socket.io.engine.transport.name);
         setIsConnected(true);
         setError("");
       });
 
       socket.on("disconnect", (reason) => {
-        console.log("🔴 [Socket] Disconnected:", reason);
         setIsConnected(false);
-        
-        if (reason === "io server disconnect") {
-          console.warn("⚠️ Server disconnected - may need to re-authenticate");
-        }
       });
 
       socket.on("connect_error", (err) => {
-        console.error("❌ [Socket] Connection error:", err.message);
         setError("Không thể kết nối socket");
         setIsConnected(false);
       });
 
       socket.on("reconnect_attempt", (attemptNumber) => {
-        console.log(`🔄 [Socket] Reconnecting... (attempt ${attemptNumber})`);
+        // Reconnecting...
       });
 
       socket.on("reconnect", (attemptNumber) => {
-        console.log(`✅ [Socket] Reconnected after ${attemptNumber} attempts`);
         setIsConnected(true);
         setError("");
       });
 
-      // === SỰ KIỆN XÁC NHẬN KẾT NỐI ===
       socket.on("connected", (data) => {
-        console.log("✅ [Socket] Connected event received:", data);
+        // Connected event received
       });
 
-      // === SỰ KIỆN 1: MESSAGE_SENT (Xác nhận tin nhắn đã gửi) ===
+      // Chat events
       socket.on("message_sent", (data) => {
-        console.log("✅ [Socket] Message sent confirmed:");
-        console.log("   - Real ID:", data.id);
-        console.log("   - Temp ID:", data.tempMessageId);
-        console.log("   - Conversation:", data.conversationId);
-        console.log("   - Message:", data.message?.substring(0, 50));
-
-        // Gọi callback để cập nhật UI (thay tempId bằng real ID)
         if (messageCallbacksRef.current.onMessageSent) {
           messageCallbacksRef.current.onMessageSent(data);
-        } else {
-          console.warn("⚠️ No onMessageSent callback registered");
         }
       });
 
-      // === SỰ KIỆN 2: MESSAGE_RECEIVED (Nhận tin nhắn mới) ===
       socket.on("message_received", (data) => {
-        console.log("📨 [Socket] Message received:");
-        console.log("   - Message ID:", data.id);
-        console.log("   - From:", data.sender?.username || data.senderId);
-        console.log("   - Conversation:", data.conversationId);
-        console.log("   - Message:", data.message?.substring(0, 50));
-        console.log("   - Attachments:", data.attachments?.length || 0);
-
-        // Gọi callback để thêm tin nhắn vào UI
         if (messageCallbacksRef.current.onMessageReceived) {
           messageCallbacksRef.current.onMessageReceived(data);
-        } else {
-          console.warn("⚠️ No onMessageReceived callback registered");
         }
       });
 
-      // === SỰ KIỆN PHỤ: TYPING ===
       socket.on("user_typing", (data) => {
-        console.log("⌨️ [Socket] User typing:", {
-          user: data.userId,
-          conversation: data.conversationId,
-          isTyping: data.isTyping,
-        });
-        // TODO: Implement typing indicator UI
+        // User typing event
       });
 
-      // === SỰ KIỆN LỖI ===
       socket.on("message_error", (error) => {
-        console.error("❌ [Socket] Message error:");
-        console.error("   - Code:", error.code);
-        console.error("   - Message:", error.message);
         setError(error.message || "Lỗi khi gửi tin nhắn");
       });
 
       socket.on("auth_error", (error) => {
-        console.error("❌ [Socket] Auth error:");
-        console.error("   - Code:", error.code);
-        console.error("   - Message:", error.message);
         setError("Lỗi xác thực. Vui lòng đăng nhập lại.");
+      });
+
+      // Call events
+      socket.on("call:initiated", (data) => {
+        console.log("✅ Received call:initiated event:", data);
+        if (callCallbacksRef.current.onCallInitiated) {
+          callCallbacksRef.current.onCallInitiated(data);
+        }
+      });
+
+      socket.on("call:incoming", (data) => {
+        console.log("📞 Received call:incoming event:", data);
+        if (callCallbacksRef.current.onIncomingCall) {
+          callCallbacksRef.current.onIncomingCall(data);
+        }
+      });
+
+      socket.on("call:answered", (data) => {
+        console.log("✅ Received call:answered event:", data);
+        if (callCallbacksRef.current.onCallAnswered) {
+          callCallbacksRef.current.onCallAnswered(data);
+        }
+      });
+
+      socket.on("call:rejected", (data) => {
+        if (callCallbacksRef.current.onCallRejected) {
+          callCallbacksRef.current.onCallRejected(data);
+        }
+      });
+
+      socket.on("call:ended", (data) => {
+        if (callCallbacksRef.current.onCallEnded) {
+          callCallbacksRef.current.onCallEnded(data);
+        }
+      });
+
+      socket.on("call:failed", (data) => {
+        if (callCallbacksRef.current.onCallFailed) {
+          callCallbacksRef.current.onCallFailed(data);
+        }
+      });
+
+      socket.on("webrtc:offer", (data) => {
+        if (callCallbacksRef.current.onWebRTCOffer) {
+          callCallbacksRef.current.onWebRTCOffer(data);
+        }
+      });
+
+      socket.on("webrtc:answer", (data) => {
+        if (callCallbacksRef.current.onWebRTCAnswer) {
+          callCallbacksRef.current.onWebRTCAnswer(data);
+        }
+      });
+
+      socket.on("webrtc:ice-candidate", (data) => {
+        if (callCallbacksRef.current.onICECandidate) {
+          callCallbacksRef.current.onICECandidate(data);
+        }
       });
     };
 
     script.onerror = () => {
-      console.error("❌ Failed to load Socket.IO library");
       setError("Không thể tải thư viện Socket.IO");
     };
     
     document.head.appendChild(script);
 
-    // Cleanup function
     return () => {
       if (socketRef.current) {
-        console.log("🔌 [Socket] Cleaning up connection");
-        
-        // Remove all listeners
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         socketRef.current.off("connect_error");
@@ -177,8 +205,16 @@ export const SocketProvider = ({ children }) => {
         socketRef.current.off("user_typing");
         socketRef.current.off("message_error");
         socketRef.current.off("auth_error");
+        socketRef.current.off("call:initiated");
+        socketRef.current.off("call:incoming");
+        socketRef.current.off("call:answered");
+        socketRef.current.off("call:rejected");
+        socketRef.current.off("call:ended");
+        socketRef.current.off("call:failed");
+        socketRef.current.off("webrtc:offer");
+        socketRef.current.off("webrtc:answer");
+        socketRef.current.off("webrtc:ice-candidate");
         
-        // Disconnect and cleanup
         socketRef.current.disconnect();
         socketRef.current = null;
       }
@@ -187,58 +223,157 @@ export const SocketProvider = ({ children }) => {
         script.parentNode.removeChild(script);
       }
     };
-  }, []); // Empty deps - chỉ chạy 1 lần khi mount
+  }, []);
 
-  // === Helper function để gửi tin nhắn ===
   const sendMessage = useCallback((messageData) => {
     if (!socketRef.current || !isConnected) {
-      console.error("❌ Cannot send message: Socket not connected");
       return false;
     }
-
-    console.log("📤 [Socket] Emitting send_message:", {
-      conversationId: messageData.conversationId,
-      tempId: messageData.messageId,
-      messageLength: messageData.message?.length || 0,
-      attachmentsCount: messageData.attachments?.length || 0,
-    });
 
     try {
       socketRef.current.emit("send_message", messageData);
       return true;
     } catch (error) {
-      console.error("❌ Error emitting message:", error);
       return false;
     }
   }, [isConnected]);
 
-  // === Helper function để gửi typing indicator ===
   const sendTypingIndicator = useCallback((conversationId, isTyping) => {
     if (!socketRef.current || !isConnected) {
-      console.warn("⚠️ Cannot send typing indicator: Socket not connected");
       return;
     }
     
-    console.log(`⌨️ [Socket] Sending typing indicator: ${isTyping ? "typing..." : "stopped"}`);
-    
     try {
-      socketRef.current.emit("typing", {
-        conversationId,
-        isTyping,
-      });
+      socketRef.current.emit("typing", { conversationId, isTyping });
     } catch (error) {
-      console.error("❌ Error sending typing indicator:", error);
+      // Error sending typing indicator
     }
   }, [isConnected]);
 
-  const contextValue = {
+  const initiateCall = useCallback((callData) => {
+    if (!socketRef.current || !isConnected) {
+      console.error("❌ Socket not connected or socketRef is null");
+      return false;
+    }
+
+    try {
+      console.log("📡 Emitting call:initiate event:", callData);
+      socketRef.current.emit("call:initiate", callData);
+      return true;
+    } catch (error) {
+      console.error("❌ Error emitting call:initiate:", error);
+      return false;
+    }
+  }, [isConnected]);
+
+  const answerCall = useCallback((callId) => {
+    if (!socketRef.current || !isConnected) {
+      return false;
+    }
+
+    try {
+      socketRef.current.emit("call:answer", { callId });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, [isConnected]);
+
+  const rejectCall = useCallback((callId) => {
+    if (!socketRef.current || !isConnected) {
+      return false;
+    }
+
+    try {
+      socketRef.current.emit("call:reject", { callId });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, [isConnected]);
+
+  const endCall = useCallback((callId) => {
+    if (!socketRef.current || !isConnected) {
+      return false;
+    }
+
+    try {
+      socketRef.current.emit("call:end", { callId });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, [isConnected]);
+
+  const sendWebRTCOffer = useCallback((toUserId, offer) => {
+    if (!socketRef.current || !isConnected) {
+      return false;
+    }
+
+    try {
+      socketRef.current.emit("webrtc:offer", { to: toUserId, offer });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, [isConnected]);
+
+  const sendWebRTCAnswer = useCallback((toUserId, answer) => {
+    if (!socketRef.current || !isConnected) {
+      return false;
+    }
+
+    try {
+      socketRef.current.emit("webrtc:answer", { to: toUserId, answer });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, [isConnected]);
+
+  const sendICECandidate = useCallback((toUserId, candidate) => {
+    if (!socketRef.current || !isConnected) {
+      return false;
+    }
+
+    try {
+      socketRef.current.emit("webrtc:ice-candidate", { to: toUserId, candidate });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, [isConnected]);
+
+  const contextValue = useMemo(() => ({
     socket: socketRef.current,
     isConnected,
     error,
     sendMessage,
     sendTypingIndicator,
     registerMessageCallbacks,
-  };
+    initiateCall,
+    answerCall,
+    rejectCall,
+    endCall,
+    sendWebRTCOffer,
+    sendWebRTCAnswer,
+    sendICECandidate,
+    registerCallCallbacks,
+  }), [
+    isConnected,
+    error,
+    sendMessage,
+    sendTypingIndicator,
+    registerMessageCallbacks,
+    initiateCall,
+    answerCall,
+    rejectCall,
+    endCall,
+    sendWebRTCOffer,
+    sendWebRTCAnswer,
+    sendICECandidate,
+    registerCallCallbacks,
+  ]);
 
   return (
     <SocketContext.Provider value={contextValue}>
@@ -247,7 +382,6 @@ export const SocketProvider = ({ children }) => {
   );
 };
 
-// Hook để sử dụng socket context
 export const useSocket = () => {
   const context = useContext(SocketContext);
   if (!context) {

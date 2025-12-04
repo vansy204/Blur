@@ -25,12 +25,18 @@ import {
 import axios from "axios";
 import { uploadToCloudnary } from "../../Config/UploadToCloudnary";
 import { useEffect, useRef, useState } from "react";
+import { createPost } from "../../api/postApi";
 import { getToken } from "../../service/LocalStorageService";
 import { BsEmojiSmile, BsImage, BsCameraVideo } from "react-icons/bs";
 import { MdClose } from "react-icons/md";
 import EmojiPicker from "emoji-picker-react";
 
-const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
+const CreatePostModal = ({
+  isOpen,
+  onClose,
+  onPostCreate = () => {},
+  user,
+}) => {
   const [content, setContent] = useState("");
   const [mediaFiles, setMediaFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
@@ -41,6 +47,14 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   const emojiRef = useRef();
   const toast = useToast();
   const token = getToken();
+
+  // ✅ Debug: Log when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log("🔔 CreatePostModal opened");
+      
+    }
+  }, [isOpen, onPostCreate]);
 
   useOutsideClick({
     ref: emojiRef,
@@ -56,7 +70,11 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   }, [mediaFiles]);
 
   const handleMediaChange = (e) => {
-    setMediaFiles(Array.from(e.target.files));
+    const newFiles = Array.from(e.target.files);
+    // ✅ Thêm vào mảng cũ thay vì ghi đè
+    setMediaFiles((prev) => [...prev, ...newFiles]);
+    // Reset input để có thể chọn lại cùng file
+    e.target.value = "";
   };
 
   const resetAndClose = () => {
@@ -82,23 +100,71 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
+      const token = getToken();
+
+      console.log("🚀 [Modal] Starting post creation...");
+      console.log("📝 [Modal] Content:", content);
+      console.log("🖼️ [Modal] Media files count:", mediaFiles.length);
+
+      // 1️⃣ Upload media
       const mediaUrls =
         mediaFiles.length > 0
           ? await Promise.all(mediaFiles.map(uploadToCloudnary))
           : [];
 
-      const newPost = { content, mediaUrls };
-      const response = await axios.post(
-        "http://localhost:8888/api/post/create",
-        newPost,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      console.log("✅ [Modal] Uploaded media URLs:", mediaUrls);
 
+      // 2️⃣ Tạo post với TẤT CẢ ảnh
+      const postData = {
+        content: content.trim(),
+        mediaUrls: mediaUrls, // Array chứa tất cả URLs
+      };
+
+      console.log("📤 [Modal] Sending post data to API:", postData);
+
+      // 3️⃣ Gọi API qua postApi.js
+      const createdPost = await createPost(token, postData);
+
+      console.log("📝 [Modal] Created post from API:", createdPost);
+      console.log("📝 [Modal] Post ID:", createdPost.id || createdPost._id);
+
+      // 4️⃣ Callback với post đã được normalize
+      const normalizedPost = {
+        ...createdPost,
+        id: createdPost.id || createdPost._id,
+        mediaUrls: createdPost.mediaUrls || mediaUrls,
+        createdAt: createdPost.createdAt || new Date().toISOString(),
+        // ✅ fallback dữ liệu người dùng từ HomePage
+        userName:
+          createdPost.userName ||
+          `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
+        userImageUrl: createdPost.userImageUrl || user?.imageUrl || null,
+      };
+
+      console.log("✅ [Modal] Normalized post:", normalizedPost);
+      console.log("🎯 [Modal] Calling onPostCreate with:", normalizedPost);
+      console.log(
+        "🎯 [Modal] onPostCreate function exists?",
+        typeof onPostCreate === "function"
+      );
+      console.log(
+        "🎯 [Modal] About to call onPostCreate. Is onPostCreate defined?",
+        typeof onPostCreate
+      );
+      console.log("🎯 [Modal] normalizedPost:", normalizedPost);
+
+      if (onPostCreate) {
+        onPostCreate(normalizedPost);
+        console.log("✅ [Modal] onPostCreate called successfully");
+      } else {
+        console.error("❌ [Modal] onPostCreate is not defined or falsy!");
+      }
+      // 5️⃣ Call parent callback
+      //onPostCreate(normalizedPost);
+
+      console.log("✅ [Modal] onPostCreate called successfully");
+
+      // Show success toast
       toast({
         title: "Post created successfully.",
         status: "success",
@@ -107,10 +173,15 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
         isClosable: true,
       });
 
-      onPostCreate(response.data);
+      // 6️⃣ Wait a bit for state update, then close modal
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       resetAndClose();
+
+      console.log("✅ [Modal] Modal closed");
     } catch (error) {
-      console.error("Error creating post:", error);
+      console.error("❌ [Modal] Error creating post:", error);
+      console.error("❌ [Modal] Error details:", error.response?.data);
       toast({
         title: "Failed to create post.",
         description: error?.response?.data?.message || error.message,
@@ -138,19 +209,24 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
         <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.400" />
         <ModalContent borderRadius="2xl" overflow="hidden" shadow="2xl">
           {/* Header with gradient */}
-          <ModalHeader 
-            textAlign="center" 
+          <ModalHeader
+            textAlign="center"
             py={4}
             bgGradient="linear(to-r, sky.50, blue.50)"
             borderBottom="1px"
             borderColor="gray.100"
           >
-            <Text fontSize="lg" fontWeight="bold" bgGradient="linear(to-r, sky.600, blue.600)" bgClip="text">
+            <Text
+              fontSize="lg"
+              fontWeight="bold"
+              bgGradient="linear(to-r, sky.600, blue.600)"
+              bgClip="text"
+            >
               Create New Post
             </Text>
           </ModalHeader>
-          
-          <ModalCloseButton 
+
+          <ModalCloseButton
             onClick={handleCloseAttempt}
             top={3}
             right={3}
@@ -159,7 +235,12 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
           />
 
           <ModalBody px={0} py={0}>
-            <Box display="flex" flexDir={{ base: "column", md: "row" }} minH="500px" maxH="600px">
+            <Box
+              display="flex"
+              flexDir={{ base: "column", md: "row" }}
+              minH="500px"
+              maxH="600px"
+            >
               {/* Left side - Media Preview */}
               <Box
                 flex="1.5"
@@ -171,22 +252,44 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                 maxH="600px"
                 p={4}
                 position="relative"
-                overflow="hidden"
+                overflow="auto"
               >
                 {previewUrls.length > 0 ? (
-                  <Box position="relative" w="100%" h="100%" display="flex" alignItems="center" justifyContent="center">
+                  <Box
+                    position="relative"
+                    w="100%"
+                    h="100%"
+                    display="grid"
+                    gridTemplateColumns={
+                      previewUrls.length === 1 ? "1fr" : "repeat(2, 1fr)"
+                    }
+                    gap={3}
+                    alignContent="start"
+                    overflowY="auto"
+                  >
                     {previewUrls.map((media, i) =>
                       media.type.startsWith("video") ? (
-                        <Box key={i} position="relative" maxW="100%" maxH="100%" display="flex" alignItems="center" justifyContent="center">
+                        <Box
+                          key={i}
+                          position="relative"
+                          w="100%"
+                          h={previewUrls.length === 1 ? "100%" : "200px"}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          bg="white"
+                          borderRadius="xl"
+                          overflow="hidden"
+                        >
                           <video
                             src={media.url}
                             controls
                             style={{
                               maxWidth: "100%",
-                              maxHeight: "550px",
-                              borderRadius: "12px",
-                              objectFit: "contain",
-                              boxShadow: "0 4px 20px rgba(14, 165, 233, 0.15)",
+                              maxHeight: "100%",
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
                             }}
                           />
                           <Button
@@ -199,20 +302,30 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                             onClick={() => removeMedia(i)}
                             zIndex={2}
                             shadow="lg"
-                            _hover={{ transform: "scale(1.05)" }}
+                            _hover={{ transform: "scale(1.1)" }}
                           >
                             <MdClose size={16} />
                           </Button>
                         </Box>
                       ) : (
-                        <Box key={i} position="relative" maxW="100%" maxH="100%" display="flex" alignItems="center" justifyContent="center">
+                        <Box
+                          key={i}
+                          position="relative"
+                          w="100%"
+                          h={previewUrls.length === 1 ? "100%" : "200px"}
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          bg="white"
+                          borderRadius="xl"
+                          overflow="hidden"
+                        >
                           <Image
                             src={media.url}
-                            maxW="100%"
-                            maxH="550px"
-                            borderRadius="xl"
-                            objectFit="contain"
-                            shadow="lg"
+                            w="100%"
+                            h="100%"
+                            objectFit="cover"
+                            shadow="md"
                           />
                           <Button
                             position="absolute"
@@ -224,7 +337,7 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                             onClick={() => removeMedia(i)}
                             zIndex={2}
                             shadow="lg"
-                            _hover={{ transform: "scale(1.05)" }}
+                            _hover={{ transform: "scale(1.1)" }}
                           >
                             <MdClose size={16} />
                           </Button>
@@ -234,12 +347,12 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                   </Box>
                 ) : (
                   <Box textAlign="center" color="gray.400">
-                    <Box 
-                      w="24" 
-                      h="24" 
-                      mx="auto" 
-                      mb={4} 
-                      rounded="full" 
+                    <Box
+                      w="24"
+                      h="24"
+                      mx="auto"
+                      mb={4}
+                      rounded="full"
                       bgGradient="linear(to-br, sky.400, blue.500)"
                       display="flex"
                       alignItems="center"
@@ -248,19 +361,23 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                     >
                       <BsImage size={48} color="white" />
                     </Box>
-                    <Text fontSize="sm" fontWeight="medium">No media selected</Text>
-                    <Text fontSize="xs" mt={1}>Upload photos or videos to get started</Text>
+                    <Text fontSize="sm" fontWeight="medium">
+                      No media selected
+                    </Text>
+                    <Text fontSize="xs" mt={1}>
+                      Upload photos or videos to get started
+                    </Text>
                   </Box>
                 )}
               </Box>
 
               {/* Right side - Form */}
-              <Box 
-                flex="1" 
-                p={6} 
-                display="flex" 
-                flexDir="column" 
-                gap={4} 
+              <Box
+                flex="1"
+                p={6}
+                display="flex"
+                flexDir="column"
+                gap={4}
                 bg="white"
                 overflowY="auto"
                 maxH="600px"
@@ -277,10 +394,10 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                     pr="40px"
                     borderColor="gray.200"
                     _hover={{ borderColor: "sky.300" }}
-                    _focus={{ 
-                      borderColor: "sky.400", 
+                    _focus={{
+                      borderColor: "sky.400",
                       boxShadow: "0 0 0 1px var(--chakra-colors-sky-400)",
-                      outline: "none"
+                      outline: "none",
                     }}
                     borderRadius="xl"
                     fontSize="sm"
@@ -309,7 +426,11 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                       borderRadius="xl"
                       overflow="hidden"
                     >
-                      <EmojiPicker onEmojiClick={handleEmojiClick} height={300} width={280} />
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        height={300}
+                        width={280}
+                      />
                     </Box>
                   )}
                 </Box>
@@ -325,10 +446,10 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                       p={4}
                       textAlign="center"
                       transition="all 0.3s"
-                      _hover={{ 
-                        bg: "sky.50", 
+                      _hover={{
+                        bg: "sky.50",
                         borderColor: "sky.400",
-                        transform: "translateY(-2px)"
+                        transform: "translateY(-2px)",
                       }}
                     >
                       <Box
@@ -344,8 +465,14 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                       >
                         <BsCameraVideo size={24} color="white" />
                       </Box>
-                      <Text fontWeight="semibold" color="gray.700" fontSize="sm">
-                        {mediaFiles.length > 0 ? `${mediaFiles.length} file(s) selected` : "Select photos or videos"}
+                      <Text
+                        fontWeight="semibold"
+                        color="gray.700"
+                        fontSize="sm"
+                      >
+                        {mediaFiles.length > 0
+                          ? `${mediaFiles.length} file(s) selected`
+                          : "Select photos or videos"}
                       </Text>
                       <Text fontSize="xs" color="gray.500" mt={1}>
                         Click to browse
@@ -361,23 +488,21 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                     </Box>
                   </label>
                 </Box>
-
-    
               </Box>
             </Box>
           </ModalBody>
 
-          <ModalFooter 
-            justifyContent="space-between" 
-            px={6} 
+          <ModalFooter
+            justifyContent="space-between"
+            px={6}
             py={4}
             borderTop="1px"
             borderColor="gray.100"
             bg="gray.50"
           >
-            <Button 
-              onClick={handleCloseAttempt} 
-              variant="ghost" 
+            <Button
+              onClick={handleCloseAttempt}
+              variant="ghost"
               rounded="full"
               fontWeight="semibold"
               color="gray.600"
@@ -402,17 +527,17 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
                 color: "sky.700",
                 borderColor: "sky.600",
                 transform: "translateY(-2px)",
-                shadow: "lg"
+                shadow: "lg",
               }}
               _active={{
-                transform: "scale(0.98)"
+                transform: "scale(0.98)",
               }}
               _disabled={{
                 bg: "gray.100",
                 color: "gray.400",
                 borderColor: "gray.300",
                 cursor: "not-allowed",
-                opacity: 0.6
+                opacity: 0.6,
               }}
               transition="all 0.2s"
             >
@@ -435,19 +560,20 @@ const CreatePostModal = ({ isOpen, onClose, onPostCreate = () => {} }) => {
             Discard post?
           </AlertDialogHeader>
           <AlertDialogBody color="gray.600">
-            Are you sure you want to discard this post? Your content will be lost.
+            Are you sure you want to discard this post? Your content will be
+            lost.
           </AlertDialogBody>
           <AlertDialogFooter gap={3}>
-            <Button 
-              ref={cancelRef} 
+            <Button
+              ref={cancelRef}
               onClick={() => setIsConfirmOpen(false)}
               rounded="full"
               variant="ghost"
             >
               Cancel
             </Button>
-            <Button 
-              colorScheme="red" 
+            <Button
+              colorScheme="red"
               onClick={handleConfirmClose}
               rounded="full"
               px={6}
