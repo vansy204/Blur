@@ -131,11 +131,7 @@ public class PostService {
     */
 
 
-    @Cacheable(
-            value = "posts",
-            key = "#page + ':' + #limit",
-            unless = "#result == null || #result.isEmpty()"
-    )
+
     public Page<PostResponse> getAllPots(int page, int limit) {
         Pageable pageable = PageRequest.of(page -1 , limit, Sort.by("createdAt").descending());
         Page<Post> postPage = postRepository.findAllByOrderByCreatedAtDesc(pageable);
