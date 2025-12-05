@@ -9,13 +9,7 @@ import {
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { FaRegComment } from "react-icons/fa";
 import { RiSendPlaneLine } from "react-icons/ri";
-import {
-  MdVolumeOff,
-  MdVolumeUp,
-  MdPlayArrow,
-  MdPause,
-  MdDelete,
-} from "react-icons/md";
+import { MdDelete } from "react-icons/md";
 import { useDisclosure, useToast } from "@chakra-ui/react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination } from "swiper/modules";
@@ -30,7 +24,6 @@ import {
   fetchLikePost,
   deletePost,
   likePost,
-  unlikePost,
   createComment,
 } from "../../api/postApi";
 import { IoSend } from "react-icons/io5";
@@ -41,7 +34,6 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const [isPostLiked, setIsPostLiked] = useState(false);
   const toast = useToast();
   const [isSaved, setIsSaved] = useState(false);
-  const [hoveredVideoIndex, setHoveredVideoIndex] = useState(null);
   const [isPlaying, setIsPlaying] = useState({});
   const [progress, setProgress] = useState({});
   const [comments, setComments] = useState([]);
@@ -55,7 +47,7 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const [comment, setComment] = useState("");
   const navigate = useNavigate();
 
-  // 🟦 Fetch likes & comments
+  // 🟦 Fetch likes & comments - DEBUG VERSION
   useEffect(() => {
     if (!post?.id || !user?.id) return;
 
@@ -77,21 +69,70 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         setComments(commentRes.data.result || []);
         const likesArray = Array.isArray(likeRes) ? likeRes : [];
         setLikes(likesArray);
-        const liked = likesArray.some(
-          (likeItem) => likeItem.userId === user.id
-        );
-        setIsPostLiked(liked);
+
+        // ✅ DEBUG - In ra tất cả thông tin
+        console.log("🔍 DEBUG USER OBJECT:", {
+          fullUser: user,
+          "user.id": user.id,
+          "user.userId": user.userId,
+          "user.username": user.username,
+        });
+
+        console.log("🔍 DEBUG LIKES ARRAY:", {
+          likesArray,
+          firstLike: likesArray[0],
+          allUserIds: likesArray.map((like) => like.userId),
+        });
+
+        // ✅ TRY NHIỀU CÁCH ĐỂ TÌM userId PHÙ HỢP
+        const possibleUserIds = [
+          user.id,
+          user.userId,
+          user.username,
+          user.sub, // JWT subject
+        ].filter(Boolean); // Loại bỏ undefined/null
+
+        console.log("🔍 POSSIBLE USER IDs:", possibleUserIds);
+
+        // ✅ CHECK TỪNG userId XEM CÓ MATCH KHÔNG
+        let matched = false;
+        let matchedWith = null;
+
+        for (const uid of possibleUserIds) {
+          const found = likesArray.some((likeItem) => {
+            const isMatch = likeItem.userId === uid;
+            if (isMatch) {
+              console.log(`✅ MATCHED! likeItem.userId (${likeItem.userId}) === ${uid}`);
+            }
+            return isMatch;
+          });
+
+          if (found) {
+            matched = true;
+            matchedWith = uid;
+            break;
+          }
+        }
+
+        setIsPostLiked(matched);
+
+        console.log("📊 FINAL LIKE STATUS:", {
+          isLiked: matched,
+          matchedWith,
+          likesCount: likesArray.length,
+        });
       } catch (error) {
         console.error("Error fetching data:", error);
         setLikes([]);
         setComments([]);
+        setIsPostLiked(false);
       }
     };
 
     fetchData();
-  }, [post?.id, user?.id, token]);
+  }, [post?.id, user?.id, user?.userId, token]);
 
-  // 🖼️ Load image dimensions for auto-fit
+  // 🖼️ Load image dimensions
   const handleImageLoad = (index, e) => {
     const img = e.target;
     const aspectRatio = img.naturalWidth / img.naturalHeight;
@@ -105,7 +146,6 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       },
     }));
 
-    // Set primary aspect ratio from first media
     if (index === 0 && primaryAspectRatio === null) {
       setPrimaryAspectRatio(aspectRatio);
     }
@@ -125,7 +165,6 @@ const PostCard = ({ post, user, onPostDeleted }) => {
       },
     }));
 
-    // Set primary aspect ratio from first media
     if (index === 0 && primaryAspectRatio === null) {
       setPrimaryAspectRatio(aspectRatio);
     }
@@ -210,6 +249,8 @@ const PostCard = ({ post, user, onPostDeleted }) => {
 
   // 💬 Create comment
   const handleCreateComment = async (comment) => {
+    if (!comment.trim()) return;
+
     try {
       const createdComment = await createComment(token, post.id, comment);
       setComments((prev) => [...prev, createdComment]);
@@ -232,32 +273,101 @@ const PostCard = ({ post, user, onPostDeleted }) => {
     }
   };
 
-  // ❤️ Like / Unlike toggle
+  // ❤️ TOGGLE LIKE/UNLIKE - FLEXIBLE userId MATCHING
   const handlePostLike = async () => {
+    const previousLiked = isPostLiked;
+    const previousLikes = [...likes];
+    
+    // ✅ TÌM userId PHÙ HỢP
+    const currentUserId = user.id || user.userId || user.username || user.sub;
+
+    console.log("🔍 Handle Like - currentUserId:", currentUserId);
+
     try {
+      // ✅ OPTIMISTIC UPDATE
+      setIsPostLiked(!isPostLiked);
+
       if (isPostLiked) {
-        setIsPostLiked(false);
-        setLikes((prev) => prev.filter((like) => like.userId !== user.id));
-        await unlikePost(token, post.id);
+        // Unlike
+        setLikes((prev) =>
+          prev.filter((like) => like.userId !== currentUserId)
+        );
       } else {
-        setIsPostLiked(true);
+        // Like
         setLikes((prev) => [
           ...prev,
           {
-            userId: user.id,
+            userId: currentUserId,
             postId: post.id,
             createdAt: new Date().toISOString(),
             id: `temp-${Date.now()}`,
           },
         ]);
-        await likePost(token, post.id);
       }
+
+      // ✅ CHỈ GỌI 1 API - BACKEND TỰ TOGGLE
+      await likePost(token, post.id);
+
+      // ✅ REFETCH ĐỂ ĐỒNG BỘ VỚI DATABASE
+      const likeRes = await fetchLikePost(token, post.id);
+      const likesArray = Array.isArray(likeRes) ? likeRes : [];
+      setLikes(likesArray);
+
+      // ✅ CHECK LẠI VỚI TẤT CẢ POSSIBLE IDs
+      const possibleUserIds = [
+        user.id,
+        user.userId,
+        user.username,
+        user.sub,
+      ].filter(Boolean);
+
+      let matched = false;
+      for (const uid of possibleUserIds) {
+        if (likesArray.some((l) => l.userId === uid)) {
+          matched = true;
+          break;
+        }
+      }
+
+      setIsPostLiked(matched);
+
+      console.log("✅ Like synced:", { matched, likesCount: likesArray.length });
     } catch (error) {
       console.error("❌ Error toggling like:", error);
+
+      // Rollback về state cũ
+      setIsPostLiked(previousLiked);
+      setLikes(previousLikes);
+
+      toast({
+        title: "Failed to update like",
+        status: "error",
+        duration: 2000,
+        position: "top-right",
+      });
+
+      // Refetch để đảm bảo đúng
       try {
         const likeRes = await fetchLikePost(token, post.id);
-        setLikes(Array.isArray(likeRes) ? likeRes : []);
-        setIsPostLiked(likeRes.some((l) => l.userId === user.id));
+        const likesArray = Array.isArray(likeRes) ? likeRes : [];
+        setLikes(likesArray);
+
+        const possibleUserIds = [
+          user.id,
+          user.userId,
+          user.username,
+          user.sub,
+        ].filter(Boolean);
+
+        let matched = false;
+        for (const uid of possibleUserIds) {
+          if (likesArray.some((l) => l.userId === uid)) {
+            matched = true;
+            break;
+          }
+        }
+
+        setIsPostLiked(matched);
       } catch (refetchError) {
         console.error("Error refetching likes:", refetchError);
       }
@@ -304,9 +414,9 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : [];
   const handleClickUserName = () =>
     navigate(`/profile/user/?profileId=${post?.profileId}`);
-  const isCurrentUserPostOwner = post?.userId === user?.userId;
+  const isCurrentUserPostOwner = post?.userId === (user?.userId || user?.id);
 
-  // 🎥 Video progress
+  // 🎥 Video controls
   const handleSeek = (index, value) => {
     const video = videoRefs.current[index];
     if (!video) return;
@@ -335,9 +445,8 @@ const PostCard = ({ post, user, onPostDeleted }) => {
     }));
   };
 
-  // 🎨 Get container style based on PRIMARY aspect ratio (Instagram style)
+  // 🎨 Get container style
   const getMediaContainerStyle = () => {
-    // Wait until first media loads
     if (primaryAspectRatio === null) {
       return {
         height: "400px",
@@ -347,24 +456,19 @@ const PostCard = ({ post, user, onPostDeleted }) => {
 
     const aspectRatio = primaryAspectRatio;
 
-    // Portrait (dọc): aspect ratio < 0.8
     if (aspectRatio < 0.8) {
       return {
         aspectRatio: aspectRatio.toString(),
         maxHeight: "600px",
         width: "100%",
       };
-    }
-    // Landscape (ngang): aspect ratio > 1.3
-    else if (aspectRatio > 1.3) {
+    } else if (aspectRatio > 1.3) {
       return {
         aspectRatio: aspectRatio.toString(),
         maxHeight: "500px",
         width: "100%",
       };
-    }
-    // Square or near square (0.8 - 1.3)
-    else {
+    } else {
       return {
         aspectRatio: aspectRatio.toString(),
         maxHeight: "600px",
@@ -441,7 +545,7 @@ const PostCard = ({ post, user, onPostDeleted }) => {
         </div>
       )}
 
-      {/* Media auto-fit - Instagram Style */}
+      {/* Media */}
       {mediaUrls.length > 0 && (
         <div className="relative w-full bg-gradient-to-br from-sky-50 to-gray-50">
           <Swiper
@@ -454,7 +558,7 @@ const PostCard = ({ post, user, onPostDeleted }) => {
           >
             {mediaUrls.map((url, index) => {
               const isVideo = url.match(/\.(mp4|webm|ogg)$/i);
-              const containerStyle = getMediaContainerStyle(); // Same for all slides
+              const containerStyle = getMediaContainerStyle();
 
               return (
                 <SwiperSlide key={index}>

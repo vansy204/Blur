@@ -64,7 +64,6 @@ public class LikePostEventHandler implements EventHandler<Event> {
                 .content(" like your post on Blur.")
                 .postId(event.getPostId())
                 .build();
-        log.info("📨 Sending notification: {}", new ObjectMapper().writeValueAsString(notification));
         boolean isOnline = redisService.isOnline(event.getReceiverId());
         log.info("🔎 Receiver {} online? {}", event.getReceiverId(), isOnline);
         notificationService.save(notification);
