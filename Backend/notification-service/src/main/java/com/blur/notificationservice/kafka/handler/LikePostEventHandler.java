@@ -61,7 +61,7 @@ public class LikePostEventHandler implements EventHandler<Event> {
                 .senderImageUrl(profile.getResult().getImageUrl())
                 .type(Type.LikePost)
                 .timestamp(event.getTimestamp())
-                .content(" like your post on Blur.")
+                .content(" like your post.")
                 .postId(event.getPostId())
                 .build();
         boolean isOnline = redisService.isOnline(event.getReceiverId());
@@ -71,7 +71,6 @@ public class LikePostEventHandler implements EventHandler<Event> {
             log.info("📡 Sending realtime notification to {}", notification.getReceiverId());
             notificationWebSocketService.sendToUser(notification);
         }else{
-
             sendLikePostNotification(notification);
         }
     }
