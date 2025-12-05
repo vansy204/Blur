@@ -12,20 +12,22 @@ import {
   markNotificationAsRead,
 } from "../../api/notificationAPI";
 import { useToast } from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
+import PostViewModal from "../../Components/Post/PostViewModal";
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  
   const toast = useToast();
-  const navigate = useNavigate();
   const token = getToken();
 
-  // ✅ Lấy realtime noti từ Context (hiển thị toast)
+  // ✅ Lấy realtime noti từ Context
   const {
     notifications: realtimeNotifications,
-    notificationCounter, // ⭐ THÊM DÒNG NÀY
+    notificationCounter,
   } = useNotification();
 
   // ✅ Giải mã token để lấy userId
@@ -55,7 +57,7 @@ const NotificationsPage = () => {
     if (token && userId) getNotifications();
   }, [token, userId]);
 
-  // ✅ Sửa useEffect để depend vào counter thay vì array
+  // ✅ Realtime notification handler
   useEffect(() => {
     console.log("🔄 Notification counter changed:", notificationCounter);
 
@@ -74,24 +76,18 @@ const NotificationsPage = () => {
             .filter(Boolean)
             .join(" ")
         : latest.senderName || "Unknown User";
-    console.log("✅ Sender:", {
-      first: latest.senderFirstName,
-      last: latest.senderLastName,
-      username: latest.senderName,
-    });
 
     const newNotification = {
       id: latest.id || Date.now(),
-      senderName, 
+      senderName,
       senderImageUrl: latest.senderImageUrl,
       content: latest.content || latest.message,
       timestamp: latest.createdDate || new Date().toISOString(),
       type: latest.type || "general",
-      postId: latest.postId, // ⭐ Đảm bảo có field này
+      postId: latest.postId,
       senderId: latest.senderId,
       seen: false,
     };
-    console.log("📦 Latest notification data:", latest); // ✅ Log để xem cấu trúc
 
     setNotifications((prev) => {
       const exists = prev.some((n) => n.id === newNotification.id);
@@ -104,7 +100,7 @@ const NotificationsPage = () => {
       console.log("✅ Adding notification to page list");
       return [newNotification, ...prev];
     });
-  }, [notificationCounter]); // ⭐ THAY ĐỔI DEPENDENCY
+  }, [notificationCounter]);
 
   // ✅ Mark 1 thông báo là đã đọc
   const handleMarkRead = async (id) => {
@@ -142,15 +138,13 @@ const NotificationsPage = () => {
     }
   };
 
-  // ✅ Khi click vào notification → mở bài viết
+  // ✅ Khi click vào notification → mở modal post
   const handleNotificationClick = async (notification) => {
-    // ✅ Kiểm tra nhiều field có thể chứa postId
     const postId =
       notification.postId || notification.post_id || notification.entityId;
 
     console.log("🔍 Notification object:", notification);
     console.log("🔍 Extracted Post ID:", postId);
-    console.log("🔍 Post ID type:", typeof postId);
 
     if (!postId) {
       toast({
@@ -164,6 +158,7 @@ const NotificationsPage = () => {
     }
 
     try {
+      // Mark as read
       if (!notification.seen) {
         await markNotificationAsRead(token, notification.id);
         setNotifications((prev) =>
@@ -171,7 +166,8 @@ const NotificationsPage = () => {
         );
       }
 
-      const post = await fetchPostById(postId, token); // ✅ FIX: dùng postId thay vì notification.postId
+      // Fetch post
+      const post = await fetchPostById(postId, token);
       console.log("✅ Post fetched successfully:", post);
 
       if (!post) {
@@ -186,10 +182,11 @@ const NotificationsPage = () => {
         return;
       }
 
-      navigate(`/post/${postId}`, { state: { post } });
+      // ✅ Mở modal
+      setSelectedPost(post);
+      setIsPostModalOpen(true);
     } catch (error) {
       console.error("❌ Error opening post:", error);
-      console.error("❌ Error response:", error.response);
 
       const errorMessage =
         error.response?.data?.message || error.response?.status === 404
@@ -228,7 +225,7 @@ const NotificationsPage = () => {
 
   const unreadCount = notifications.filter((n) => !n.seen).length;
 
-  // ✅ Giao diện Loading & Empty
+  // ✅ Giao diện Loading
   const LoadingSkeleton = () => (
     <div className="space-y-3 p-4">
       {[...Array(5)].map((_, index) => (
@@ -246,6 +243,7 @@ const NotificationsPage = () => {
     </div>
   );
 
+  // ✅ Giao diện Empty
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center h-full p-8 text-center">
       <div className="w-24 h-24 bg-gradient-to-br from-sky-100 to-blue-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
@@ -271,33 +269,46 @@ const NotificationsPage = () => {
   );
 
   return (
-    <div className="max-w-full min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
-      <Header
-        unreadCount={unreadCount}
-        onMarkAllRead={handleMarkAllRead}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-      />
+    <>
+      <div className="max-w-full min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+        <Header
+          unreadCount={unreadCount}
+          onMarkAllRead={handleMarkAllRead}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+        />
 
-      <div className="flex-grow overflow-auto">
-        {isLoading ? (
-          <LoadingSkeleton />
-        ) : sortedNotifications.length > 0 ? (
-          <div className="p-4 space-y-2">
-            {sortedNotifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onMarkRead={handleMarkRead}
-                onClick={() => handleNotificationClick(notification)}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState />
-        )}
+        <div className="flex-grow overflow-auto">
+          {isLoading ? (
+            <LoadingSkeleton />
+          ) : sortedNotifications.length > 0 ? (
+            <div className="p-4 space-y-2">
+              {sortedNotifications.map((notification) => (
+                <NotificationItem
+                  key={notification.id}
+                  notification={notification}
+                  onMarkRead={handleMarkRead}
+                  onClick={() => handleNotificationClick(notification)}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* ✅ Post View Modal */}
+      <PostViewModal
+        isOpen={isPostModalOpen}
+        onClose={() => {
+          setIsPostModalOpen(false);
+          setSelectedPost(null);
+        }}
+        post={selectedPost}
+        currentUserId={userId}
+      />
+    </>
   );
 };
 

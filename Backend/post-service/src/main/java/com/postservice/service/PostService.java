@@ -146,8 +146,6 @@ public class PostService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
 
-        log.info("🔍 Toggle Like - userId: {}, postId: {}", userId, postId);
-
         var post = postRepository.findById(postId)
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
 
@@ -156,16 +154,15 @@ public class PostService {
             throw new AppException(ErrorCode.CANNOT_LIKE_YOUR_POST);
         }
 
-        // ✅ CHECK XEM ĐÃ LIKE CHƯA
         PostLike existingLike = postLikeRepository.findByUserIdAndPostId(userId, postId);
 
         if (existingLike != null) {
-            // ✅ ĐÃ LIKE RỒI → UNLIKE (XÓA)
+
             postLikeRepository.delete(existingLike);
             log.info("👎 Post unliked - userId: {}, postId: {}", userId, postId);
             return "Post unliked successfully";
         } else {
-            // ✅ CHƯA LIKE → LIKE (TẠO MỚI)
+
             PostLike like = PostLike.builder()
                     .userId(userId)
                     .postId(postId)
@@ -232,5 +229,8 @@ public class PostService {
                 .stream()
                 .map(postMapper::toPostResponse)
                 .collect(Collectors.toList());
+    }
+    public PostResponse getPostById(String postId) {
+        return postMapper.toPostResponse(postRepository.findById(postId).orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND)));
     }
 }
