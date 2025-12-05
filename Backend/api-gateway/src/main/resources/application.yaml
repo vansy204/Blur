@@ -24,7 +24,7 @@ spring:
         corsConfigurations:
           '[/**]':
             allowedOrigins:
-              - "${CORS_ALLOWED_ORIGIN:http://localhost:3000}"
+              - "${CORS_ALLOWED_ORIGIN:http://localhost}"
             allowedMethods:
               - "GET"
               - "POST"
@@ -55,7 +55,6 @@ spring:
             - Path=${app.api-prefix}/notification/**
           filters:
             - StripPrefix=1
-
         - id: chat_service
           uri: ${CHAT_SERVICE_URL:http://localhost:8083}
           predicates:
