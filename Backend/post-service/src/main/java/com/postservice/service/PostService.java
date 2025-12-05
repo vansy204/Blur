@@ -19,7 +19,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,11 +41,9 @@ public class PostService {
     PostLikeRepository postLikeRepository;
     NotificationClient notificationClient;
     IdentityClient identityClient;
-    CacheService cacheService;
 
     @Transactional
     public PostResponse createPost(PostRequest postRequest) {
-        // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
         var profile = profileClient.getProfile(userId);
@@ -60,10 +57,8 @@ public class PostService {
                 .updatedAt(Instant.now())
                 .build();
         post = postRepository.save(post);
-        cacheService.evictPostCaches(post.getId(),userId);
         return postMapper.toPostResponse(post);
     }
-
 
     @Transactional
     public PostResponse updatePost(String postId, PostRequest postRequest) {
@@ -78,7 +73,6 @@ public class PostService {
         post.setMediaUrls(postRequest.getMediaUrls());
         post.setUpdatedAt(Instant.now());
         post = postRepository.save(post);
-        cacheService.evictPostCaches(post.getId(),userId);
         return postMapper.toPostResponse(post);
     }
 
@@ -92,48 +86,11 @@ public class PostService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
         postRepository.deleteById(postId);
-        cacheService.evictPostCaches(post.getId(),userId);
         return "Post deleted successfully";
     }
-    /*
-    public List<PostResponse> getAllPosts() {
-        List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
-        return posts.stream().map(post -> {
-            String userName = "Unknown";
-            String userImageUrl = null;
-            String profileId = null;
-            try {
-                ApiResponse<UserProfileResponse> response = profileClient.getProfile(post.getUserId());
-                UserProfileResponse userProfile = response.getResult();
-
-                if (userProfile != null) {
-                    userName = userProfile.getFirstName() + " " + userProfile.getLastName();
-                    userImageUrl = userProfile.getImageUrl();
-                    profileId = userProfile.getId();
-                }
-            } catch (Exception e) {
-                System.out.println("Không lấy được profile cho userId: " + post.getUserId());
-            }
-
-            return PostResponse.builder()
-                    .id(post.getId())
-                    .userId(post.getUserId())
-                    .profileId(profileId)
-                    .userName(userName)
-                    .userImageUrl(userImageUrl)  // ✅ Truyền vào response
-                    .content(post.getContent())
-                    .mediaUrls(post.getMediaUrls())
-                    .createdAt(post.getCreatedAt())
-                    .updatedAt(post.getUpdatedAt())
-                    .build();
-        }).collect(Collectors.toList());
-    }
-    */
-
-
 
     public Page<PostResponse> getAllPots(int page, int limit) {
-        Pageable pageable = PageRequest.of(page -1 , limit, Sort.by("createdAt").descending());
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.by("createdAt").descending());
         Page<Post> postPage = postRepository.findAllByOrderByCreatedAtDesc(pageable);
 
         List<PostResponse> responses = postPage.getContent().stream().map(post -> {
@@ -141,7 +98,7 @@ public class PostService {
             String userImageUrl = null;
             String profileId = null;
 
-            try{
+            try {
                 ApiResponse<UserProfileResponse> response = profileClient.getProfile(post.getUserId());
                 UserProfileResponse userProfileResponse = response.getResult();
 
@@ -151,7 +108,7 @@ public class PostService {
                     profileId = userProfileResponse.getId();
                 }
             } catch (Exception e) {
-                System.out.println("Không lấy được profile cho userId: " + post.getUserId());
+                log.error("Không lấy được profile cho userId: {}", post.getUserId());
             }
 
             return PostResponse.builder()
@@ -159,7 +116,7 @@ public class PostService {
                     .userId(post.getUserId())
                     .profileId(profileId)
                     .userName(userName)
-                    .userImageUrl(userImageUrl)  // ✅ Truyền vào response
+                    .userImageUrl(userImageUrl)
                     .content(post.getContent())
                     .mediaUrls(post.getMediaUrls())
                     .createdAt(post.getCreatedAt())
@@ -169,31 +126,27 @@ public class PostService {
         return new PageImpl<>(responses, pageable, postPage.getTotalElements());
     }
 
-
-    @Cacheable(
-        value = "userPosts",
-        key = "#root.target.getCurrentUserId()",
-        unless = "#result == null"
-    )
     public List<PostResponse> getMyPosts() {
-        // lay thong tin cua user tu token
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = authentication.getName();
         UserProfileResponse userProfile = null;
         try {
             userProfile = profileClient.getProfile(userId).getResult();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error getting profile", e);
         }
         return postRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
                 .stream().map(postMapper::toPostResponse)
                 .collect(Collectors.toList());
     }
 
+    // ==================== TOGGLE LIKE/UNLIKE - HOÀN CHỈNH ====================
     @Transactional
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
+
+        log.info("🔍 Toggle Like - userId: {}, postId: {}", userId, postId);
 
         var post = postRepository.findById(postId)
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
@@ -203,8 +156,16 @@ public class PostService {
             throw new AppException(ErrorCode.CANNOT_LIKE_YOUR_POST);
         }
 
-        // Nếu chưa like thì thêm mới
-        if (!postLikeRepository.existsByUserIdAndPostId(userId, postId)) {
+        // ✅ CHECK XEM ĐÃ LIKE CHƯA
+        PostLike existingLike = postLikeRepository.findByUserIdAndPostId(userId, postId);
+
+        if (existingLike != null) {
+            // ✅ ĐÃ LIKE RỒI → UNLIKE (XÓA)
+            postLikeRepository.delete(existingLike);
+            log.info("👎 Post unliked - userId: {}, postId: {}", userId, postId);
+            return "Post unliked successfully";
+        } else {
+            // ✅ CHƯA LIKE → LIKE (TẠO MỚI)
             PostLike like = PostLike.builder()
                     .userId(userId)
                     .postId(postId)
@@ -212,61 +173,64 @@ public class PostService {
                     .build();
             postLikeRepository.save(like);
 
-            // Gửi thông báo đến chủ bài viết
-            var sender = identityClient.getUser(userId);
-            var receiver = identityClient.getUser(post.getUserId());
+            log.info("👍 Post liked - userId: {}, postId: {}", userId, postId);
 
-            Event event = Event.builder()
-                    .postId(postId) // ✅ gửi postId
-                    .senderId(sender.getResult().getId())
-                    .senderName(sender.getResult().getUsername())
-                    .receiverId(receiver.getResult().getId())
-                    .receiverEmail(receiver.getResult().getEmail())
-                    .receiverName(receiver.getResult().getUsername())
-                    .timestamp(LocalDateTime.now())
-                    .build();
-            cacheService.evictPostLikeCache(postId);
-            notificationClient.sendLikePostNotification(event); // ✅ Gửi sang notification-service
+            // ✅ GỬI THÔNG BÁO ĐẾN CHỦ BÀI VIẾT (CHỈ KHI LIKE)
+            try {
+                var sender = identityClient.getUser(userId);
+                var receiver = identityClient.getUser(post.getUserId());
+
+                Event event = Event.builder()
+                        .postId(postId)
+                        .senderId(sender.getResult().getId())
+                        .senderName(sender.getResult().getUsername())
+                        .receiverId(receiver.getResult().getId())
+                        .receiverEmail(receiver.getResult().getEmail())
+                        .receiverName(receiver.getResult().getUsername())
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+                notificationClient.sendLikePostNotification(event);
+                log.info("📧 Notification sent to userId: {}", post.getUserId());
+            } catch (Exception e) {
+                log.error("❌ Error sending notification", e);
+                // Không throw exception, vẫn trả về like thành công
+            }
+
             return "Post liked successfully";
-        } else {
-            throw new AppException(ErrorCode.ALREADY_LIKED);
         }
     }
 
-    // ==================== UNLIKE POST ====================
+    // ==================== UNLIKE POST (GIỮ LẠI ĐỂ TƯƠNG THÍCH) ====================
     @Transactional
     public String unlikePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
 
-        PostLike postLike = postLikeRepository.findByUserIdAndPostId(userId, postId)
-                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_LIKED));
+        log.info("🔍 Unlike Post - userId: {}, postId: {}", userId, postId);
 
-        postLikeRepository.delete(postLike);
-        cacheService.evictPostLikeCache(postId);
+        PostLike postLike = postLikeRepository.findByUserIdAndPostId(userId, postId);
+
+        if (postLike != null) {
+            postLikeRepository.delete(postLike);
+            log.info("✅ Post unliked - userId: {}, postId: {}", userId, postId);
+        } else {
+            log.warn("⚠️ PostLike not found - userId: {}, postId: {}", userId, postId);
+        }
+
         return "Post unliked successfully";
     }
 
-    @Cacheable(
-            value = "postsLikes",
-            key = "#postId",
-            unless = "#result == null"
-    )
     public List<PostLike> getPostLikesByPostId(String postId) {
-        return postLikeRepository.findAllByPostId(postId);
+        List<PostLike> likes = postLikeRepository.findAllByPostId(postId);
+        log.info("📊 Get likes for postId: {} - count: {}", postId, likes.size());
+        return likes;
     }
 
-
-    @Cacheable(
-            value = "userPosts",
-            key = "#userId",
-            unless ="#result == null"
-    )
     public List<PostResponse> getPostsByUserId(String userId) {
         return postRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(postMapper::toPostResponse)
                 .collect(Collectors.toList());
     }
-
 }

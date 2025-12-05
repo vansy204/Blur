@@ -124,31 +124,19 @@ export const fetchLikePost = async (token, postId) => {
     throw error;
   }
 };
-
-// ✅ LIKE post (PUT request)
 export const likePost = async (token, postId) => {
-  try {
-    const response = await axios.put(
-      `${API_BASE_URL}/post/${postId}/like`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (response.data?.code !== 1000) {
-      throw new Error(`Like error: ${response.data?.code}`);
+  const response = await axios.put(
+    `${API_BASE_URL}/post/${postId}/like`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     }
-
-    console.log('✅ Post liked:', response.data);
-    return response.data?.result;
-  } catch (error) {
-    console.error("❌ Like post error:", error);
-    throw error;
-  }
+  );
+  console.log("✅ Post like toggled:", response.data);
+  return response.data;
 };
 
 // ✅ UNLIKE post (PUT request)

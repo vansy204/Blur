@@ -13,6 +13,6 @@ public interface PostLikeRepository extends MongoRepository<PostLike, String> {
     boolean existsByUserIdAndPostId(String userId, String postId);
 
     // ✅ Tìm bản ghi like của người dùng cho bài viết
-    Optional<PostLike> findByUserIdAndPostId(String userId, String postId);
+    PostLike findByUserIdAndPostId(String userId, String postId);
     List<PostLike> findAllByPostId(String postId);
 }

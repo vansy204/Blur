@@ -37,7 +37,11 @@ spring:
           auth: true
           starttls:
             enable: true
-
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
 app:
   service:
     profile:
