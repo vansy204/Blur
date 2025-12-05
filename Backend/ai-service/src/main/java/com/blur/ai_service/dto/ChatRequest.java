@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatRequest {
-    private String conversationId; // null nếu là cuộc chat mới
-    private String userId;         // id user trong hệ thống của bạn
+    private String conversationId;
+    private String userId;
     private String message;
 }
