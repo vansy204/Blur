@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatResponse {
+
+    private String conversationId;
     private String response;
     private boolean success;
     private String error;
