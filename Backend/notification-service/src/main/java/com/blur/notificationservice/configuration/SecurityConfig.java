@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
                         // 👇 Cho phép WebSocket handshake
-                        .requestMatchers("/ws-notification/**", "/notification/ws-notification/**").permitAll()
+                        .requestMatchers("/ws-notification/**", "/notification/ws-notification/**", "*").permitAll()
                         .anyRequest().authenticated()
                 );
 

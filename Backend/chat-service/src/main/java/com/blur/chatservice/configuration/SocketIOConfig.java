@@ -17,6 +17,7 @@ public class SocketIOConfig {
 
         // ✅ FIX: Properly configure CORS for cross-port communication
         config.setOrigin("http://localhost:3000");
+        config.setOrigin("*");
 
         // ✅ Increase timeouts to prevent premature disconnects
         config.setPingTimeout(120000); // 2 minutes
