@@ -43,11 +43,9 @@ app:
       url: http://localhost:8081/profile
     identity:
       url: http://localhost:8080/identity
+    ai:
+      url: http://localhost:9090
   call:
     ring-timeout: 60 #seconds
     max-duration: 3600
-
-ai:
-  service:
-    url: http://localhost:9090
 

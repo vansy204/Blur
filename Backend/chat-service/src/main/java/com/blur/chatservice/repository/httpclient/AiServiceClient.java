@@ -8,8 +8,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(
         name = "ai-service",
-        url = "${ai.service.url}"
+        url = "${app.services.ai.url}"
 )
+
 public interface AiServiceClient {
 
     @PostMapping("/chat")
