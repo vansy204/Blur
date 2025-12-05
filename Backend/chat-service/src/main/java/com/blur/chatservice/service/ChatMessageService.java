@@ -3,6 +3,9 @@ package com.blur.chatservice.service;
 import java.time.Instant;
 import java.util.List;
 
+import com.blur.chatservice.dto.request.AiChatRequest;
+import com.blur.chatservice.dto.response.AiChatResponse;
+import com.blur.chatservice.repository.httpclient.AiServiceClient;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class ChatMessageService {
     ProfileClient profileClient;
     ChatMessageRepository chatMessageRepository;
     RedisCacheService redisCacheService;
+    AiServiceClient aiServiceClient;
 
     /**
      * Create new message
@@ -107,6 +111,49 @@ public class ChatMessageService {
         // redisCacheService.cacheMessage(chatMessage.getId(), chatMessage, 30);
         // redisCacheService.invalidateConversationMessages(request.getConversationId());
         // redisCacheService.evictLastMessage(request.getConversationId());
+
+        //Gọi AI nếu phòng này có sử dụng AI
+        if (Boolean.TRUE.equals(conversation.getAiEnabled())
+                && request.getMessage() != null
+                && !request.getMessage().isBlank()) {
+
+            AiChatRequest aiReq = new AiChatRequest();
+            aiReq.setConversationId(conversation.getAiConversationId()); // có thể null lần đầu
+            aiReq.setUserId(userInfo.getUserId());
+            aiReq.setMessage(request.getMessage());
+
+            AiChatResponse aiRes = aiServiceClient.chat(aiReq);
+
+            if (aiRes.isSuccess()) {
+                // lần đầu, lưu lại id conversation bên AI
+                if (conversation.getAiConversationId() == null
+                        && aiRes.getConversationId() != null) {
+                    conversation.setAiConversationId(aiRes.getConversationId());
+                    conversationRepository.save(conversation);
+                }
+
+                // tạo message AI_BOT trong phòng chat này
+                ChatMessage aiMessage = ChatMessage.builder()
+                        .conversationId(request.getConversationId())
+                        .message(aiRes.getResponse())
+                        .attachments(null)
+                        .messageType(MessageType.TEXT)
+                        .sender(ParticipantInfo.builder()
+                                .userId("AI_BOT")
+                                .username("AI Assistant")
+                                .firstName("AI")
+                                .lastName("Assistant")
+                                .avatar(null) // sau này bạn có thể set icon riêng
+                                .build())
+                        .createdDate(Instant.now())
+                        .readBy(List.of(userInfo.getUserId())) // người gửi coi như đã đọc
+                        .build();
+
+                chatMessageRepository.save(aiMessage);
+
+                // nếu bạn có WebSocket/SSE, đây là chỗ để broadcast aiMessage cho FE
+            }
+        }
 
         return toChatMessageResponse(chatMessage, userId);
     }
