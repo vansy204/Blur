@@ -7,7 +7,7 @@ const NotificationIcon = ({ type, className = '' }) => {
   const baseClass = `${className} p-1.5 rounded-full border-2 border-white shadow-md`;
 
   switch (type) {
-    case 'likePost':
+    case 'LikePost':
       return (
         <div className={`${baseClass} bg-gradient-to-br from-red-400 to-red-500`}>
           <Heart {...iconProps} className="text-white fill-white" />

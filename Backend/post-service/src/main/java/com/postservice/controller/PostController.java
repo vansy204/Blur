@@ -124,4 +124,10 @@ public class PostController {
                 .result(postSaveService.getAllSavedPost())
                 .build();
     }
+    @GetMapping("/{id}")
+    public ApiResponse<PostResponse> getPostById(@PathVariable String id) {
+        return ApiResponse.<PostResponse>builder()
+                .result(postService.getPostById(id))
+                .build();
+    }
 }
