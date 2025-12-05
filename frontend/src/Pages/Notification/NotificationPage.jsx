@@ -12,16 +12,15 @@ import {
   markNotificationAsRead,
 } from "../../api/notificationAPI";
 import { useToast } from "@chakra-ui/react";
-import PostViewModal from "../../Components/Post/PostViewModal";
+import { useNavigate } from "react-router-dom";
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  
+
   const toast = useToast();
+  const navigate = useNavigate();
   const token = getToken();
 
   // ✅ Lấy realtime noti từ Context
@@ -138,7 +137,7 @@ const NotificationsPage = () => {
     }
   };
 
-  // ✅ Khi click vào notification → mở modal post
+  // ✅ Khi click vào notification → navigate tới post page
   const handleNotificationClick = async (notification) => {
     const postId =
       notification.postId || notification.post_id || notification.entityId;
@@ -162,7 +161,9 @@ const NotificationsPage = () => {
       if (!notification.seen) {
         await markNotificationAsRead(token, notification.id);
         setNotifications((prev) =>
-          prev.map((n) => (n.id === notification.id ? { ...n, seen: true } : n))
+          prev.map((n) =>
+            n.id === notification.id ? { ...n, seen: true } : n
+          )
         );
       }
 
@@ -182,9 +183,8 @@ const NotificationsPage = () => {
         return;
       }
 
-      // ✅ Mở modal
-      setSelectedPost(post);
-      setIsPostModalOpen(true);
+      // ✅ Navigate với post data
+      navigate(`/post/${postId}`, { state: { post } });
     } catch (error) {
       console.error("❌ Error opening post:", error);
 
@@ -269,46 +269,33 @@ const NotificationsPage = () => {
   );
 
   return (
-    <>
-      <div className="max-w-full min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
-        <Header
-          unreadCount={unreadCount}
-          onMarkAllRead={handleMarkAllRead}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-        />
-
-        <div className="flex-grow overflow-auto">
-          {isLoading ? (
-            <LoadingSkeleton />
-          ) : sortedNotifications.length > 0 ? (
-            <div className="p-4 space-y-2">
-              {sortedNotifications.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  onMarkRead={handleMarkRead}
-                  onClick={() => handleNotificationClick(notification)}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState />
-          )}
-        </div>
-      </div>
-
-      {/* ✅ Post View Modal */}
-      <PostViewModal
-        isOpen={isPostModalOpen}
-        onClose={() => {
-          setIsPostModalOpen(false);
-          setSelectedPost(null);
-        }}
-        post={selectedPost}
-        currentUserId={userId}
+    <div className="max-w-full min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+      <Header
+        unreadCount={unreadCount}
+        onMarkAllRead={handleMarkAllRead}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
       />
-    </>
+
+      <div className="flex-grow overflow-auto">
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : sortedNotifications.length > 0 ? (
+          <div className="p-4 space-y-2">
+            {sortedNotifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onMarkRead={handleMarkRead}
+                onClick={() => handleNotificationClick(notification)}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState />
+        )}
+      </div>
+    </div>
   );
 };
 
