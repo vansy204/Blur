@@ -52,23 +52,24 @@ const PostCard = ({ post, user, onPostDeleted }) => {
     if (!post?.id || !user?.id) return;
 
     const fetchData = async () => {
-      try {
-        const [commentRes, likeRes] = await Promise.all([
-          axios.get(
-            `http://localhost:8888/api/post/comment/${post.id}/comments`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          ),
-          fetchLikePost(token, post.id),
-        ]);
+  try {
+    // lấy comment
+    const commentRes = await axios.get(
+      `http://localhost:8888/api/post/comment/${post.id}/all-comments`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { _t: Date.now() },
+      }
+    );
 
-        setComments(commentRes.data.result || []);
-        const likesArray = Array.isArray(likeRes) ? likeRes : [];
-        setLikes(likesArray);
+    const allComments = commentRes.data.result || [];
+    setComments(allComments);
+
+    // lấy like
+    const likeRes = await fetchLikePost(token, post.id);
+    const likesArray = Array.isArray(likeRes) ? likeRes : [];
+    setLikes(likesArray);
+
 
         // ✅ DEBUG - In ra tất cả thông tin
         console.log("🔍 DEBUG USER OBJECT:", {
@@ -102,7 +103,9 @@ const PostCard = ({ post, user, onPostDeleted }) => {
           const found = likesArray.some((likeItem) => {
             const isMatch = likeItem.userId === uid;
             if (isMatch) {
-              console.log(`✅ MATCHED! likeItem.userId (${likeItem.userId}) === ${uid}`);
+              console.log(
+                `✅ MATCHED! likeItem.userId (${likeItem.userId}) === ${uid}`
+              );
             }
             return isMatch;
           });
@@ -248,24 +251,67 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   };
 
   // 💬 Create comment
-  const handleCreateComment = async (comment) => {
-    if (!comment.trim()) return;
+  // 💬 Create comment or reply - FIXED VERSION
+  const handleCreateComment = async (content, parentCommentId = null) => {
+    console.log("🔵 FE: handleCreateComment called");
+    console.log("   Content:", content);
+    console.log("   Parent Comment ID:", parentCommentId);
+
+    if (!content.trim()) return;
 
     try {
-      const createdComment = await createComment(token, post.id, comment);
-      setComments((prev) => [...prev, createdComment]);
+      if (parentCommentId) {
+        // ⭐ REPLY TO COMMENT
+        console.log("🔵 FE: Calling reply API...");
+
+        const response = await axios.post(
+          `http://localhost:8888/api/post/comment/${parentCommentId}/reply`,
+          { content },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        console.log("✅ FE: Reply API response:", response.data);
+
+        if (response.data.code === 1000) {
+          const newReply = response.data.result;
+          setComments((prev) => [...prev, newReply]);
+
+          toast({
+            title: "Reply created successfully.",
+            status: "success",
+            duration: 2000,
+            position: "top-right",
+          });
+        }
+      } else {
+        // ⭐ CREATE ROOT COMMENT
+        console.log("🔵 FE: Calling create comment API...");
+
+        const createdComment = await createComment(token, post.id, content);
+        setComments((prev) => [...prev, createdComment]);
+
+        toast({
+          title: "Comment created successfully.",
+          status: "success",
+          duration: 2000,
+          position: "top-right",
+        });
+      }
+
       setComment("");
+    } catch (error) {
+      console.error("❌ FE: Error creating comment/reply:", error);
 
       toast({
-        title: "Comment created successfully.",
-        status: "success",
-        duration: 3000,
-        position: "top-right",
-      });
-    } catch (error) {
-      console.error("Error creating comment:", error);
-      toast({
-        title: "Failed to create comment",
+        title: parentCommentId
+          ? "Failed to create reply"
+          : "Failed to create comment",
+        description: error.response?.data?.message || error.message,
         status: "error",
         duration: 3000,
         position: "top-right",
@@ -277,7 +323,7 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   const handlePostLike = async () => {
     const previousLiked = isPostLiked;
     const previousLikes = [...likes];
-    
+
     // ✅ TÌM userId PHÙ HỢP
     const currentUserId = user.id || user.userId || user.username || user.sub;
 
@@ -331,7 +377,10 @@ const PostCard = ({ post, user, onPostDeleted }) => {
 
       setIsPostLiked(matched);
 
-      console.log("✅ Like synced:", { matched, likesCount: likesArray.length });
+      console.log("✅ Like synced:", {
+        matched,
+        likesCount: likesArray.length,
+      });
     } catch (error) {
       console.error("❌ Error toggling like:", error);
 

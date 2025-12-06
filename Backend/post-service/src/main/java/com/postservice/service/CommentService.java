@@ -40,38 +40,59 @@ public class CommentService {
     NotificationClient notificationClient;
     PostRepository postRepository;
 
-
-
     @CacheEvict(value = "comments", key = "#postId")
     public CommentResponse createComment(CreateCommentRequest request, String postId) {
+        // Lấy user hiện tại
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        var userId = authentication.getName();
-        var user = profileClient.getProfile(userId);
-        var comment = Comment.builder()
+        String userId = authentication.getName();
+
+        // Lấy post để dùng cả cho check self-comment + thông tin receiver
+        var post = postRepository.findById(postId)
+                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
+
+        // Lấy profile của người comment (dùng cho comment + senderName)
+        var profileRes = profileClient.getProfile(userId);
+        var profile = profileRes.getResult();
+
+        // Tạo comment
+        Comment comment = Comment.builder()
                 .content(request.getContent())
                 .userId(userId)
-                .firstName(user.getResult().getFirstName())
-                .lastName(user.getResult().getLastName())
+                .firstName(profile.getFirstName())
+                .lastName(profile.getLastName())
                 .postId(postId)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
+
         comment = commentRepository.save(comment);
-        var post = postRepository.findById(postId).orElseThrow(()->new AppException(ErrorCode.POST_NOT_FOUND));
-        var sender = identityClient.getUser(userId);
-        var receiver = identityClient.getUser(post.getUserId());
+
+        // 👉 Nếu chính chủ tự cmt bài viết của mình thì KHÔNG gửi notification
+        if (post.getUserId().equals(userId)) {
+            return commentMapper.toCommentResponse(comment);
+        }
+
+        // Lấy info chủ bài viết (receiver) từ Identity
+        var receiverRes = identityClient.getUser(post.getUserId());
+        var receiverProfile = profileClient.getProfile(receiverRes.getResult().getId());
+        var receiver = receiverRes.getResult();
+
+        // Build Event giống kiểu like
         Event event = Event.builder()
                 .postId(post.getId())
-                .senderName(sender.getResult().getUsername())
-                .senderId(sender.getResult().getId())
-                .receiverEmail(receiver.getResult().getEmail())
-                .receiverId(receiver.getResult().getId())
-                .receiverName(user.getResult().getFirstName() + " " + user.getResult().getLastName())
+                .senderId(userId)
+                .senderName(profile.getFirstName() + " " + profile.getLastName())
+                .receiverId(receiver.getId())
+                .receiverName(receiverProfile.getResult().getFirstName() + " " + receiverProfile.getResult().getLastName())
+                .receiverEmail(receiver.getEmail())
                 .timestamp(LocalDateTime.now())
                 .build();
+
         notificationClient.sendCommentNotification(event);
+
         return commentMapper.toCommentResponse(comment);
     }
+
 
 
     @Cacheable(

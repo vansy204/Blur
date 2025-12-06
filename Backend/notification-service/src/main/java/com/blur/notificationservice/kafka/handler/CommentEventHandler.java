@@ -44,9 +44,12 @@ public class CommentEventHandler implements EventHandler<Event> {
     public void handleEvent(String jsonEvent) throws JsonProcessingException {
         Event event = objectMapper.readValue(jsonEvent, Event.class);
         event.setTimestamp(LocalDateTime.now());
+
         var profile = profileClient.getProfile(event.getSenderId());
         log.info("profile: {}", profile);
+
         Notification notification = Notification.builder()
+                .postId(event.getPostId())                         // 👈 THÊM DÒNG NÀY
                 .senderId(event.getSenderId())
                 .senderName(event.getSenderName())
                 .receiverId(event.getReceiverId())
@@ -56,18 +59,21 @@ public class CommentEventHandler implements EventHandler<Event> {
                 .read(false)
                 .type(Type.CommentPost)
                 .timestamp(event.getTimestamp())
-                .content(event.getSenderName() + " comment on your post on Blur.")
+                // KHÔNG ghép tên ở đây nữa, chỉ content:
+                .content("đã bình luận về bài viết của bạn.")
                 .build();
+
         boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
-        if(isOnline){
-            notificationWebSocketService.sendToUser(notification);
-            simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
 
-        }else{
+        if (isOnline) {
+            notificationWebSocketService.sendToUser(notification);
+            simpMessagingTemplate.convertAndSend("/topic/notifications", notification);
+        } else {
             sendNewCommentNotification(notification);
         }
     }
+
     private void sendNewCommentNotification(Notification notification) {
         try {
             MimeMessage message = emailSender.createMimeMessage();

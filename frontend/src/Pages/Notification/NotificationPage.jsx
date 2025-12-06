@@ -24,10 +24,8 @@ const NotificationsPage = () => {
   const token = getToken();
 
   // ✅ Lấy realtime noti từ Context
-  const {
-    notifications: realtimeNotifications,
-    notificationCounter,
-  } = useNotification();
+  const { notifications: realtimeNotifications, notificationCounter } =
+    useNotification();
 
   // ✅ Giải mã token để lấy userId
   const userId = useMemo(() => {
@@ -68,24 +66,17 @@ const NotificationsPage = () => {
     const latest = realtimeNotifications[0];
     console.log("📥 Processing latest notification:", latest);
 
-    // ✅ Ghép firstName + lastName
-    const senderName =
-      latest.senderFirstName || latest.senderLastName
-        ? [latest.senderFirstName, latest.senderLastName]
-            .filter(Boolean)
-            .join(" ")
-        : latest.senderName || "Unknown User";
-
     const newNotification = {
-      id: latest.id || Date.now(),
-      senderName,
-      senderImageUrl: latest.senderImageUrl,
+      id: latest.id,
+      senderName: latest.senderName, // ✅ Dùng lại tên đã chuẩn trong Provider
+      senderImageUrl: latest.senderImageUrl || latest.avatar,
       content: latest.content || latest.message,
-      timestamp: latest.createdDate || new Date().toISOString(),
+      timestamp:
+        latest.timestamp || latest.createdDate || new Date().toISOString(),
       type: latest.type || "general",
       postId: latest.postId,
       senderId: latest.senderId,
-      seen: false,
+      seen: latest.seen ?? false,
     };
 
     setNotifications((prev) => {
@@ -161,9 +152,7 @@ const NotificationsPage = () => {
       if (!notification.seen) {
         await markNotificationAsRead(token, notification.id);
         setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, seen: true } : n
-          )
+          prev.map((n) => (n.id === notification.id ? { ...n, seen: true } : n))
         );
       }
 

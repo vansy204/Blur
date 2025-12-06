@@ -116,6 +116,8 @@ public class PostService {
                     .userId(post.getUserId())
                     .profileId(profileId)
                     .userName(userName)
+                    .lastName(post.getLastName())
+                    .firstName(post.getFirstName())
                     .userImageUrl(userImageUrl)
                     .content(post.getContent())
                     .mediaUrls(post.getMediaUrls())

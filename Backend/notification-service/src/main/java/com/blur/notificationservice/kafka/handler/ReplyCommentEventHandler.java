@@ -24,10 +24,11 @@ import java.time.LocalDateTime;
 
 @RequiredArgsConstructor
 @Component
-@FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class ReplyCommentEventHandler implements EventHandler<Event> {
-    RedisTemplate<String,String> redisTemplate;
+
+    RedisTemplate<String, String> redisTemplate;
     SimpMessagingTemplate simpMessagingTemplate;
     JavaMailSender emailSender;
     NotificationService notificationService;
@@ -35,6 +36,7 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
     ObjectMapper objectMapper;
     RedisService redisService;
     ProfileClient profileClient;
+
     @Override
     public boolean canHandle(String topic) {
         return topic.equals("user-reply-comment-events");
@@ -44,7 +46,15 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
     public void handleEvent(String jsonEvent) throws JsonProcessingException {
         Event event = objectMapper.readValue(jsonEvent, Event.class);
         event.setTimestamp(LocalDateTime.now());
+
+        // ❌ Nếu tự reply chính mình → bỏ qua, không tạo noti
+        if (event.getSenderId().equals(event.getReceiverId())) {
+            log.info("Skip reply notification because sender == receiver, userId={}", event.getSenderId());
+            return;
+        }
+
         var profile = profileClient.getProfile(event.getSenderId());
+
         Notification notification = Notification.builder()
                 .senderId(event.getSenderId())
                 .senderName(event.getSenderName())
@@ -52,21 +62,26 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
                 .receiverName(event.getReceiverName())
                 .receiverEmail(event.getReceiverEmail())
                 .senderImageUrl(profile.getResult().getImageUrl())
+                .postId(event.getPostId())                 // 🔥 Quan trọng: gắn postId vào noti
                 .read(false)
-
                 .type(Type.Reply)
                 .timestamp(event.getTimestamp())
-                .content(event.getSenderName() + " reply your comment on Blur.")
+                .content(event.getSenderName() + " đã trả lời bình luận của bạn.") // text gọn gàng
                 .build();
+
         boolean isOnline = redisService.isOnline(event.getReceiverId());
         notificationService.save(notification);
-        if(isOnline){
+
+        if (isOnline) {
+            // Gửi qua WebSocket
             notificationWebSocketService.sendToUser(notification);
-            simpMessagingTemplate.convertAndSend("/topic/notifications",notification);
-        }else{
+            simpMessagingTemplate.convertAndSend("/topic/notifications", notification);
+        } else {
+            // Gửi email
             sendReplyCommentNotification(notification);
         }
     }
+
     private void sendReplyCommentNotification(Notification notification) {
         try {
             MimeMessage message = emailSender.createMimeMessage();
@@ -75,7 +90,6 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
             helper.setTo(notification.getReceiverEmail());
             helper.setSubject("🔁 New Reply to Your Comment on Blur!");
 
-            // Build HTML content for reply notification
             String emailContent =
                     "<!DOCTYPE html>" +
                             "<html>" +
@@ -87,11 +101,9 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
                             "<body style=\"margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\">" +
                             "    <div style=\"background-color: #f5f8fa; padding: 20px;\">" +
                             "        <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);\">" +
-                            "            <!-- Header -->" +
                             "            <div style=\"background-color: #1DA1F2; padding: 30px 20px; text-align: center;\">" +
                             "                <h1 style=\"color: #ffffff; margin: 0; font-size: 24px;\">Someone Replied to Your Comment!</h1>" +
                             "            </div>" +
-                            "            <!-- Content -->" +
                             "            <div style=\"padding: 30px; color: #4a4a4a;\">" +
                             "                <p style=\"font-size: 16px; margin-top: 0;\">Hi <span style=\"font-weight: bold;\">" + notification.getReceiverName() + "</span>,</p>" +
                             "                <div style=\"background-color: #f2f9ff; border-left: 4px solid #1DA1F2; padding: 15px; margin: 20px 0; border-radius: 4px;\">" +
@@ -100,21 +112,18 @@ public class ReplyCommentEventHandler implements EventHandler<Event> {
                             "                    </p>" +
                             "                </div>" +
                             "                <p style=\"font-size: 16px;\">See what they said and keep the conversation going!</p>" +
-                            "                <div style=\"text-align: center; margin: 30px 0;\">" +
-                            "                </div>" +
                             "                <p style=\"color: #777777; font-size: 14px; margin-top: 40px;\">Stay connected and continue sharing your thoughts on Blur!</p>" +
                             "            </div>" +
                             "        </div>" +
                             "    </div>" +
                             "</body>" +
                             "</html>";
-            helper.setText(emailContent, true);
 
+            helper.setText(emailContent, true);
             emailSender.send(message);
             log.info("Reply comment notification email sent to {}", notification.getReceiverEmail());
         } catch (Exception e) {
             log.error("Failed to send reply notification email to {}: {}", notification.getReceiverEmail(), e.getMessage(), e);
         }
     }
-
 }

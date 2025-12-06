@@ -19,39 +19,58 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CommentReplyController {
     CommentReplyService commentReplyService;
+
     @PostMapping("/{commentId}/reply")
-    public ApiResponse<CommentResponse> createCommentReply(@PathVariable String commentId,
-                                                           @RequestParam(required = false) String parentReplyId,
-                                                           @RequestBody CreateCommentRequest comment) {
+    public ApiResponse<CommentResponse> createCommentReply(
+            @PathVariable String commentId,
+            @RequestParam(required = false) String parentReplyId,
+            @RequestBody CreateCommentRequest comment) {
+
+        log.info("🟢🟢🟢 [CONTROLLER] ========== CREATE REPLY REQUEST ==========");
+        log.info("🟢 [CONTROLLER] Comment ID: {}", commentId);
+        log.info("🟢 [CONTROLLER] Parent Reply ID: {}", parentReplyId);
+        log.info("🟢 [CONTROLLER] Content: {}", comment.getContent());
+        log.info("🟢🟢🟢 [CONTROLLER] Calling CommentReplyService...");
+
+        CommentResponse result = commentReplyService.createCommentReply(commentId, parentReplyId, comment);
+
+        log.info("🟢🟢🟢 [CONTROLLER] Service returned successfully, reply ID: {}", result.getId());
+
         return ApiResponse.<CommentResponse>builder()
-                .result(commentReplyService.createCommentReply(commentId,parentReplyId, comment))
+                .result(result)
                 .build();
     }
+
     @PutMapping("/{commentReplyId}/updateReply")
-    public ApiResponse<CommentResponse> updateCommentReply(@PathVariable String commentReplyId,
-                                                           @RequestBody CreateCommentRequest commentReply){
+    public ApiResponse<CommentResponse> updateCommentReply(
+            @PathVariable String commentReplyId,
+            @RequestBody CreateCommentRequest commentReply) {
         return ApiResponse.<CommentResponse>builder()
                 .result(commentReplyService.updateCommentReply(commentReplyId, commentReply))
                 .build();
     }
+
     @GetMapping("/{commentId}/all")
     public ApiResponse<List<CommentResponse>> getAllCommentReplies(@PathVariable String commentId) {
         return ApiResponse.<List<CommentResponse>>builder()
                 .result(commentReplyService.getAllCommentReplyByCommentId(commentId))
                 .build();
     }
+
     @DeleteMapping("/{commentReplyId}/deleteReply")
     public ApiResponse<String> deleteCommentReply(@PathVariable String commentReplyId) {
         return ApiResponse.<String>builder()
                 .result(commentReplyService.deleteCommentReply(commentReplyId))
                 .build();
     }
+
     @GetMapping("/commentReply/{commentReplyId}")
     public ApiResponse<CommentResponse> getCommentReply(@PathVariable String commentReplyId) {
         return ApiResponse.<CommentResponse>builder()
                 .result(commentReplyService.getCommentReplyByCommentReplyId(commentReplyId))
                 .build();
     }
+
     @GetMapping("/reply/{parentReplyId}/children")
     public ApiResponse<List<CommentResponse>> getRepliesByParentReplyId(@PathVariable String parentReplyId) {
         return ApiResponse.<List<CommentResponse>>builder()
