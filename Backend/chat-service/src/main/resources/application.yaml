@@ -46,3 +46,8 @@ app:
   call:
     ring-timeout: 60 #seconds
     max-duration: 3600
+
+ai:
+  service:
+    url: http://localhost:9090
+

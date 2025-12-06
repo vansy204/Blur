@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-
   neo4j:
     image: neo4j:latest
     container_name: neo4j
@@ -64,3 +63,4 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_LOG_RETENTION_HOURS: 24
       KAFKA_DELETE_TOPIC_ENABLE: "true"
+

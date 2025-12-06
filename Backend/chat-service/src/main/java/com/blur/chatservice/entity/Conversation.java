@@ -23,8 +23,10 @@ import lombok.experimental.FieldDefaults;
 public class Conversation {
     @Id
     String id;
+    String aiConversationId;
 
     String type; // GROUP, DIRECT
+    Boolean aiEnabled;
 
     @Indexed(unique = true)
     String participantsHash;
