@@ -5,12 +5,12 @@ server:
 app:
   api-prefix: /api
   services:
-    identity: "${IDENTITY_SERVICE_URL:http://localhost:8080/identity}"
-    profile: "${PROFILE_SERVICE_URL:http://localhost:8081/profile}"
-    notification: "${NOTIFICATION_SERVICE_URL:http://localhost:8082/notification}"
-    post: "${POST_SERVICE_URL:http://localhost:8084/post}"
-    story: "${STORY_SERVICE_URL:http://localhost:8086/stories}"
-    chat: "${CHAT_SERVICE_URL:http://localhost:8083/chat}"
+    identity: "${IDENTITY_SERVICE_URL:http://localhost:8080}/identity"
+    profile: "${PROFILE_SERVICE_URL:http://localhost:8081}/profile"
+    notification: "${NOTIFICATION_SERVICE_URL:http://localhost:8082}/notification"
+    post: "${POST_SERVICE_URL:http://localhost:8084}/post"
+    story: "${STORY_SERVICE_URL:http://localhost:8086}/story"
+    chat: "${CHAT_SERVICE_URL:http://localhost:8083}/chat"
 
 spring:
   application:
@@ -30,10 +30,19 @@ spring:
               - "POST"
               - "PUT"
               - "DELETE"
+              - "PATCH"
               - "OPTIONS"
             allowedHeaders:
-              - "*"
+              - "${CORS_ALLOWED_HEADERS:*}"
             allowCredentials: true
+            exposedHeaders:  # ⭐ CHỈ THÊM DÒNG NÀY
+              - "Authorization"
+              - "Content-Type"
+            maxAge: 3600
+      httpclient:
+        pool:
+          type: elastic
+        wiretap: false
       routes:
         - id: identity_service
           uri: ${IDENTITY_SERVICE_URL:http://localhost:8080}
@@ -55,6 +64,7 @@ spring:
             - Path=${app.api-prefix}/notification/**
           filters:
             - StripPrefix=1
+
         - id: chat_service
           uri: ${CHAT_SERVICE_URL:http://localhost:8083}
           predicates:
@@ -84,3 +94,12 @@ management:
   endpoint:
     health:
       show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.blur.apigateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive: DEBUG
+    com.blur.apigateway.configuration: DEBUG
+    reactor.netty: INFO

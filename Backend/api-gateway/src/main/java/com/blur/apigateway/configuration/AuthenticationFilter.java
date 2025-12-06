@@ -15,6 +15,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -36,13 +37,11 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     ObjectMapper objectMapper;
 
     @NonFinal
-    String[] publicEnpoints = {
+    String[] publicEndpoints = {
             "/identity/auth/.*",
-            "/identity/users/registration",
-            "/identity/users/registrations",
-            "/notification/email/send",
-            "/chat/messages.*",              // Match: /chat/messages, /chat/messages/create
-            "/chat/conversations.*"           // Match: /chat/conversations/my-conversations
+            "/identity/users/registration.*",
+            "/notification/email/send.*",
+            "/actuator/.*"
     };
 
     @Value("${app.api-prefix}")
@@ -51,9 +50,20 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String path = exchange.getRequest().getURI().getPath();
+        String method = exchange.getRequest().getMethod().toString();
 
+        log.info("🔍 AuthFilter: {} {}", method, path);
 
+        // Bypass OPTIONS for CORS preflight
+        if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
+            log.info("✅ OPTIONS request, bypassing auth");
+            return chain.filter(exchange);
+        }
+
+        // Check if public endpoint
         if (isPublicEndpoint(exchange.getRequest())) {
+            log.info("✅ Public endpoint, bypassing auth: {}", path);
             return chain.filter(exchange);
         }
 
@@ -61,33 +71,51 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
 
         if (CollectionUtils.isEmpty(authHeader)) {
+            log.warn("❌ Missing Authorization header for: {}", path);
             return unauthenticated(exchange.getResponse());
         }
 
         String token = authHeader.get(0).replace("Bearer ", "");
+        log.info("🔐 Verifying token for: {}", path);
+
         // Verify token
-        return identityService.introspect(token).flatMap(introspectResponse -> {
-            if (introspectResponse.getResult().isValid()) {
-                return chain.filter(exchange);
-            } else {
-                return unauthenticated(exchange.getResponse());
-            }
-        }).onErrorResume(throwable -> {
-            return unauthenticated(exchange.getResponse());
-        });
+        return identityService.introspect(token)
+                .flatMap(introspectResponse -> {
+                    if (introspectResponse.getResult() != null && introspectResponse.getResult().isValid()) {
+                        log.info("✅ Token valid, forwarding to: {}", path);
+
+                        // ⭐ THÊM PHẦN NÀY: Forward Authorization header sang downstream service
+                        ServerHttpRequest mutatedRequest = exchange.getRequest()
+                                .mutate()
+                                .header(HttpHeaders.AUTHORIZATION, authHeader.get(0))
+                                .build();
+
+                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                    } else {
+                        log.warn("❌ Invalid token for: {}", path);
+                        return unauthenticated(exchange.getResponse());
+                    }
+                })
+                .onErrorResume(throwable -> {
+                    log.error("❌ Token introspection FAILED for {}: {}", path, throwable.getMessage());
+                    log.error("Error details:", throwable);
+                    return unauthenticated(exchange.getResponse());
+                });
     }
 
     @Override
     public int getOrder() {
-        return -1; // Ensure filter runs first
+        return -1;
     }
 
     private boolean isPublicEndpoint(ServerHttpRequest request) {
         String path = request.getURI().getPath();
-
-        boolean isPublic = Arrays.stream(publicEnpoints).anyMatch(pattern -> {
+        boolean isPublic = Arrays.stream(publicEndpoints).anyMatch(pattern -> {
             String fullPattern = apiPrefix + pattern;
             boolean matches = path.matches(fullPattern);
+            if (matches) {
+                log.debug("📌 Path {} matches public pattern {}", path, fullPattern);
+            }
             return matches;
         });
         return isPublic;
@@ -108,7 +136,6 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-
         return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
     }
 }
