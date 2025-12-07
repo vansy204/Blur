@@ -11,12 +11,14 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import lombok.extern.slf4j.Slf4j;
@@ -27,14 +29,19 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = false)
 public class RedisConfig {
 
-    /**
-     * Simple ObjectMapper - Works với mọi Jackson version
-     */
     private ObjectMapper createRedisObjectMapper() {
-        return JsonMapper.builder()
-                .addModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        // CRITICAL FIX: Enable polymorphic type handling
+        mapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
+
+        return mapper;
     }
 
     @Bean
@@ -43,23 +50,26 @@ public class RedisConfig {
         template.setConnectionFactory(connectionFactory);
 
         StringRedisSerializer keySerializer = new StringRedisSerializer();
+
+        // Use Jackson2JsonRedisSerializer with configured ObjectMapper
+        Jackson2JsonRedisSerializer<Object> serializer =
+                new Jackson2JsonRedisSerializer<>(createRedisObjectMapper(), Object.class);
+
         template.setKeySerializer(keySerializer);
         template.setHashKeySerializer(keySerializer);
-
-        // Custom serializer
-        CustomRedisSerializer valueSerializer = new CustomRedisSerializer(createRedisObjectMapper());
-        template.setValueSerializer(valueSerializer);
-        template.setHashValueSerializer(valueSerializer);
+        template.setValueSerializer(serializer);
+        template.setHashValueSerializer(serializer);
 
         template.afterPropertiesSet();
 
-        log.info("✅ RedisTemplate configured successfully");
+        log.info("✅ RedisTemplate configured with Jackson2JsonRedisSerializer + Type Info");
         return template;
     }
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        CustomRedisSerializer serializer = new CustomRedisSerializer(createRedisObjectMapper());
+        Jackson2JsonRedisSerializer<Object> serializer =
+                new Jackson2JsonRedisSerializer<>(createRedisObjectMapper(), Object.class);
 
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(30))
@@ -89,46 +99,5 @@ public class RedisConfig {
                         defaultConfig.entryTtl(Duration.ofMinutes(3)))
                 .transactionAware()
                 .build();
-    }
-
-    /**
-     * Custom Serializer - Simple & Reliable
-     */
-    static class CustomRedisSerializer implements org.springframework.data.redis.serializer.RedisSerializer<Object> {
-
-        private final ObjectMapper objectMapper;
-
-        public CustomRedisSerializer(ObjectMapper objectMapper) {
-            this.objectMapper = objectMapper;
-        }
-
-        @Override
-        public byte[] serialize(Object value) {
-            if (value == null) {
-                return new byte[0];
-            }
-            try {
-                return objectMapper.writeValueAsBytes(value);
-            } catch (Exception e) {
-                log.error("❌ Serialize error: {}", e.getMessage());
-                throw new org.springframework.data.redis.serializer.SerializationException(
-                        "Could not serialize", e
-                );
-            }
-        }
-
-        @Override
-        public Object deserialize(byte[] bytes) {
-            if (bytes == null || bytes.length == 0) {
-                return null;
-            }
-            try {
-                return objectMapper.readValue(bytes, Object.class);
-            } catch (Exception e) {
-                log.error("❌ Deserialize error: {}", e.getMessage());
-                // Return null instead of throwing - graceful degradation
-                return null;
-            }
-        }
     }
 }
