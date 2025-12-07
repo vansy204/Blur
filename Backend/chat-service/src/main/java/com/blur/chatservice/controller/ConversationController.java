@@ -56,6 +56,16 @@ public class ConversationController {
                 .build();
     }
 
+    @PutMapping("/{conversationId}/ai/toggle")
+    ApiResponse<ConversationResponse> toggleAI(
+            @PathVariable String conversationId,
+            @RequestParam Boolean enabled
+    ) {
+        return ApiResponse.<ConversationResponse>builder()
+                .result(conversationService.toggleAI(conversationId, enabled))
+                .build();
+    }
+
     @DeleteMapping("")
     ApiResponse<String> deleteConversation(@RequestParam("conversationId") String conversationId) {
         return ApiResponse.<String>builder()
