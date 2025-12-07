@@ -54,6 +54,8 @@ public class WebClientConfiguration {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfig);
 
+        System.out.println("✅ CORS Filter configured for: http://localhost:3000");
+
         return new CorsWebFilter(source);
     }
 

@@ -5,7 +5,7 @@ import { getUserId, getToken } from "../../utils/auth";
 import { apiCall, profileApiCall } from "../../service/api";
 import { useSocket } from "../../contexts/SocketContext";
 import { useNotification, requestNotificationPermission } from "../../contexts/NotificationContext";
-import { useUnreadMessages } from "../../hooks/useUnreadMessages";
+//import { useUnreadMessages } from "../../hooks/useUnreadMessages";
 import { markConversationAsRead } from "../../service/chatApi";
 import ConnectionStatus from "../../Components/Message/ConnectionStatus";
 import ConversationList from "../../Components/Message/ConversationList";
@@ -234,79 +234,103 @@ export default function MessagePage() {
   }, [fetchConversations]);
 
   // === CALLBACK: MESSAGE RECEIVED ===
-  const handleMessageReceived = useCallback((data) => {
-    console.log('📥 Message received event:', data);
-    
-    const messageSenderId = data.senderId || data.sender?.userId;
-    const isCurrentConversation = data.conversationId === currentConversationRef.current;
+  // === CALLBACK: MESSAGE RECEIVED ===
+const handleMessageReceived = useCallback((data) => {
+  console.log('📥 Message received event:', data);
+  
+  const messageSenderId = data.senderId || data.sender?.userId;
+  const isCurrentConversation = data.conversationId === currentConversationRef.current;
+  
+  // ✅ Check if it's AI message
+  const isAiMessage = messageSenderId === 'AI_BOT' || data.isAiMessage === true;
 
-    // ✅ Refresh conversations để lấy lastMessage mới
-    fetchConversations();
+  // ✅ Refresh conversations to update last message
+  fetchConversations();
 
-    // Show notification if needed
-    if (!isCurrentConversation || document.hidden) {
-      const senderName = `${data.sender?.firstName || ''} ${data.sender?.lastName || ''}`.trim() 
+  // Show notification if needed
+  if (!isCurrentConversation || document.hidden) {
+    // ✅ Special handling for AI messages
+    const senderName = isAiMessage 
+      ? '🤖 AI Assistant'
+      : `${data.sender?.firstName || ''} ${data.sender?.lastName || ''}`.trim() 
         || data.sender?.username 
         || 'Người dùng';
 
-      addNotification({
-        id: data.id,
-        conversationId: data.conversationId,
-        senderName,
-        senderUsername: data.sender?.username,
-        avatar: data.sender?.avatar,
-        message: data.message,
-        attachments: data.attachments,
-        createdDate: data.createdDate,
-        onClick: (notification) => {
-          setConversations(prev => {
-            const conv = prev.find(c => c.id === notification.conversationId);
-            if (conv) {
-              handleSelectConversation(conv);
-            }
-            return prev;
-          });
-          
-          if (window.location.pathname !== '/messages') {
-            navigate('/messages');
+    addNotification({
+      id: data.id,
+      conversationId: data.conversationId,
+      senderName,
+      senderUsername: data.sender?.username,
+      avatar: isAiMessage 
+        ? null // AI will have gradient avatar
+        : data.sender?.avatar,
+      message: data.message,
+      attachments: data.attachments,
+      createdDate: data.createdDate,
+      isAiMessage, // ✅ ADD THIS
+      onClick: (notification) => {
+        setConversations(prev => {
+          const conv = prev.find(c => c.id === notification.conversationId);
+          if (conv) {
+            handleSelectConversation(conv);
           }
-        },
-      });
-    }
-
-    // Add message to current conversation
-    if (isCurrentConversation) {
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === data.id)) {
           return prev;
+        });
+        
+        if (window.location.pathname !== '/messages') {
+          navigate('/messages');
         }
-
-        const newMessage = {
-          id: data.id,
-          message: data.message,
-          senderId: messageSenderId,
-          conversationId: data.conversationId,
-          createdDate: data.createdDate || new Date().toISOString(),
-          sender: data.sender,
-          messageType: data.messageType,
-          attachments: data.attachments,
-          isPending: false,
-          isRead: data.isRead,
-        };
-
-        return [...prev, newMessage];
+      },
+    });
+    
+    // ✅ Show toast for AI messages even if tab is active
+    if (isAiMessage && isCurrentConversation && !document.hidden) {
+      toast('🤖 AI đã trả lời', {
+        duration: 2000,
+        style: {
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: '#fff',
+          fontSize: '14px',
+        }
       });
-      
-      try {
-        const token = getToken();
-        if (token) {
-          markConversationAsRead(data.conversationId, token).catch(err => {});
-        }
-      } catch (err) {
-        // Error auto-marking as read
-      }
     }
-  }, [addNotification, navigate, handleSelectConversation, fetchConversations]);
+  }
+
+  // Add message to current conversation
+  if (isCurrentConversation) {
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === data.id)) {
+        return prev;
+      }
+
+      const newMessage = {
+        id: data.id,
+        message: data.message,
+        senderId: messageSenderId,
+        conversationId: data.conversationId,
+        createdDate: data.createdDate || new Date().toISOString(),
+        sender: data.sender,
+        messageType: data.messageType,
+        attachments: data.attachments,
+        isPending: false,
+        isRead: data.isRead,
+        isAiMessage, // ✅ ADD THIS FLAG
+      };
+
+      return [...prev, newMessage];
+    });
+    
+    try {
+      const token = getToken();
+      if (token) {
+        markConversationAsRead(data.conversationId, token).catch(err => {});
+      }
+    } catch (err) {
+      // Error auto-marking as read
+    }
+  }
+}, [addNotification, navigate, handleSelectConversation, fetchConversations]);
 
   // === REGISTER CALLBACKS ===
   useEffect(() => {

@@ -12,11 +12,12 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/chat")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*", methods = {RequestMethod.POST, RequestMethod.OPTIONS})
 public class AiController {
 
     private final ChatService chatService;
 
-    @PostMapping
+    @PostMapping(value = {"", "/"})
     public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request) {
         log.info("POST /chat - Message: {}", request.getMessage());
         ChatResponse response = chatService.chat(request);

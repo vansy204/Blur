@@ -237,6 +237,33 @@ public class ConversationService {
         return joiner.toString();
     }
 
+    @Transactional
+    public ConversationResponse toggleAI(String conversationId, Boolean enabled) {
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        var conversation = conversationRepository
+                .findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        boolean isParticipant = conversation.getParticipants().stream()
+                .anyMatch(p -> p.getUserId().equals(userId));
+
+        if (!isParticipant) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        conversation.setAiEnabled(enabled);
+
+        if (!enabled) {
+            conversation.setAiConversationId(null);
+        }
+
+        conversation = conversationRepository.save(conversation);
+
+        return toConversationResponse(conversation);
+    }
+
     public String getCurrentUserId() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
