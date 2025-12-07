@@ -5,9 +5,11 @@ import com.postservice.entity.Comment;
 
 import com.postservice.entity.CommentReply;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface CommentMapper {
     CommentResponse toCommentResponse(Comment comment);
-    CommentResponse toCommentResponse (CommentReply commentReply);
+    @Mapping(source = "userName", target = "userName")
+    CommentResponse toCommentResponse(CommentReply commentReply);
 }

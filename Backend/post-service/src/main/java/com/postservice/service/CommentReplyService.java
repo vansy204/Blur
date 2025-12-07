@@ -17,10 +17,10 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Builder
 @RequiredArgsConstructor
 @Service
@@ -47,41 +48,142 @@ public class CommentReplyService {
             @CacheEvict(value = "commentReplies", key = "#commentId"),
             @CacheEvict(value = "nestedReplies", key = "#parentReplyId", condition = "#parentReplyId != null")
     })
-    public CommentResponse createCommentReply(String commentId, String parentReplyId, CreateCommentRequest commentRequest) {
+    public CommentResponse createCommentReply(
+            String commentId,
+            String parentReplyId,
+            CreateCommentRequest commentRequest
+    ) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserId = auth.getName();
+
+        log.info("🔵 [STEP 1] Creating reply - Current User ID: {}", currentUserId);
+
+        // 1. Tìm comment gốc
         var comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
-        var profile = profileClient.getProfile(auth.getName());
+
+        log.info("🔵 [STEP 2] Found comment ID: {} created by user: {}", comment.getId(), comment.getUserId());
+
+        // 2. Nếu reply vào 1 reply khác
+        CommentReply parentReply = null;
         if (parentReplyId != null) {
-            commentReplyRepository.findById(parentReplyId)
+            parentReply = commentReplyRepository.findById(parentReplyId)
                     .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
+            log.info("🔵 [STEP 3] Found parent reply ID: {} created by user: {}",
+                    parentReply.getId(), parentReply.getUserId());
+        } else {
+            log.info("🔵 [STEP 3] No parent reply - replying directly to comment");
         }
 
+        // 3. Lấy profile người đang reply (sender)
+        log.info("🔵 [STEP 4] Fetching sender profile...");
+        var senderProfileRes = profileClient.getProfile(currentUserId);
+        var senderProfile = senderProfileRes.getResult();
+
+        String senderFirstName = senderProfile.getFirstName() != null ? senderProfile.getFirstName() : "";
+        String senderLastName = senderProfile.getLastName() != null ? senderProfile.getLastName() : "";
+        String senderFullName = (senderFirstName + " " + senderLastName).trim();
+        String senderImageUrl = senderProfile.getImageUrl();
+
+        if (senderFullName.isEmpty()) {
+            log.warn("⚠️ [STEP 4] Sender has no first/last name, fetching username from Identity...");
+            var senderIdentity = identityClient.getUser(currentUserId);
+            senderFullName = senderIdentity.getResult().getUsername();
+        }
+
+        log.info("🔵 [STEP 4] Sender info - Full Name: '{}', Image URL: '{}'",
+                senderFullName, senderImageUrl);
+
+        // 4. Tạo CommentReply
         CommentReply commentReply = CommentReply.builder()
-                .userId(auth.getName())
-                .userName(profile.getResult().getFirstName())
-                .updatedAt(Instant.now())
-                .createdAt(Instant.now())
+                .userId(currentUserId)
+                .userName(senderFullName)
                 .content(commentRequest.getContent())
                 .commentId(comment.getId())
-                .parentReplyId(parentReplyId) // <-- thêm dòng này
+                .parentReplyId(parentReplyId)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
                 .build();
-        var post = postRepository.findById(comment.getPostId())
-                .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
-        var user = identityClient.getUser(post.getUserId());
-        Event event = Event.builder()
-                .postId(post.getId())
-                .senderId(commentReply.getId())
-                .senderName(commentReply.getUserName())
-                .receiverId(user.getResult().getId())
-                .receiverName(user.getResult().getUsername())
-                .receiverEmail(user.getResult().getEmail())
-                .timestamp(LocalDateTime.now())
-                .build();
-        notificationClient.sendReplyCommentNotification(event);
-        return commentMapper.toCommentResponse(commentReplyRepository.save(commentReply));
-    }
 
+        commentReply = commentReplyRepository.save(commentReply);
+        log.info("✅ [STEP 5] CommentReply saved with ID: {}", commentReply.getId());
+
+        // 5. Xác định người nhận thông báo
+        String receiverUserId;
+        if (parentReply != null) {
+            receiverUserId = parentReply.getUserId();
+            log.info("🔵 [STEP 6] Receiver is PARENT REPLY owner: {}", receiverUserId);
+        } else {
+            receiverUserId = comment.getUserId();
+            log.info("🔵 [STEP 6] Receiver is COMMENT owner: {}", receiverUserId);
+        }
+
+        // 6. Kiểm tra xem có phải tự reply không
+        if (receiverUserId.equals(currentUserId)) {
+            log.warn("⚠️ [STEP 7] SKIP notification - User is replying to their own comment/reply");
+            return commentMapper.toCommentResponse(commentReply);
+        }
+
+        log.info("✅ [STEP 7] Different users detected - Preparing notification...");
+        log.info("   → Sender ID: {}", currentUserId);
+        log.info("   → Receiver ID: {}", receiverUserId);
+
+        try {
+            // Lấy thông tin sender từ Identity
+            log.info("🔵 [STEP 8] Fetching sender identity info...");
+            var senderIdentity = identityClient.getUser(currentUserId);
+
+            // Lấy thông tin receiver
+            log.info("🔵 [STEP 9] Fetching receiver info...");
+            var receiverIdentity = identityClient.getUser(receiverUserId);
+            var receiverProfileRes = profileClient.getProfile(receiverUserId);
+            var receiverProfile = receiverProfileRes.getResult();
+
+            String receiverFirstName = receiverProfile.getFirstName() != null ? receiverProfile.getFirstName() : "";
+            String receiverLastName = receiverProfile.getLastName() != null ? receiverProfile.getLastName() : "";
+            String receiverFullName = (receiverFirstName + " " + receiverLastName).trim();
+
+            if (receiverFullName.isEmpty()) {
+                receiverFullName = receiverIdentity.getResult().getUsername();
+            }
+
+            log.info("🔵 [STEP 9] Receiver info - Full Name: '{}', Email: '{}'",
+                    receiverFullName, receiverIdentity.getResult().getEmail());
+
+            // Tạo Event
+            Event event = Event.builder()
+                    .postId(comment.getPostId())
+                    .senderId(senderIdentity.getResult().getId())
+                    .senderName(senderFullName)
+                    .senderFirstName(senderFirstName)
+                    .senderLastName(senderLastName)
+                    .senderImageUrl(senderImageUrl)
+                    .receiverId(receiverIdentity.getResult().getId())
+                    .receiverName(receiverFullName)
+                    .receiverEmail(receiverIdentity.getResult().getEmail())
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+            log.info("🔵 [STEP 10] Event created:");
+            log.info("   → Post ID: {}", event.getPostId());
+            log.info("   → Sender: {} ({})", event.getSenderName(), event.getSenderId());
+            log.info("   → Receiver: {} ({})", event.getReceiverName(), event.getReceiverId());
+            log.info("   → Image URL: {}", event.getSenderImageUrl());
+
+            // GỬI NOTIFICATION QUA FEIGN CLIENT
+            log.info("🔵 [STEP 11] Calling NotificationClient.sendReplyCommentNotification()...");
+            notificationClient.sendReplyCommentNotification(event);
+
+            log.info("✅✅✅ [STEP 12] NOTIFICATION SENT SUCCESSFULLY! ✅✅✅");
+
+        } catch (Exception e) {
+            log.error("❌❌❌ [ERROR] Failed to send notification: {}", e.getMessage());
+            log.error("Stack trace:", e);
+            // Không throw exception để không làm fail toàn bộ reply action
+        }
+
+        return commentMapper.toCommentResponse(commentReply);
+    }
 
     @Caching(evict = {
             @CacheEvict(value = "commentReplies", key = "#root.target.getCommentIdByReplyId(#commentReplyId)"),
@@ -100,7 +202,6 @@ public class CommentReplyService {
         comment.setContent(commentReply.getContent());
         return commentMapper.toCommentResponse(commentReplyRepository.save(comment));
     }
-
 
     @Caching(evict = {
             @CacheEvict(value = "commentReplies", key = "#root.target.getCommentIdByReplyId(#commentId)"),
@@ -152,7 +253,6 @@ public class CommentReplyService {
                 .map(commentMapper::toCommentResponse)
                 .collect(Collectors.toList());
     }
-
 
     public String getCommentIdByReplyId(String replyId) {
         return commentReplyRepository.findById(replyId)

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Modal, ModalBody, ModalContent, ModalOverlay } from "@chakra-ui/react";
 import {
   BsBookmark,
@@ -25,7 +25,7 @@ import { fetchUserByUserId } from "../../api/userApi";
 const CommentModal = ({
   user,
   post,
-  comments,
+  comments = [],
   postMedia,
   likeCount,
   isOpen,
@@ -34,19 +34,40 @@ const CommentModal = ({
   isPostLike,
   handlePostLike,
   handleSavePost,
+  // hàm cha: nhận (content, parentCommentId|null)
   handleCreateComment,
 }) => {
   const [isPlaying, setIsPlaying] = useState({});
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [comment, setComment] = useState("");
-  const videoRefs = useRef([]);
   const [commentUsers, setCommentUsers] = useState({});
-  
-  // ✅ Track aspect ratio để phân biệt ảnh dọc/ngang
   const [mediaDimensions, setMediaDimensions] = useState({});
-  
+  const [replyingTo, setReplyingTo] = useState(null); // { id, isReply }
+  const videoRefs = useRef([]);
+  const inputRef = useRef(null);
+
   const token = getToken();
 
+  // ====== PHÂN TÁCH COMMENT GỐC & REPLY ======
+  const { rootComments, repliesMap } = useMemo(() => {
+    const roots = [];
+    const map = {};
+
+    (comments || []).forEach((c) => {
+      if (!c.parentReplyId) {
+        // comment gốc (bình luận bài viết)
+        roots.push(c);
+      } else {
+        // reply -> đưa vào map theo parentReplyId
+        if (!map[c.parentReplyId]) map[c.parentReplyId] = [];
+        map[c.parentReplyId].push(c);
+      }
+    });
+
+    return { rootComments: roots, repliesMap: map };
+  }, [comments]);
+
+  // ================== MEDIA ==================
   const togglePlayPause = (index) => {
     const video = videoRefs.current[index];
     if (!video) return;
@@ -63,63 +84,118 @@ const CommentModal = ({
     }));
   };
 
-  const handleEmojiClick = (emojiObject) => {
-    setComment((prev) => prev + emojiObject.emoji);
-  };
-
-  // ✅ Track image dimensions
   const handleImageLoad = (index, e) => {
     const img = e.target;
     const aspectRatio = img.naturalWidth / img.naturalHeight;
     setMediaDimensions((prev) => ({
       ...prev,
-      [index]: { aspectRatio, width: img.naturalWidth, height: img.naturalHeight },
+      [index]: {
+        aspectRatio,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      },
     }));
   };
 
-  // ✅ Track video dimensions
   const handleVideoLoad = (index, e) => {
     const video = e.target;
     const aspectRatio = video.videoWidth / video.videoHeight;
     setMediaDimensions((prev) => ({
       ...prev,
-      [index]: { aspectRatio, width: video.videoWidth, height: video.videoHeight },
+      [index]: {
+        aspectRatio,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      },
     }));
   };
 
-  // ✅ Quyết định object-fit dựa trên aspect ratio (Instagram logic)
   const getObjectFit = (index) => {
     const dimension = mediaDimensions[index];
-    if (!dimension) return 'cover'; // Default
-    
-    // Nếu ảnh ngang (width > height) → contain (nằm giữa có viền)
-    // Nếu ảnh dọc hoặc vuông → cover (fill đầy)
-    return dimension.aspectRatio > 1 ? 'contain' : 'cover';
+    if (!dimension) return "cover";
+    return dimension.aspectRatio > 1 ? "contain" : "cover";
   };
 
+  // ================== FETCH USER CỦA TỪNG COMMENT ==================
   useEffect(() => {
     const fetchUsers = async () => {
-      const usersData = {};
+      if (!token || !comments?.length) return;
 
+      const usersData = {};
       await Promise.all(
-        comments.map(async (comment) => {
-          if (!commentUsers[comment.userId]) {
+        comments.map(async (cmt) => {
+          if (!commentUsers[cmt.userId]) {
             try {
-              const userData = await fetchUserByUserId(comment.userId, token);
-              usersData[comment.userId] = userData;
+              const userData = await fetchUserByUserId(cmt.userId, token);
+              usersData[cmt.userId] = userData;
             } catch (error) {
               console.error("Failed to fetch user:", error);
             }
           }
         })
       );
-
       setCommentUsers((prev) => ({ ...prev, ...usersData }));
     };
 
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comments, token]);
 
+  // ================== REPLY HANDLER ==================
+  const buildMention = (cmt, u) => {
+    const fullName =
+      // 1. full name mà backend gắn thẳng vào reply/comment
+      cmt.userName ||
+      // 2. họ + tên nếu có trong comment
+      [cmt.firstName, cmt.lastName].filter(Boolean).join(" ") ||
+      // 3. fullName / name trong user fetch được
+      u?.fullName ||
+      [u?.firstName, u?.lastName].filter(Boolean).join(" ") ||
+      u?.name ||
+      // 4. cuối cùng mới fallback sang username
+      u?.username ||
+      "User";
+
+    return `@${fullName.replace(/\s+/g, "")}`;
+  };
+
+  const handleReplyClick = (cmt, u) => {
+    const mention = buildMention(cmt, u);
+
+    setReplyingTo({ id: cmt.id, isReply: !!cmt.parentReplyId });
+    setComment((prev) => {
+      if (prev.startsWith(mention + " ")) return prev;
+      return `${mention} `;
+    });
+
+    if (inputRef.current) inputRef.current.focus();
+  };
+
+  // ================== LIKE COMMENT (stub) ==================
+  const handleToggleCommentLike = (cmt, willLike) => {
+    // TODO: gọi API like/unlike comment nếu có
+    console.log("toggle like comment", cmt.id, willLike);
+  };
+
+  // ================== EMOJI ==================
+  const handleEmojiClick = (emojiObject) => {
+    setComment((prev) => prev + emojiObject.emoji);
+  };
+
+  // ================== GỬI COMMENT / REPLY ==================
+  const handleCreateCommentInternal = (text) => {
+    if (!text.trim()) return;
+
+    // gửi luôn cho cha: content + id comment đang reply (nếu có)
+    const parentId = replyingTo?.id || null;
+    handleCreateComment(text, parentId); // hàm cha nhận thêm arg nhưng có thể bỏ qua nếu chưa dùng
+
+    // reset state
+    setComment("");
+    setReplyingTo(null);
+  };
+
+  // ================== RENDER ==================
   return (
     <Modal size={"4xl"} onClose={onClose} isOpen={isOpen} isCentered>
       <ModalOverlay bg="blackAlpha.700" backdropFilter="blur(4px)" />
@@ -139,25 +215,22 @@ const CommentModal = ({
                 <Swiper
                   className="w-full h-full"
                   navigation
-                  pagination={{ 
+                  pagination={{
                     clickable: true,
-                    bulletActiveClass: 'swiper-pagination-bullet-active !bg-white'
+                    bulletActiveClass:
+                      "swiper-pagination-bullet-active !bg-white",
                   }}
                   modules={[Navigation, Pagination]}
                   style={{
-                    '--swiper-navigation-color': '#fff',
-                    '--swiper-pagination-color': '#fff',
+                    "--swiper-navigation-color": "#fff",
+                    "--swiper-pagination-color": "#fff",
                   }}
                 >
                   {postMedia.map((url, index) => {
                     const isVideo = url.match(/\.(mp4|webm|ogg)$/i);
-                    
+
                     return (
-                      <SwiperSlide
-                        key={index}
-                        className="w-full h-full"
-                      >
-                        {/* ✅ INSTAGRAM LOGIC: Dọc=cover, Ngang=contain */}
+                      <SwiperSlide key={index} className="w-full h-full">
                         {isVideo ? (
                           <video
                             ref={(el) => (videoRefs.current[index] = el)}
@@ -213,19 +286,30 @@ const CommentModal = ({
                 </button>
               </div>
 
-              {/* Comments List */}
+              {/* Comments List – ROOT + REPLIES */}
               <div className="flex-1 overflow-auto px-4 py-2 bg-gray-50">
-                {comments.length > 0 ? (
-                  comments
-                    .slice()
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .map((comment, index) => (
-                      <CommentCard
-                        key={index}
-                        comment={comment}
-                        user={commentUsers[comment.userId] || {}}
-                      />
-                    ))
+                {rootComments.length > 0 ? (
+                  rootComments.map((cmt) => (
+                    <CommentCard
+                      key={cmt.id}
+                      comment={cmt}
+                      user={commentUsers[cmt.userId] || {}}
+                      replies={repliesMap[cmt.id] || []}
+                      replyUsers={commentUsers}
+                      onReply={() =>
+                        handleReplyClick(cmt, commentUsers[cmt.userId] || {})
+                      }
+                      onToggleLike={(willLike) =>
+                        handleToggleCommentLike(cmt, willLike)
+                      }
+                      onReplyClick={(reply) =>
+                        handleReplyClick(
+                          reply,
+                          commentUsers[reply.userId] || {}
+                        )
+                      }
+                    />
+                  ))
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12">
                     <div className="w-16 h-16 bg-gradient-to-br from-sky-100 to-blue-100 rounded-full flex items-center justify-center mb-4">
@@ -279,7 +363,7 @@ const CommentModal = ({
                 {/* Stats */}
                 <div className="px-4 pb-3 space-y-1">
                   <p className="font-semibold text-sm text-gray-800">
-                    {likeCount || 0} {likeCount === 1 ? 'like' : 'likes'}
+                    {likeCount || 0} {likeCount === 1 ? "like" : "likes"}
                   </p>
                   <p className="text-xs text-gray-500">
                     {timeDifference(post?.createdAt)}
@@ -297,11 +381,16 @@ const CommentModal = ({
 
                   {showEmojiPicker && (
                     <div className="absolute bottom-16 left-4 z-20 shadow-2xl rounded-xl overflow-hidden">
-                      <EmojiPicker onEmojiClick={handleEmojiClick} height={350} width={300} />
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        height={350}
+                        width={300}
+                      />
                     </div>
                   )}
 
                   <input
+                    ref={inputRef}
                     className="flex-1 mx-3 outline-none text-sm placeholder-gray-400 focus:placeholder-gray-500"
                     type="text"
                     placeholder="Add a comment..."
@@ -309,20 +398,14 @@ const CommentModal = ({
                     onChange={(e) => setComment(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && comment.trim()) {
-                        handleCreateComment(comment);
-                        setComment("");
+                        handleCreateCommentInternal(comment);
                       }
                     }}
                   />
 
                   {comment.trim() && (
                     <button
-                      onClick={() => {
-                        if (comment.trim()) {
-                          handleCreateComment(comment);
-                          setComment("");
-                        }
-                      }}
+                      onClick={() => handleCreateCommentInternal(comment)}
                       className="text-sky-500 hover:text-sky-600 transition-colors"
                     >
                       <IoSend className="text-xl" />

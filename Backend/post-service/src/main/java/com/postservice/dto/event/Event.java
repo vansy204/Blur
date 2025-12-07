@@ -16,6 +16,7 @@ public class Event {
     String senderName;
     String senderFirstName;
     String senderLastName;
+    String senderImageUrl;
     String receiverId;
     String receiverEmail;
     String receiverName;

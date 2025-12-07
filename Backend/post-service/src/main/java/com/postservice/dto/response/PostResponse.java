@@ -19,6 +19,8 @@ public class PostResponse {
     String userId;
     String profileId;
     String userName;
+    String firstName;
+    String lastName;
     String userImageUrl;
     String content;
     List<String> mediaUrls;

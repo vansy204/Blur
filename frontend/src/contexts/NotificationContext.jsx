@@ -29,65 +29,75 @@ export const requestNotificationPermission = async () => {
 
 // ===== TOAST COMPONENT =====
 const MessageToast = ({ notification, onClose, onClick }) => {
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose(notification.id);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [notification.id, onClose]);
-  // ✅ Kiểm tra xem có postId không để hiển thị hint
-  const hasPost = !!notification.postId;
+  // ✅ Tính tên hiển thị 1 lần
+  const displayName = React.useMemo(() => {
+    if (notification.senderName && notification.senderName !== "Unknown User") {
+      return notification.senderName;
+    }
+
+    const firstName = notification.senderFirstName || "";
+    const lastName = notification.senderLastName || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return fullName || "Unknown User";
+  }, [
+    notification.senderFirstName,
+    notification.senderLastName,
+    notification.senderName,
+  ]);
+
+  const handleClick = () => {
+    onClick(notification);
+    onClose(notification.id);
+  };
 
   return (
     <div
-      onClick={() => {
-        onClick(notification);
-        onClose(notification.id);
-      }}
-      className="bg-white rounded-lg shadow-2xl border border-gray-200 p-4 mb-3 min-w-[320px] max-w-[400px] cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-x-2 animate-slide-in-right"
+      onClick={handleClick}
+      className="w-[320px] bg-white rounded-xl shadow-lg border border-sky-100 p-3 cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
     >
       <div className="flex items-start gap-3">
+        {/* Avatar */}
         <img
           src={
             notification.avatar ||
             "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
           }
-          alt={notification.senderName}
-          className="w-12 h-12 rounded-full object-cover border-2 border-blue-500"
+          alt={displayName}
+          className="w-10 h-10 rounded-full object-cover border border-sky-200 flex-shrink-0"
         />
+
+        {/* Nội dung */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <MessageCircle size={16} className="text-blue-500" />
-              <h4 className="font-semibold text-gray-900 truncate">
-                {notification.senderFirstName || notification.senderLastName
-                  ? `${notification.senderFirstName || ""} ${
-                      notification.senderLastName || ""
-                    }`.trim()
-                  : notification.senderName || "Unknown User"}
-              </h4>
-            </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose(notification.id);
-              }}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-            {notification.message || "Đã gửi tệp đính kèm"}
+          {/* Dòng chính: Tên + message */}
+          <p className="text-sm text-gray-800 leading-snug">
+            <span className="font-semibold mr-1">{displayName}</span>
+            {notification.message || "đã gửi một thông báo cho bạn."}
           </p>
+
+          {/* Thời gian */}
           <p className="text-xs text-gray-400 mt-1">
             {formatTime(notification.createdDate)}
           </p>
-          {/* ✅ Hiển thị hint nếu có postId */}
-          {hasPost && (
-            <p className="text-xs text-sky-600 font-medium">Click để xem →</p>
+
+          {/* Click để xem */}
+          {notification.postId && (
+            <p className="text-xs text-sky-600 font-medium mt-1">
+              Click để xem →
+            </p>
           )}
         </div>
+
+        {/* Nút đóng */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose(notification.id);
+          }}
+          className="ml-1 text-gray-400 hover:text-gray-600"
+        >
+          <X size={14} />
+        </button>
       </div>
     </div>
   );
@@ -100,6 +110,7 @@ export const NotificationProvider = ({ children }) => {
   const [notificationCounter, setNotificationCounter] = useState(0);
   const navigate = useNavigate(); //
 
+  /*
   const addNotification = useCallback((notificationData) => {
     console.log("🔔 Adding notification:", notificationData); // Debug log
 
@@ -140,6 +151,55 @@ export const NotificationProvider = ({ children }) => {
       return [notification, ...prev];
     });
   }, []);
+  */
+
+  const addNotification = useCallback((notificationData) => {
+  console.log("🔔 Adding notification:", notificationData);
+
+  setNotifications((prev) => {
+    if (!notificationData?.id) {
+      console.warn("⚠️ Notification missing ID");
+      return prev;
+    }
+
+    const exists = prev.some((n) => n.id === notificationData.id);
+    if (exists) {
+      console.log("⚠️ Notification already exists:", notificationData.id);
+      return prev;
+    }
+
+    // ✅ Ưu tiên first + last, nếu không có thì dùng senderName từ backend
+    const fullName = [notificationData.senderFirstName, notificationData.senderLastName]
+      .filter(Boolean)
+      .join(" ");
+    const senderName = fullName || notificationData.senderName || "Unknown User";
+
+    const notification = {
+      id: notificationData.id,
+      senderFirstName: notificationData.senderFirstName,   // ⭐ LƯU LẠI
+      senderLastName: notificationData.senderLastName,     // ⭐ LƯU LẠI
+      senderName,                                          // ⭐ ĐÃ Fallback đầy đủ
+      avatar: notificationData.avatar || notificationData.senderImageUrl,
+      message: notificationData.content || notificationData.message,
+      createdDate:
+        notificationData.createdDate ||
+        notificationData.timestamp ||
+        new Date().toISOString(),
+      type: notificationData.type || "general",
+      seen: notificationData.seen ?? notificationData.read ?? false,
+      postId: notificationData.postId,
+      senderId: notificationData.senderId,
+    };
+
+    playNotificationSound();
+    if (document.hidden) showBrowserNotification(notification);
+    setNotificationCounter((c) => c + 1);
+
+    console.log("✅ Notification added to state");
+    return [notification, ...prev];
+  });
+}, []);
+
 
   const setNotificationsList = useCallback((list) => {
     setNotifications(list);
