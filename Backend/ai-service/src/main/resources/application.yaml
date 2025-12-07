@@ -1,0 +1,19 @@
+server:
+  port: 9090
+
+spring:
+  application:
+    name: ai-service
+
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://root:root@localhost:27017/ai_service_db?authSource=admin}
+
+ai:
+  openai:
+    api-key: ${GEMINI_KEY:"AIzaSyCiD4Yz7ZYlSNyEw7j1YR-WCbtBwRlF0HE"}
+    option:
+      model: gemini-2.5-flash
+    chat:
+      base-url: https://generativelanguage.googleapis.com
+      completions-path: v1beta/models/gemini-2.5-flash:generateContent

@@ -1,6 +1,6 @@
 // src/components/Chat/ChatArea.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Image, Send, Loader, Smile, Plus, X, Phone, Video, Info } from 'lucide-react';
+import { Image, Send, Loader, Smile, Plus, Phone, Video, Info, Sparkles } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import MessageBubble from './MessageBubble';
 import MediaPreview from './MediaPreview';
@@ -349,6 +349,72 @@ const ChatArea = ({
     }
   }, [handleSend, isUploading]);
 
+const handleAiAssist = useCallback(async () => {
+  if (!input.trim()) {
+    toast('Vui lòng nhập nội dung để AI hỗ trợ.', {
+      icon: '🤔',
+      position: 'bottom-center',
+      duration: 2000,
+      style: {
+        borderRadius: '12px',
+        background: '#262626',
+        color: '#fff',
+        fontSize: '14px',
+        padding: '12px 16px',
+      },
+    });
+    return;
+  }
+
+  const aiToast = toast.loading('AI đang suy nghĩ...', {
+    position: 'bottom-center',
+    style: {
+      borderRadius: '12px',
+      background: '#262626',
+      color: '#fff',
+      fontSize: '14px',
+      padding: '12px 16px',
+    },
+  });
+
+  try {
+    const response = await fetch('http://localhost:9090/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Authorization có thể bỏ vì endpoint này đã public
+        // 'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ 
+        conversationId: null, // Luôn tạo conversation mới cho mỗi lần hỗ trợ
+        userId: localStorage.getItem('userId') || 'anonymous', // Lấy userId từ localStorage
+        message: input 
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Lỗi AI: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Backend trả về: { conversationId, response, success, error }
+    if (data && data.success && data.response) {
+      setInput(data.response); // Thay data.message thành data.response
+      toast.success('AI đã hỗ trợ!', { id: aiToast, duration: 2000 });
+    } else {
+      throw new Error(data.error || 'Phản hồi từ AI không hợp lệ.');
+    }
+  } catch (error) {
+    console.error("❌ Error calling AI service:", error);
+    toast.error(error.message || 'Không thể kết nối tới AI.', { 
+      id: aiToast, 
+      duration: 3000 
+    });
+  }
+}, [input]);
+
   // Memoize để tránh re-render không cần thiết
   const canSend = useMemo(() => 
     (input.trim() || selectedFiles.length > 0) && !isUploading,
@@ -562,6 +628,13 @@ const ChatArea = ({
               onKeyDown={handleKeyPress}
               disabled={isUploading}
             />
+            <button
+              onClick={handleAiAssist}
+              className="text-black hover:opacity-60 transition-opacity flex-shrink-0"
+              aria-label="AI"
+            >
+              <Sparkles size={22} strokeWidth={1.5} />
+            </button>
             <button 
               className="text-black hover:opacity-60 transition-opacity flex-shrink-0"
               aria-label="Emoji"

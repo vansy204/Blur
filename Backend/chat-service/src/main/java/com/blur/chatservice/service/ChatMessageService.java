@@ -1,8 +1,15 @@
 package com.blur.chatservice.service;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.blur.chatservice.dto.request.AiChatRequest;
+import com.blur.chatservice.dto.response.AiChatResponse;
+import com.blur.chatservice.repository.httpclient.AiServiceClient;
+import com.corundumstudio.socketio.SocketIOServer;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,11 +30,11 @@ import com.blur.chatservice.repository.ConversationRepository;
 import com.blur.chatservice.repository.httpclient.ProfileClient;
 
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ChatMessageService {
 
@@ -35,11 +42,25 @@ public class ChatMessageService {
     ProfileClient profileClient;
     ChatMessageRepository chatMessageRepository;
     RedisCacheService redisCacheService;
+    AiServiceClient aiServiceClient;
+    SocketIOServer socketIOServer; // ✅ THÊM DÒNG NÀY
 
-    /**
-     * Create new message
-     * Caching disabled to prevent Redis serialization errors
-     */
+    // ✅ CONSTRUCTOR với @Lazy để tránh circular dependency
+    public ChatMessageService(
+            ConversationRepository conversationRepository,
+            ProfileClient profileClient,
+            ChatMessageRepository chatMessageRepository,
+            RedisCacheService redisCacheService,
+            AiServiceClient aiServiceClient,
+            @Lazy SocketIOServer socketIOServer) {
+        this.conversationRepository = conversationRepository;
+        this.profileClient = profileClient;
+        this.chatMessageRepository = chatMessageRepository;
+        this.redisCacheService = redisCacheService;
+        this.aiServiceClient = aiServiceClient;
+        this.socketIOServer = socketIOServer;
+    }
+
     @Transactional
     public ChatMessageResponse create(ChatMessageRequest request, String userId) {
         if (request.getConversationId() == null || request.getConversationId().isEmpty()) {
@@ -103,15 +124,132 @@ public class ChatMessageService {
 
         chatMessage = chatMessageRepository.save(chatMessage);
 
-        // Cache operations disabled to prevent Redis serialization errors
-        // redisCacheService.cacheMessage(chatMessage.getId(), chatMessage, 30);
-        // redisCacheService.invalidateConversationMessages(request.getConversationId());
-        // redisCacheService.evictLastMessage(request.getConversationId());
+        // ✅ ==================== AI LOGIC WITH BROADCASTING ====================
+        if (Boolean.TRUE.equals(conversation.getAiEnabled())
+                && request.getMessage() != null
+                && !request.getMessage().isBlank()) {
+
+            log.info("🤖 AI enabled for conversation: {}", conversation.getId());
+
+            try {
+                // 1. Gọi AI Service
+                AiChatRequest aiReq = new AiChatRequest();
+                aiReq.setConversationId(conversation.getAiConversationId());
+                aiReq.setUserId(userInfo.getUserId());
+                aiReq.setMessage(request.getMessage());
+
+                AiChatResponse aiRes = aiServiceClient.chat(aiReq);
+
+                if (aiRes.isSuccess()) {
+                    log.info("✅ AI response received successfully");
+
+                    // 2. Lưu AI conversation ID lần đầu
+                    if (conversation.getAiConversationId() == null
+                            && aiRes.getConversationId() != null) {
+                        conversation.setAiConversationId(aiRes.getConversationId());
+                        conversationRepository.save(conversation);
+                        log.info("💾 Saved AI conversation ID: {}", aiRes.getConversationId());
+                    }
+
+                    // 3. Tạo AI message
+                    ChatMessage aiMessage = ChatMessage.builder()
+                            .conversationId(request.getConversationId())
+                            .message(aiRes.getResponse())
+                            .attachments(null)
+                            .messageType(MessageType.TEXT)
+                            .sender(ParticipantInfo.builder()
+                                    .userId("AI_BOT")
+                                    .username("AI Assistant")
+                                    .firstName("AI")
+                                    .lastName("Assistant")
+                                    .avatar(null)
+                                    .build())
+                            .createdDate(Instant.now())
+                            .readBy(List.of(userInfo.getUserId()))
+                            .build();
+
+                    // 4. Lưu vào database
+                    ChatMessage savedAiMessage = chatMessageRepository.save(aiMessage);
+                    log.info("💾 Saved AI message to database: {}", savedAiMessage.getId());
+
+                    // ✅ 5. BROADCAST AI MESSAGE TỚI TẤT CẢ PARTICIPANTS
+                    broadcastAiMessage(savedAiMessage, conversation.getId());
+
+                } else {
+                    log.error("❌ AI service returned error: {}", aiRes.getError());
+                }
+
+            } catch (Exception e) {
+                log.error("❌ Error calling AI service: {}", e.getMessage(), e);
+                // Không throw exception để không làm gián đoạn flow chat bình thường
+            }
+        }
 
         return toChatMessageResponse(chatMessage, userId);
     }
 
-    // @Cacheable disabled to prevent Redis serialization errors
+    /**
+     * ✅ BROADCAST AI MESSAGE TỚI TẤT CẢ PARTICIPANTS TRONG CONVERSATION
+     */
+    private void broadcastAiMessage(ChatMessage aiMessage, String conversationId) {
+        try {
+            log.info("📡 Broadcasting AI message to conversation: {}", conversationId);
+
+            // Build payload
+            Map<String, Object> payload = buildAiMessagePayload(aiMessage);
+
+            // Method 1: Broadcast tới room (RECOMMENDED - nhanh nhất)
+            socketIOServer
+                    .getRoomOperations("conversation:" + conversationId)
+                    .sendEvent("message_received", payload);
+
+            log.info("✅ AI message broadcasted successfully to room: conversation:{}", conversationId);
+
+        } catch (Exception e) {
+            log.error("❌ Error broadcasting AI message: {}", e.getMessage(), e);
+            // Silent fail - không throw exception
+        }
+    }
+
+    /**
+     * ✅ BUILD PAYLOAD CHO AI MESSAGE
+     */
+    private Map<String, Object> buildAiMessagePayload(ChatMessage msg) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", msg.getId());
+        payload.put("messageId", msg.getId());
+        payload.put("conversationId", msg.getConversationId());
+        payload.put("message", msg.getMessage());
+        payload.put("messageType", msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
+        payload.put("createdDate", msg.getCreatedDate().toString());
+
+        if (msg.getSender() != null) {
+            ParticipantInfo sender = msg.getSender();
+            payload.put("senderId", sender.getUserId());
+
+            Map<String, Object> senderMap = Map.of(
+                    "userId", orEmpty(sender.getUserId()),
+                    "username", orEmpty(sender.getUsername()),
+                    "firstName", orEmpty(sender.getFirstName()),
+                    "lastName", orEmpty(sender.getLastName()),
+                    "avatar", orEmpty(sender.getAvatar()));
+            payload.put("sender", senderMap);
+        }
+
+        payload.put("isRead", msg.getIsRead() != null ? msg.getIsRead() : false);
+
+        if (msg.getAttachments() != null && !msg.getAttachments().isEmpty()) {
+            payload.put("attachments", msg.getAttachments());
+        }
+
+        // ✅ Đánh dấu đây là AI message
+        payload.put("isAiMessage", true);
+
+        return payload;
+    }
+
+    // ==================== EXISTING METHODS (không thay đổi) ====================
+
     public List<ChatMessageResponse> getMessages(String conversationId) {
         String userId = null;
         try {
@@ -124,12 +262,10 @@ public class ChatMessageService {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
 
-        // ✅ Fetch user profile with proper error handling
         ApiResponse<UserProfileResponse> userProfileResponse = null;
         try {
             userProfileResponse = profileClient.getProfile(userId);
         } catch (Exception e) {
-            // If profile service is unavailable, log and throw appropriate error
             throw new AppException(ErrorCode.USER_PROFILE_NOT_FOUND);
         }
 
@@ -158,7 +294,6 @@ public class ChatMessageService {
                 .toList();
     }
 
-    // @Cacheable disabled to prevent Redis serialization errors
     public Integer unreadCount(String conversationId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String userId = auth != null ? auth.getName() : null;
@@ -172,7 +307,6 @@ public class ChatMessageService {
             return cachedCount;
         }
 
-        // ✅ Fetch user profile with proper error handling
         ApiResponse<UserProfileResponse> userResponse = null;
         try {
             userResponse = profileClient.getProfile(userId);
@@ -204,7 +338,6 @@ public class ChatMessageService {
     }
 
     @Transactional
-    // @CacheEvict disabled to prevent Redis serialization errors
     public String markAsRead(String conversationId, String userId) {
         List<ChatMessage> messages =
                 chatMessageRepository.findAllByConversationIdOrderByCreatedDateDesc(conversationId);
@@ -217,7 +350,6 @@ public class ChatMessageService {
         }
 
         chatMessageRepository.saveAll(messages);
-        // Cache operation disabled: redisCacheService.evictUnreadCount(conversationId, userId);
 
         return "mark as read";
     }
@@ -260,6 +392,10 @@ public class ChatMessageService {
         }
 
         return response;
+    }
+
+    private String orEmpty(String value) {
+        return value != null ? value : "";
     }
 
     public String getCurrentUserId() {
