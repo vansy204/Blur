@@ -26,7 +26,7 @@ public class WebClientConfiguration {
     @Value("${app.services.chat}")
     private String chatServiceUrl;
 
-    @Value("${CORS_ALLOWED_ORIGIN:http://localhost}")
+    @Value("${CORS_ALLOWED_ORIGIN:http://localhost:3000}")
     private String allowedOrigin;
 
     @Value("${CORS_ALLOWED_HEADERS:*}")
