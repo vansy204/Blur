@@ -21,7 +21,6 @@ public class RedisService {
     private static final String ONLINE_KEY_PREFIX = "user:online:";
     private static final Duration ONLINE_TTL = Duration.ofMinutes(30);
 
-
     public void setOnline(String userId) {
         if (userId == null || userId.trim().isEmpty()) {
             log.warn("Invalid userId for setOnline");
@@ -38,7 +37,6 @@ public class RedisService {
             log.error("Error setting user {} online", userId, e);
         }
     }
-
 
     public void setOffline(String userId) {
         if (userId == null || userId.trim().isEmpty()) {

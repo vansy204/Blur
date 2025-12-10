@@ -22,11 +22,9 @@ import {
   useOutsideClick,
   Text,
 } from "@chakra-ui/react";
-import axios from "axios";
 import { uploadToCloudnary } from "../../Config/UploadToCloudinary";
 import { useEffect, useRef, useState } from "react";
 import { createPost } from "../../api/postApi";
-import { getToken } from "../../service/LocalStorageService";
 import { BsEmojiSmile, BsImage, BsCameraVideo } from "react-icons/bs";
 import { MdClose } from "react-icons/md";
 import EmojiPicker from "emoji-picker-react";
@@ -43,10 +41,9 @@ const CreatePostModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const cancelRef = useRef();
-  const emojiRef = useRef();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const emojiRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
-  const token = getToken();
 
   // ✅ Debug: Log when modal opens
   useEffect(() => {
@@ -100,7 +97,6 @@ const CreatePostModal = ({
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
-      const token = getToken();
 
       console.log("🚀 [Modal] Starting post creation...");
       console.log("📝 [Modal] Content:", content);
@@ -123,7 +119,7 @@ const CreatePostModal = ({
       console.log("📤 [Modal] Sending post data to API:", postData);
 
       // 3️⃣ Gọi API qua postApi.js
-      const createdPost = await createPost(token, postData);
+      const createdPost = await createPost(postData);
 
       console.log("📝 [Modal] Created post from API:", createdPost);
       console.log("📝 [Modal] Post ID:", createdPost.id || createdPost._id);

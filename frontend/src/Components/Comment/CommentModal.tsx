@@ -19,7 +19,6 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { timeDifference } from "../../Config/Logic";
 import EmojiPicker from "emoji-picker-react";
-import { getToken } from "../../service/LocalStorageService";
 import { fetchUserByUserId } from "../../api/userApi";
 
 const CommentModal = ({
@@ -43,10 +42,8 @@ const CommentModal = ({
   const [commentUsers, setCommentUsers] = useState({});
   const [mediaDimensions, setMediaDimensions] = useState({});
   const [replyingTo, setReplyingTo] = useState(null); // { id, isReply }
-  const videoRefs = useRef([]);
-  const inputRef = useRef(null);
-
-  const token = getToken();
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // ====== PHÂN TÁCH COMMENT GỐC & REPLY ======
   const { rootComments, repliesMap } = useMemo(() => {
@@ -119,14 +116,14 @@ const CommentModal = ({
   // ================== FETCH USER CỦA TỪNG COMMENT ==================
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!token || !comments?.length) return;
+      if (!comments?.length) return;
 
       const usersData = {};
       await Promise.all(
         comments.map(async (cmt) => {
           if (!commentUsers[cmt.userId]) {
             try {
-              const userData = await fetchUserByUserId(cmt.userId, token);
+              const userData = await fetchUserByUserId(cmt.userId);
               usersData[cmt.userId] = userData;
             } catch (error) {
               console.error("Failed to fetch user:", error);
@@ -139,7 +136,7 @@ const CommentModal = ({
 
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [comments, token]);
+  }, [comments]);
 
   // ================== REPLY HANDLER ==================
   const buildMention = (cmt, u) => {
@@ -233,7 +230,7 @@ const CommentModal = ({
                       <SwiperSlide key={index} className="w-full h-full">
                         {isVideo ? (
                           <video
-                            ref={(el) => (videoRefs.current[index] = el)}
+                            ref={(el) => { videoRefs.current[index] = el; }}
                             src={url}
                             controls
                             className="w-full h-full"

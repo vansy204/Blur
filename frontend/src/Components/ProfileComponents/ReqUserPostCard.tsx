@@ -3,10 +3,8 @@ import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { FaComment } from "react-icons/fa";
 import { MdPlayCircleOutline } from "react-icons/md";
 import { fetchAllComments, fetchLikePost } from "../../api/postApi";
-import { getToken } from "../../service/LocalStorageService";
 
 const ReqUserPostCard = ({ post }) => {
-  const token = getToken();
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,10 +16,10 @@ const ReqUserPostCard = ({ post }) => {
     const fetchLikeAndComment = async () => {
       try {
         setIsLoading(true);
-        const likeData = await fetchLikePost(token, post.id);
+        const likeData = await fetchLikePost(post.id);
         setLikesCount(likeData?.length || 0);
 
-        const commentData = await fetchAllComments(token, post.id);
+        const commentData = await fetchAllComments(post.id);
         setCommentsCount(commentData?.length || 0);
       } catch (err) {
         console.error("Lỗi khi load likes/comments", err);
@@ -30,7 +28,7 @@ const ReqUserPostCard = ({ post }) => {
       }
     };
     fetchLikeAndComment();
-  }, [post.id, token]);
+  }, [post.id]);
 
   if (isLoading) {
     return (

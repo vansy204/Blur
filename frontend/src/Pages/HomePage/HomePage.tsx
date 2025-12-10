@@ -4,7 +4,6 @@ import PostCard from '../../Components/Post/PostCard';
 import { fetchAllPost } from '../../api/postApi';
 import { fetchUserInfo } from '../../api/userApi';
 import { fetchAllStories } from '../../api/storyApi';
-import { getToken } from '../../service/LocalStorageService';
 import CreatePostModal from '../../Components/Post/CreatePostModal';
 
 interface Post {
@@ -77,15 +76,15 @@ const HomePage: React.FC = () => {
     const observerRef = useRef<IntersectionObserver | null>(null); // ✅ THÊM: Ref để quản lý observer
     const isProcessingNewPostRef = useRef(false); // ✅ THÊM: Flag xử lý post mới
 
-    const token = getToken();
+    const token = localStorage.getItem('token');
 
     // ✅ Load user + stories (1 lần duy nhất)
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
             const [userInfo, userStories] = await Promise.all([
-                fetchUserInfo(token || ''),
-                fetchAllStories(token || ''),
+                fetchUserInfo(),
+                fetchAllStories(),
             ]);
             setUser(userInfo);
             setStories(userStories || []);
@@ -94,7 +93,7 @@ const HomePage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [token]);
+    }, []);
 
     // ✅ CẢI TIẾN: Load bài đăng với kiểm tra conflict
     const loadMorePosts = useCallback(async () => {
@@ -102,7 +101,7 @@ const HomePage: React.FC = () => {
 
         setIsLoadingMore(true);
         try {
-            const result = await fetchAllPost(token || '', page, 5);
+            const result = await fetchAllPost(page, 5);
             const newPostsRaw = Array.isArray(result.posts) ? result.posts : [];
             const hasNextPage = result.hasNextPage;
 
@@ -127,7 +126,7 @@ const HomePage: React.FC = () => {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [token, page, hasMore, isLoadingMore]);
+    }, [page, hasMore, isLoadingMore]);
 
     // ✅ Gọi lần đầu tiên
     useEffect(() => {
@@ -138,7 +137,7 @@ const HomePage: React.FC = () => {
         (async () => {
             setIsLoadingMore(true);
             try {
-                const result = await fetchAllPost(token, 1, 5);
+                const result = await fetchAllPost(1, 5);
                 const newPostsRaw = Array.isArray(result.posts) ? result.posts : [];
                 const hasNextPage = result.hasNextPage;
                 const first = newPostsRaw.map((p: Post) => ({

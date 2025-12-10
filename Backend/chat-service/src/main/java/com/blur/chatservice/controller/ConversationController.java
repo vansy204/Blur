@@ -57,10 +57,7 @@ public class ConversationController {
     }
 
     @PutMapping("/{conversationId}/ai/toggle")
-    ApiResponse<ConversationResponse> toggleAI(
-            @PathVariable String conversationId,
-            @RequestParam Boolean enabled
-    ) {
+    ApiResponse<ConversationResponse> toggleAI(@PathVariable String conversationId, @RequestParam Boolean enabled) {
         return ApiResponse.<ConversationResponse>builder()
                 .result(conversationService.toggleAI(conversationId, enabled))
                 .build();

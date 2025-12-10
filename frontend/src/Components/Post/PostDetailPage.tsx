@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
   fetchPostById,
   likePost,
   unlikePost,
   createComment,
   fetchLikePost,
+  getAllComments,
+  replyToComment,
 } from "../../api/postApi";
-import { getToken } from "../../service/LocalStorageService";
+import { fetchUserByUserId } from "../../api/userApi";
 import { useToast } from "@chakra-ui/react";
 import { ArrowLeft, Share2 } from "lucide-react";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
@@ -26,7 +27,7 @@ const PostDetailPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
-  const token = getToken();
+  const token = localStorage.getItem("token");
 
   const [post, setPost] = useState(location.state?.post || null);
   const [postOwner, setPostOwner] = useState(null);
@@ -49,10 +50,10 @@ const PostDetailPage = () => {
   // Media
   const [mediaDimensions, setMediaDimensions] = useState({});
   const [primaryAspectRatio, setPrimaryAspectRatio] = useState(null);
-  const videoRefs = useRef([]);
-  const inputRef = useRef(null);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // ================== DISPLAY NAME & MENTION (giống CommentCard / CommentModal) ==================
+  // ================== DISPLAY NAME & MENTION ==================
 
   interface UserLike {
     userName?: string;
@@ -65,35 +66,25 @@ const PostDetailPage = () => {
     [key: string]: unknown;
   }
 
-  // giống getDisplayName trong CommentCard
   const getDisplayName = (obj: UserLike = {}, user: UserLike = {}) => {
     return (
-      // 1. BE gửi sẵn userName (thường là full name)
       obj.userName ||
-      // 2. firstName + lastName trong chính comment
       [obj.firstName, obj.lastName].filter(Boolean).join(" ") ||
-      // 3. lấy từ user fetch được
       [user.firstName, user.lastName].filter(Boolean).join(" ") ||
       user.fullName ||
       user.name ||
-      // 4. fallback cuối cùng là username
       user.username ||
       "User"
     );
   };
 
-  // giống buildMention trong CommentModal
   const buildMention = (cmt: UserLike = {}, u: UserLike = {}) => {
     const fullName =
-      // 1. full name mà backend gắn vào comment/reply
       cmt.userName ||
-      // 2. họ + tên trong comment
       [cmt.firstName, cmt.lastName].filter(Boolean).join(" ") ||
-      // 3. fullName / họ tên trong user fetch được
       u.fullName ||
       [u.firstName, u.lastName].filter(Boolean).join(" ") ||
       u.name ||
-      // 4. cuối cùng mới tới username
       u.username ||
       "User";
 
@@ -110,11 +101,7 @@ const PostDetailPage = () => {
 
       const fetchCurrentUser = async () => {
         try {
-          const response = await axios.get(
-            `http://localhost:8888/api/identity/users/${decoded.sub}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const userData = response.data?.result || response.data;
+          const userData = await fetchUserByUserId(decoded.sub);
           setCurrentUser(userData);
         } catch (error) {
           console.error("Error fetching current user:", error);
@@ -166,31 +153,21 @@ const PostDetailPage = () => {
   // ================== FETCH POST + COMMENTS + LIKES ==================
   useEffect(() => {
     const fetchData = async () => {
-      if (!postId || !token) return;
+      if (!postId) return;
 
       try {
         setIsLoading(true);
 
         let postData = post;
         if (!postData) {
-          postData = await fetchPostById(postId, token);
+          postData = await fetchPostById(postId);
           setPost(postData);
         }
 
-        const commentRes = await axios.get(
-          `http://localhost:8888/api/post/comment/${postData.id}/all-comments`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        const allComments = commentRes.data.result || [];
+        const allComments = await getAllComments(postData.id);
         setComments(allComments);
 
-        const likeRes = await fetchLikePost(token, postData.id);
+        const likeRes = await fetchLikePost(postData.id);
         const likesArray = Array.isArray(likeRes) ? likeRes : [];
         setLikes(likesArray);
 
@@ -217,12 +194,12 @@ const PostDetailPage = () => {
     };
 
     fetchData();
-  }, [postId, token, userId]);
+  }, [postId, userId]);
 
   // ================== FETCH USER CHO TỪNG COMMENT ==================
   useEffect(() => {
     const fetchUsersForComments = async () => {
-      if (!token || !comments.length) return;
+      if (!comments.length) return;
 
       console.log('📥 Fetching users for', comments.length, 'comments');
 
@@ -232,11 +209,7 @@ const PostDetailPage = () => {
           if (!cmt.userId || commentUsers[cmt.userId]) return;
           try {
             console.log('🔄 Fetching user:', cmt.userId);
-            const res = await axios.get(
-              `http://localhost:8888/api/identity/users/${cmt.userId}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            const userData = res.data?.result || res.data;
+            const userData = await fetchUserByUserId(cmt.userId);
             console.log('✅ Fetched user:', cmt.userId, userData);
             newUsers[cmt.userId] = userData;
           } catch (err) {
@@ -253,7 +226,7 @@ const PostDetailPage = () => {
 
     fetchUsersForComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [comments, token]);
+  }, [comments]);
 
   // ================== MAP post -> postOwner ==================
   useEffect(() => {
@@ -276,7 +249,7 @@ const PostDetailPage = () => {
       if (isPostLiked) {
         setIsPostLiked(false);
         setLikes((prev) => prev.filter((like) => like.userId !== userId));
-        await unlikePost(token, postId);
+        await unlikePost(postId);
       } else {
         setIsPostLiked(true);
         setLikes((prev) => [
@@ -288,12 +261,12 @@ const PostDetailPage = () => {
             id: `temp-${Date.now()}`,
           },
         ]);
-        await likePost(token, postId);
+        await likePost(postId);
       }
     } catch (error) {
       console.error("❌ Error toggling like:", error);
       try {
-        const likeRes = await fetchLikePost(token, postId);
+        const likeRes = await fetchLikePost(postId);
         setLikes(Array.isArray(likeRes) ? likeRes : []);
         setIsPostLiked(likeRes.some((l: any) => l.userId === userId));
       } catch (refetchError) {
@@ -313,35 +286,18 @@ const PostDetailPage = () => {
 
       if (parentCommentId) {
         // REPLY
-        const response = await axios.post(
-          `http://localhost:8888/api/post/comment/${parentCommentId}/reply`,
-          { content: commentContent },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const newReply = await replyToComment(parentCommentId, commentContent);
+        setComments((prev) => [...prev, newReply]);
 
-        if (response.data.code === 1000) {
-          const newReply = response.data.result;
-          setComments((prev) => [...prev, newReply]);
-
-          toast({
-            title: "Đã trả lời",
-            status: "success",
-            duration: 2000,
-            position: "top-right",
-          });
-        }
+        toast({
+          title: "Đã trả lời",
+          status: "success",
+          duration: 2000,
+          position: "top-right",
+        });
       } else {
         // COMMENT GỐC
-        const createdComment = await createComment(
-          token,
-          postId,
-          commentContent
-        );
+        const createdComment = await createComment(postId, commentContent);
         setComments((prev) => [...prev, createdComment]);
 
         toast({
@@ -478,7 +434,7 @@ const PostDetailPage = () => {
                       >
                         {isVideo ? (
                           <video
-                            ref={(el) => (videoRefs.current[index] = el)}
+                            ref={(el) => { videoRefs.current[index] = el; }}
                             src={url}
                             className="max-w-full max-h-full w-auto h-auto object-contain"
                             controls
@@ -570,7 +526,7 @@ const PostDetailPage = () => {
               </p>
             ) : (
               (() => {
-                // Phân tách root comments và replies như CommentCard
+                // Phân tách root comments và replies
                 const rootComments = comments.filter((c) => !c.parentReplyId);
                 const repliesMap = {};
 
@@ -642,17 +598,6 @@ const PostDetailPage = () => {
                         <div className="ml-11 mt-3 space-y-3">
                           {replies.map((reply) => {
                             const replyUser = commentUsers[reply.userId] || {};
-
-                            // DEBUG: Xem backend trả về gì
-                            console.log('🔍 Reply data:', {
-                              replyId: reply.id,
-                              userName: reply.userName,
-                              firstName: reply.firstName,
-                              lastName: reply.lastName,
-                              username: reply.username,
-                              replyUser: replyUser
-                            });
-
                             const replyDisplayName = getDisplayName(reply, replyUser);
 
                             // Tách mention

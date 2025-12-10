@@ -1,213 +1,80 @@
-import axios, { AxiosRequestConfig } from "axios"
-import { getToken } from "../service/LocalStorageService"
+import axiosClient from './axiosClient'
+import { ApiResponse, UserProfile, UpdateProfileData } from '../types/api.types'
 
-const BASE_URL = "http://localhost:8888/api/profile"
-
-interface UserProfile {
-    id: string
-    userId?: string
-    firstName?: string
-    lastName?: string
-    imageUrl?: string
-    bio?: string
-    followers?: string[]
-    following?: string[]
-    city?: string
-    phone?: string
-    email?: string
-    gender?: string
-    website?: string
-    address?: string
-    dob?: string
-    [key: string]: unknown
-}
-
-interface UpdateProfileData {
-    firstName?: string
-    lastName?: string
-    bio?: string
-    imageUrl?: string
-    [key: string]: unknown
-}
-
-interface ApiResponse<T> {
-    code: number
-    message?: string
-    result?: T
-}
-
-const config = (token: string): AxiosRequestConfig => ({
-    headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-    },
-})
-
-// Lấy thông tin profile của chính mình
-export const fetchUserInfo = async (token: string): Promise<UserProfile> => {
-    try {
-        const response = await axios.get<ApiResponse<UserProfile>>(`${BASE_URL}/users/myInfo`, config(token))
-        if (response.data?.code !== 1000) {
-            throw new Error(response.data?.message)
-        }
-        return response.data?.result as UserProfile
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
+export const fetchUserInfo = async (): Promise<UserProfile> => {
+    const response = await axiosClient.get<ApiResponse<UserProfile>>('/profile/users/myInfo')
+    if (response.data?.code !== 1000) {
+        throw new Error(response.data?.message || 'Failed to fetch user info')
     }
+    return response.data?.result as UserProfile
 }
 
-// Lấy thông tin user theo userId (dành cho nội bộ)
-export const fetchUserByUserId = async (userId: string, token: string): Promise<UserProfile> => {
-    try {
-        const response = await axios.get<ApiResponse<UserProfile>>(`${BASE_URL}/internal/users/${userId}`, config(token))
-        if (response.data?.code !== 1000) {
-            throw new Error(response.data?.message)
-        }
-        return response.data?.result as UserProfile
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
+export const fetchUserByUserId = async (userId: string): Promise<UserProfile> => {
+    const response = await axiosClient.get<ApiResponse<UserProfile>>(`/profile/internal/users/${userId}`)
+    if (response.data?.code !== 1000) {
+        throw new Error(response.data?.message || 'Failed to fetch user')
     }
+    return response.data?.result as UserProfile
 }
 
-// Lấy tất cả user profiles
-export const fetchAllUserProfiles = async (token: string): Promise<UserProfile[]> => {
-    try {
-        const response = await axios.get<ApiResponse<UserProfile[]>>(`${BASE_URL}/users/`, config(token))
-        if (response.data?.code !== 1000) {
-            throw new Error(response.data?.message)
-        }
-        return response.data?.result as UserProfile[]
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
+export const fetchAllUserProfiles = async (): Promise<UserProfile[]> => {
+    const response = await axiosClient.get<ApiResponse<UserProfile[]>>('/profile/users/')
+    if (response.data?.code !== 1000) {
+        throw new Error(response.data?.message || 'Failed to fetch users')
     }
+    return response.data?.result as UserProfile[]
 }
 
-// Cập nhật profile người dùng
-export const updateUserProfile = async (userProfileId: string, data: UpdateProfileData, token: string): Promise<UserProfile> => {
-    try {
-        const response = await axios.put<ApiResponse<UserProfile>>(`${BASE_URL}/users/${userProfileId}`, data, config(token))
-        if (response.data?.code !== 1000) {
-            throw new Error(response.data?.message)
-        }
-        return response.data?.result as UserProfile
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
+export const updateUserProfile = async (userProfileId: string, data: UpdateProfileData): Promise<UserProfile> => {
+    const response = await axiosClient.put<ApiResponse<UserProfile>>(`/profile/users/${userProfileId}`, data)
+    if (response.data?.code !== 1000) {
+        throw new Error(response.data?.message || 'Failed to update profile')
     }
+    return response.data?.result as UserProfile
 }
 
-// Xoá profile người dùng
-export const deleteUserProfile = async (userProfileId: string, token: string): Promise<unknown> => {
-    try {
-        const response = await axios.delete<ApiResponse<unknown>>(`${BASE_URL}/users/${userProfileId}`, config(token))
-        if (response.data?.code !== 1000) {
-            throw new Error(response.data?.message)
-        }
-        return response.data?.result
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
+export const deleteUserProfile = async (userProfileId: string): Promise<unknown> => {
+    const response = await axiosClient.delete<ApiResponse<unknown>>(`/profile/users/${userProfileId}`)
+    if (response.data?.code !== 1000) {
+        throw new Error(response.data?.message || 'Failed to delete profile')
     }
+    return response.data?.result
 }
 
-// Follow người dùng
-export const followUser = async (userId: string, token: string): Promise<unknown> => {
-    try {
-        const response = await axios.put<ApiResponse<unknown>>(`${BASE_URL}/users/follow/${userId}`, {}, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-        })
-        return response.data?.result
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
-    }
+export const followUser = async (userId: string): Promise<unknown> => {
+    const response = await axiosClient.put<ApiResponse<unknown>>(`/profile/users/follow/${userId}`, {})
+    return response.data?.result
 }
 
-// Unfollow người dùng
-export const unfollowUser = async (userId: string, token: string): Promise<unknown> => {
-    try {
-        const response = await axios.put<ApiResponse<unknown>>(`${BASE_URL}/users/unfollow/${userId}`, {}, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-        })
-        return response.data?.result
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
-    }
+export const unfollowUser = async (userId: string): Promise<unknown> => {
+    const response = await axiosClient.put<ApiResponse<unknown>>(`/profile/users/unfollow/${userId}`, {})
+    return response.data?.result
 }
 
-// Tìm kiếm user theo tên
-export const searchUsersByFirstName = async (firstName: string, token: string): Promise<UserProfile[]> => {
-    try {
-        const response = await axios.get<ApiResponse<UserProfile[]>>(`${BASE_URL}/users/search/${firstName}`, config(token))
-        return response.data?.result || []
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
-    }
+export const searchUsersByFirstName = async (firstName: string): Promise<UserProfile[]> => {
+    const response = await axiosClient.get<ApiResponse<UserProfile[]>>(`/profile/users/search/${firstName}`)
+    return response.data?.result || []
 }
 
 export const searchUsersByUserName = async (userName: string): Promise<UserProfile[]> => {
-    try {
-        const response = await axios.post<ApiResponse<UserProfile[]>>(`${BASE_URL}/users/search`, { keyword: userName }, {
-            headers: {
-                Authorization: `Bearer ${getToken()}`,
-                "Content-Type": "application/json",
-            },
-        })
-        return response.data?.result || []
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
-    }
+    const response = await axiosClient.post<ApiResponse<UserProfile[]>>('/profile/users/search', { keyword: userName })
+    return response.data?.result || []
 }
 
-// Lấy thông tin user theo profileId
-export const fetchUserProfileById = async (profileId: string, token: string): Promise<UserProfile> => {
-    try {
-        const response = await axios.get<ApiResponse<UserProfile>>(`${BASE_URL}/users/${profileId}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-            }
-        )
-        if (response.data?.code !== 1000) {
-            throw new Error(response.data?.message)
-        }
-        return response.data?.result as UserProfile
-    } catch (error) {
-        console.log("Error: ", error)
-        throw error
+export const fetchUserProfileById = async (profileId: string): Promise<UserProfile> => {
+    const response = await axiosClient.get<ApiResponse<UserProfile>>(`/profile/users/${profileId}`)
+    if (response.data?.code !== 1000) {
+        throw new Error(response.data?.message || 'Failed to fetch profile')
     }
+    return response.data?.result as UserProfile
 }
 
-export const getFollowers = async (profileId: string, token: string): Promise<UserProfile[]> => {
-    try {
-        const response = await axios.get<ApiResponse<UserProfile[]>>(`${BASE_URL}/users/follower/${profileId}`, config(token))
-        return response.data?.result || []
-    } catch (error) {
-        console.error("Error fetching followers:", error)
-        return []
-    }
+export const getFollowers = async (profileId: string): Promise<UserProfile[]> => {
+    const response = await axiosClient.get<ApiResponse<UserProfile[]>>(`/profile/users/follower/${profileId}`)
+    return response.data?.result || []
 }
 
-export const getFollowings = async (profileId: string, token: string): Promise<UserProfile[]> => {
-    try {
-        const response = await axios.get<ApiResponse<UserProfile[]>>(`${BASE_URL}/users/following/${profileId}`, config(token))
-        return response.data?.result || []
-    } catch (error) {
-        console.error("Error fetching followings:", error)
-        return []
-    }
+export const getFollowings = async (profileId: string): Promise<UserProfile[]> => {
+    const response = await axiosClient.get<ApiResponse<UserProfile[]>>(`/profile/users/following/${profileId}`)
+    return response.data?.result || []
 }

@@ -5,11 +5,12 @@ import { menuItems } from "./SidebarConfig";
 import { useNavigate } from "react-router-dom";
 import { useDisclosure, useToast } from "@chakra-ui/react";
 import LogoutModal from "./LogoutModal";
-import { getToken, removeToken } from "../../service/LocalStorageService";
-import axios from "axios";
+import { removeToken } from "../../service/LocalStorageService";
 import { getUserDetails } from "../../service/JwtService";
 import CreatePostModal from "../Post/CreatePostModal";
 import { useUnreadMessages } from "../../hooks/useUnreadMessages";
+import { fetchUserInfo } from "../../api/userApi";
+import { logoutUser } from "../../api/authAPI";
 
 interface User {
   id?: string;
@@ -90,20 +91,10 @@ export const SidebarComponent: React.FC<SidebarComponentProps> = ({ onPostCreate
   useEffect(() => {
     const fetchUser = async () => {
       const userData = getUserDetails();
-      const token = getToken();
       if (!userData) return;
       try {
-        const response = await axios.get(
-          "http://localhost:8888/api/profile/users/myInfo",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (response.data?.code !== 1000) throw new Error("Invalid User");
-        setUser(response.data?.result);
+        const userProfile = await fetchUserInfo();
+        setUser(userProfile);
       } catch (error) {
         console.error("Error:", error);
       }
@@ -114,12 +105,7 @@ export const SidebarComponent: React.FC<SidebarComponentProps> = ({ onPostCreate
   const handleLogout = async (e: React.MouseEvent<HTMLButtonElement>) => {
     try {
       e.preventDefault();
-      const token = getToken();
-      const response = await axios.post(
-        "http://localhost:8888/api/identity/auth/logout",
-        { token }
-      );
-      if (response.data.code !== 1000) throw new Error("Invalid token");
+      await logoutUser();
       removeToken();
       showToast("Logout successful!", "", "success");
       navigate("/login");

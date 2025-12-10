@@ -2,9 +2,10 @@ package org.identityservice.entity;
 
 import java.util.Set;
 
+import jakarta.persistence.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.persistence.*;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -21,6 +22,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
+
     @Column(
             name = "username",
             unique = true,
@@ -36,11 +38,10 @@ public class User {
 
     String password;
 
-    String firstName;  // thêm dòng này
-    String lastName;   // và dòng này
+    String firstName; // thêm dòng này
+    String lastName; // và dòng này
 
     @ManyToMany
     @JsonIgnore
-
     Set<Role> roles;
 }

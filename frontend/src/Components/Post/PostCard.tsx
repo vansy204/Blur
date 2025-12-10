@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
 import {
   BsBookmark,
   BsBookmarkFill,
@@ -19,12 +18,14 @@ import "swiper/css/pagination";
 
 import CommentModal from "../Comment/CommentModal";
 import { timeDifference } from "../../Config/Logic";
-import { getToken } from "../../service/LocalStorageService";
 import {
   fetchLikePost,
   deletePost,
   likePost,
   createComment,
+  getAllComments,
+  replyToComment,
+  savePost,
 } from "../../api/postApi";
 import { IoSend } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
@@ -50,7 +51,7 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
   const [mediaDimensions, setMediaDimensions] = useState<Record<number, { aspectRatio: number; width: number; height: number }>>({});
   const [primaryAspectRatio, setPrimaryAspectRatio] = useState<number | null>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  const token = getToken();
+  // Token is now handled automatically by axiosClient interceptors
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [comment, setComment] = useState("");
   const navigate = useNavigate();
@@ -61,20 +62,12 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
 
     const fetchData = async () => {
       try {
-        // lấy comment
-        const commentRes = await axios.get(
-          `http://localhost:8888/api/post/comment/${post.id}/all-comments`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { _t: Date.now() },
-          }
-        );
-
-        const allComments = commentRes.data?.result || [];
+        // lấy comment using API function
+        const allComments = await getAllComments(post.id);
         setComments(allComments);
 
         // lấy like
-        const likeRes = await fetchLikePost(token, post.id);
+        const likeRes = await fetchLikePost(post.id);
         const likesArray = (Array.isArray(likeRes) ? likeRes : []) as unknown as Like[];
         setLikes(likesArray);
 
@@ -141,7 +134,7 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
     };
 
     fetchData();
-  }, [post?.id, user?.id, user?.userId, token]);
+  }, [post?.id, user?.id, user?.userId]);
 
   // 🖼️ Load image dimensions
   const handleImageLoad = (index, e) => {
@@ -227,7 +220,7 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
                   onClick={async () => {
                     onClose();
                     try {
-                      await deletePost(token, post.id);
+                      await deletePost(post.id);
                       toast({
                         title: "Post deleted successfully",
                         status: "success",
@@ -272,35 +265,21 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
         // ⭐ REPLY TO COMMENT
         console.log("🔵 FE: Calling reply API...");
 
-        const response = await axios.post(
-          `http://localhost:8888/api/post/comment/${parentCommentId}/reply`,
-          { content },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const newReply = await replyToComment(parentCommentId, content);
+        console.log("✅ FE: Reply API response:", newReply);
+        setComments((prev) => [...prev, newReply]);
 
-        console.log("✅ FE: Reply API response:", response.data);
-
-        if (response.data.code === 1000) {
-          const newReply = response.data?.result;
-          setComments((prev) => [...prev, newReply]);
-
-          toast({
-            title: "Reply created successfully.",
-            status: "success",
-            duration: 2000,
-            position: "top-right",
-          });
-        }
+        toast({
+          title: "Reply created successfully.",
+          status: "success",
+          duration: 2000,
+          position: "top-right",
+        });
       } else {
         // ⭐ CREATE ROOT COMMENT
         console.log("🔵 FE: Calling create comment API...");
 
-        const createdComment = await createComment(token, post.id, content);
+        const createdComment = await createComment(post.id, content);
         setComments((prev) => [...prev, createdComment]);
 
         toast({
@@ -360,10 +339,10 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
       }
 
       // ✅ CHỈ GỌI 1 API - BACKEND TỰ TOGGLE
-      await likePost(token, post.id);
+      await likePost(post.id);
 
       // ✅ REFETCH ĐỂ ĐỒNG BỘ VỚI DATABASE
-      const likeRes = await fetchLikePost(token, post.id);
+      const likeRes = await fetchLikePost(post.id);
       const likesArray = (Array.isArray(likeRes) ? likeRes : []) as unknown as Like[];
       setLikes(likesArray);
 
@@ -405,7 +384,7 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
 
       // Refetch để đảm bảo đúng
       try {
-        const likeRes = await fetchLikePost(token, post.id);
+        const likeRes = await fetchLikePost(post.id);
         const likesArray = (Array.isArray(likeRes) ? likeRes : []) as unknown as Like[];
         setLikes(likesArray);
 
@@ -434,20 +413,7 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
   // 💾 Save post
   const handleSavePost = async () => {
     try {
-      const res = await axios.post(
-        `http://localhost:8888/api/post/save/${post.id}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (res.data.code !== 1000) {
-        throw new Error(res.data.message || "Save post failed");
-      }
+      await savePost(post.id);
 
       setIsSaved(true);
 
@@ -625,7 +591,7 @@ const PostCard = ({ post, user, onPostDeleted }: { post: any; user: any; onPostD
                   >
                     {isVideo ? (
                       <video
-                        ref={(el) => (videoRefs.current[index] = el)}
+                        ref={(el) => { videoRefs.current[index] = el; }}
                         src={url}
                         className="max-w-full max-h-full w-auto h-auto object-contain"
                         loop

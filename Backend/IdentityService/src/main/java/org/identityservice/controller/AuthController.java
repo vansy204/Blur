@@ -48,8 +48,7 @@ public class AuthController {
 
     // login with google
     @PostMapping("/outbound/authentication")
-    ApiResponse<AuthResponse> outboundAuthenticate(
-            @RequestParam("code") String code) {
+    ApiResponse<AuthResponse> outboundAuthenticate(@RequestParam("code") String code) {
         var result = authenticationService.outboundAuthenticationService(code);
         return ApiResponse.<AuthResponse>builder().code(1000).result(result).build();
     }

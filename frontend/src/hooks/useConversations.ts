@@ -1,7 +1,5 @@
-// hooks/useConversations.ts
 import { useState, useEffect, useCallback } from 'react'
 import { getMyConversations } from '../api/messageApi'
-import { getToken } from '../service/LocalStorageService'
 import { AxiosError } from 'axios'
 
 interface Conversation {
@@ -19,39 +17,26 @@ interface UseConversationsReturn {
     refreshConversations: () => Promise<void>
 }
 
-interface ApiResponse {
-    data?: {
-        result?: Conversation[]
-    }
-}
-
 export const useConversations = (): UseConversationsReturn => {
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const token = getToken()
+    const token = localStorage.getItem('token')
 
     const loadConversations = useCallback(async () => {
         try {
             setLoading(true)
             setError(null)
-            console.log("Token in useConversations:", token)
 
             if (!token) {
                 setError("Authentication required. Please login again.")
                 return
             }
 
-            console.log("Loading conversations with token:", token ? "Token exists" : "No token")
-
-            const res = await getMyConversations(token) as ApiResponse
-            console.log("Conversations response:", res)
-
-            setConversations(res?.data?.result || [])
+            const result = await getMyConversations()
+            setConversations(result || [])
         } catch (err) {
-            console.error("Error loading conversations:", err)
             const axiosError = err as AxiosError<{ message?: string }>
-
             if (axiosError.response?.status === 403) {
                 setError("Access forbidden. Please check your permissions or login again.")
             } else if (axiosError.response?.status === 401) {
