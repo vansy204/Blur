@@ -38,7 +38,7 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
-    //Create for google
+    // Create for google
     @PostMapping("/create-password")
     public ApiResponse<Void> createPassword(@RequestBody @Valid UserCreationPasswordRequest request) {
         userService.createPassword(request);
@@ -54,13 +54,13 @@ public class UserController {
         var result = userService.createUser(request);
         return ApiResponse.<UserResponse>builder().code(1000).result(result).build();
     }
+
     @PostMapping("/registrations")
     public ApiResponse<?> createUsers(@RequestBody @Valid UserCreationRequest request) {
         userService.createUser(request);
-        return ApiResponse.builder()
-                .result(true)
-                .build();
+        return ApiResponse.builder().result(true).build();
     }
+
     @GetMapping("/all")
     public ApiResponse<List<UserResponse>> getUsers() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -74,18 +74,18 @@ public class UserController {
     @GetMapping("/me")
     public ApiResponse<UserResponse> myInfo() {
         return ApiResponse.<UserResponse>builder()
-                .code(1000) //Phía FE đang kiểm tra 1000
+                .code(1000) // Phía FE đang kiểm tra 1000
                 .result(userService.getMyInfo())
                 .build();
     }
-
 
     @GetMapping("/{userId}")
     public ApiResponse<UserResponse> getUser(@PathVariable String userId) {
         var userResponse = userMapper.toUserResponse(userService.getUserById(userId));
         return ApiResponse.<UserResponse>builder()
                 .code(1000)
-                .result(userResponse).build();
+                .result(userResponse)
+                .build();
     }
 
     @PutMapping("/{userId}")
@@ -105,5 +105,4 @@ public class UserController {
         userService.deleteUser(userId);
         return ApiResponse.<String>builder().result("User has been deleted").build();
     }
-
 }

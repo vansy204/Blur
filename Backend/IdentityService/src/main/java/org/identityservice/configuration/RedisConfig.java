@@ -51,10 +51,7 @@ public class RedisConfig {
 
         // Activate default typing with LaissezFaire
         mapper.activateDefaultTyping(
-                LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL,
-                JsonTypeInfo.As.PROPERTY
-        );
+                LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
 
         log.info("Redis ObjectMapper configured for MongoDB entities");
         return mapper;
@@ -87,23 +84,15 @@ public class RedisConfig {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofHours(1))
                 .serializeKeysWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(
-                                new StringRedisSerializer()
-                        )
-                )
-                .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(serializer)
-                )
+                        RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
                 .disableCachingNullValues();
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
-                .withCacheConfiguration("users",
-                        defaultConfig.entryTtl(Duration.ofMinutes(30)))
-                .withCacheConfiguration("userById",
-                        defaultConfig.entryTtl(Duration.ofMinutes(15)))
-                .withCacheConfiguration("myInfo",
-                        defaultConfig.entryTtl(Duration.ofMinutes(10)))
+                .withCacheConfiguration("users", defaultConfig.entryTtl(Duration.ofMinutes(30)))
+                .withCacheConfiguration("userById", defaultConfig.entryTtl(Duration.ofMinutes(15)))
+                .withCacheConfiguration("myInfo", defaultConfig.entryTtl(Duration.ofMinutes(10)))
                 .transactionAware()
                 .build();
     }
@@ -129,23 +118,23 @@ public class RedisConfig {
                 log.debug("Serialized object of type: {}", value.getClass().getName());
                 return bytes;
             } catch (Exception e) {
-                log.error("❌ Serialize error for type {}: {}",
-                        value.getClass().getName(), e.getMessage(), e);
+                log.error("❌ Serialize error for type {}: {}", value.getClass().getName(), e.getMessage(), e);
                 // Don't cache if serialization fails
                 throw new org.springframework.data.redis.serializer.SerializationException(
-                        "Could not serialize: " + e.getMessage(), e
-                );
+                        "Could not serialize: " + e.getMessage(), e);
             }
         }
 
         @Override
-        public Object deserialize(byte[] bytes) throws org.springframework.data.redis.serializer.SerializationException {
+        public Object deserialize(byte[] bytes)
+                throws org.springframework.data.redis.serializer.SerializationException {
             if (bytes == null || bytes.length == 0) {
                 return null;
             }
             try {
                 Object result = objectMapper.readValue(bytes, Object.class);
-                log.debug("Deserialized object of type: {}",
+                log.debug(
+                        "Deserialized object of type: {}",
                         result != null ? result.getClass().getName() : "null");
                 return result;
             } catch (Exception e) {
