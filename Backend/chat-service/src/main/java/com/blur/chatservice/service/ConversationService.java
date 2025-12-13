@@ -239,8 +239,7 @@ public class ConversationService {
 
     @Transactional
     public ConversationResponse toggleAI(String conversationId, Boolean enabled) {
-        String userId = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 
         var conversation = conversationRepository
                 .findById(conversationId)

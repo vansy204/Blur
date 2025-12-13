@@ -5,10 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.blur.chatservice.dto.request.AiChatRequest;
-import com.blur.chatservice.dto.response.AiChatResponse;
-import com.blur.chatservice.repository.httpclient.AiServiceClient;
-import com.corundumstudio.socketio.SocketIOServer;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,7 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.blur.chatservice.dto.ApiResponse;
+import com.blur.chatservice.dto.request.AiChatRequest;
 import com.blur.chatservice.dto.request.ChatMessageRequest;
+import com.blur.chatservice.dto.response.AiChatResponse;
 import com.blur.chatservice.dto.response.ChatMessageResponse;
 import com.blur.chatservice.dto.response.UserProfileResponse;
 import com.blur.chatservice.entity.ChatMessage;
@@ -27,7 +25,9 @@ import com.blur.chatservice.exception.AppException;
 import com.blur.chatservice.exception.ErrorCode;
 import com.blur.chatservice.repository.ChatMessageRepository;
 import com.blur.chatservice.repository.ConversationRepository;
+import com.blur.chatservice.repository.httpclient.AiServiceClient;
 import com.blur.chatservice.repository.httpclient.ProfileClient;
+import com.corundumstudio.socketio.SocketIOServer;
 
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -144,8 +144,7 @@ public class ChatMessageService {
                     log.info("✅ AI response received successfully");
 
                     // 2. Lưu AI conversation ID lần đầu
-                    if (conversation.getAiConversationId() == null
-                            && aiRes.getConversationId() != null) {
+                    if (conversation.getAiConversationId() == null && aiRes.getConversationId() != null) {
                         conversation.setAiConversationId(aiRes.getConversationId());
                         conversationRepository.save(conversation);
                         log.info("💾 Saved AI conversation ID: {}", aiRes.getConversationId());
@@ -199,9 +198,7 @@ public class ChatMessageService {
             Map<String, Object> payload = buildAiMessagePayload(aiMessage);
 
             // Method 1: Broadcast tới room (RECOMMENDED - nhanh nhất)
-            socketIOServer
-                    .getRoomOperations("conversation:" + conversationId)
-                    .sendEvent("message_received", payload);
+            socketIOServer.getRoomOperations("conversation:" + conversationId).sendEvent("message_received", payload);
 
             log.info("✅ AI message broadcasted successfully to room: conversation:{}", conversationId);
 
@@ -220,7 +217,9 @@ public class ChatMessageService {
         payload.put("messageId", msg.getId());
         payload.put("conversationId", msg.getConversationId());
         payload.put("message", msg.getMessage());
-        payload.put("messageType", msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
+        payload.put(
+                "messageType",
+                msg.getMessageType() != null ? msg.getMessageType().toString() : "TEXT");
         payload.put("createdDate", msg.getCreatedDate().toString());
 
         if (msg.getSender() != null) {
