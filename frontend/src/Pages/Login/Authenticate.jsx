@@ -1,14 +1,14 @@
 import { useToast } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import "../../service/LocalStorageService";
 import { setToken } from "../../service/LocalStorageService";
+
 export default function Authenticate() {
-  const [userDetails, setUserDetails] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const toast = useToast();
-  const showToast = (title, description, status = "info") => {
+
+  const showToast = useCallback((title, description, status = "info") => {
     toast({
       title,
       description,
@@ -16,67 +16,73 @@ export default function Authenticate() {
       duration: 5000,
       isClosable: true,
     });
-  };
+  }, [toast]);
 
   useEffect(() => {
-    console.log("windows href: ", window.location.href);
-    const authCodeRegex = /code=([^&]+)/;
-    const isMatch = window.location.href.match(authCodeRegex);
-    if (isMatch) {
-      const authCode = isMatch[1];
-      fetch(
-        `/api/identity/auth/outbound/authentication?code=${authCode}`,
-        {
-          method: "POST",
+    const authenticateWithGoogle = async () => {
+      console.log("Current URL: ", window.location.href);
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const authCode = urlParams.get("code");
+      
+      console.log("Auth code found: ", authCode ? "Yes" : "No");
+      
+      if (!authCode) {
+        console.log("No auth code in URL, redirecting to login");
+        navigate("/login");
+        return;
+      }
+
+      try {
+        console.log("Sending request to backend...");
+        const response = await fetch(
+          `http://localhost:8888/api/identity/auth/outbound/authentication?code=${encodeURIComponent(authCode)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        console.log("Response status:", response.status);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      )
-        .then((response) => {
-          return response.json();
-        })
-        .then((data) => {
-          console.log("data: ", data);
-          setToken(data.result?.token);
-        });
-    }
-  }, []);
-  const getUserDetails = async (accessToken) => {
-    try {
-      const response = await fetch(
-        "http://localhost:8888/api/identity/users/",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+
+        const data = await response.json();
+        console.log("Response data:", data);
+
+        if (data.code === 1000 && data.result?.token) {
+          setToken(data.result.token);
+          showToast("Welcome!", "Login with Google successful", "success");
+          navigate("/");
+        } else {
+          throw new Error(data.message || "Login failed");
         }
-      );
-      const data = await response.json();
-      setUserDetails(data.result);
-      setIsLoggedIn(true);
-    } catch (error) {
-      showToast("Error fetching user details", error.message, "error");
-    }
-  };
-  useEffect(() => {
-    const accessToken = localStorage.getItem("token");
+      } catch (error) {
+        console.error("Google login error:", error);
+        showToast("Login Failed", error.message || "Could not complete Google login", "error");
+        navigate("/login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    if (accessToken) {
-      // Lấy thông tin người dùng
-      getUserDetails(accessToken);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate]);
+    authenticateWithGoogle();
+  }, [navigate, showToast]);
 
-  // Lắng nghe sự thay đổi của userDetails
-  useEffect(() => {
-    console.log("User details: ", userDetails); // Debug giá trị userDetails
-    if (userDetails.noPassword === true && !isLoggedIn) {
-      navigate("http://localhost:8888/api/identity/create-password");
-    } else if (userDetails.noPassword === false && isLoggedIn) {
-      navigate("/");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userDetails, navigate]); // Thêm userDetails vào mảng phụ thuộc
-
-  return <>{!isLoggedIn && <div>Login</div>}</>;
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      {isLoading ? (
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p>Đang xử lý đăng nhập Google...</p>
+        </div>
+      ) : (
+        <div>Redirecting...</div>
+      )}
+    </div>
+  );
 }

@@ -21,7 +21,7 @@ const Router = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
-  const authRoutes = ["/login", "/register", "/create-password", "/activate"];
+  const authRoutes = ["/login", "/register", "/create-password", "/activate", "/authenticate"];
   const isAuthPage = authRoutes.includes(location.pathname);
   
   // Check if device is mobile
