@@ -23,6 +23,7 @@ import lombok.experimental.FieldDefaults;
 public class Conversation {
     @Id
     String id;
+
     String aiConversationId;
 
     String type; // GROUP, DIRECT

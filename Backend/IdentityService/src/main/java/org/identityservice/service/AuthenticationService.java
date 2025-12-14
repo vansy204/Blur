@@ -135,8 +135,7 @@ public class AuthenticationService {
         // subject hiện tại là userId (do generateToken dùng user.getId())
         String userId = signJWT.getJWTClaimsSet().getSubject();
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        User user = userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         String token = generateToken(user);
 
@@ -211,12 +210,13 @@ public class AuthenticationService {
         Set<Role> roles = new HashSet<>();
         roles.add(Role.builder().name("USER").build());
 
-        var user = userRepository.findByUsername(userInfo.getEmail()).orElseGet(
-                () -> userRepository.save(User.builder()
-                                .username(userInfo.getEmail())
-                                .firstName(userInfo.getGivenName())
-                                .lastName(userInfo.getFamilyName())
-                                .roles(roles)
+        var user = userRepository
+                .findByUsername(userInfo.getEmail())
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .username(userInfo.getEmail())
+                        .firstName(userInfo.getGivenName())
+                        .lastName(userInfo.getFamilyName())
+                        .roles(roles)
                         .build()));
 
         // convert token cua google thanh token cua he thong

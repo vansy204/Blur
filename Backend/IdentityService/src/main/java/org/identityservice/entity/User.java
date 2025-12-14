@@ -4,6 +4,10 @@ import java.util.Set;
 
 import jakarta.persistence.*;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -14,10 +18,12 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     String id;
+
     @Column(
             name = "username",
             unique = true,
@@ -33,9 +39,11 @@ public class User {
 
     String password;
 
-    String firstName;  // thêm dòng này
-    String lastName;   // và dòng này
+    String firstName; // thêm dòng này
+    String lastName; // và dòng này
 
     @ManyToMany
+    @JsonBackReference
+    @JsonIgnore
     Set<Role> roles;
 }

@@ -2,7 +2,6 @@ package org.identityservice.service;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.identityservice.dto.request.UserCreationPasswordRequest;
 import org.identityservice.dto.request.UserCreationRequest;
@@ -46,16 +45,14 @@ public class UserService {
     RoleRepository roleRepository;
     RedisTemplate<String, Object> redisTemplate;
 
-
     private static final String USER_CACHE_PREFIX = "user:";
     private static final String USER_LIST_CACHE_KEY = "users:all";
 
     @Caching(
             evict = {
-                    @CacheEvict(value = "users", allEntries = true),
-                    @CacheEvict(value = "userById", key = "#result.id", condition = "#result != null" )
-            }
-    )
+                @CacheEvict(value = "users", allEntries = true),
+                @CacheEvict(value = "userById", key = "#result.id", condition = "#result != null")
+            })
     public UserResponse createUser(UserCreationRequest request) {
         User user = userMapper.toUser(request);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -82,17 +79,17 @@ public class UserService {
 
         return userResponse;
     }
+
     @Caching(
             evict = {
-                    @CacheEvict(value = "users", allEntries = true),
-                    @CacheEvict(value = "userById", key = "#result.id", condition = "#result != null" )
-            }
-    )
+                @CacheEvict(value = "users", allEntries = true),
+                @CacheEvict(value = "userById", key = "#result.id", condition = "#result != null")
+            })
     public void createUsers(UserCreationRequest request) {
-        for(int i = 1;i <=10000;i++){
+        for (int i = 1; i <= 10000; i++) {
             User user = userMapper.toUser(request);
-            user.setUsername(request.getUsername() +i);
-            user.setEmail(user.getEmail() +i);
+            user.setUsername(request.getUsername() + i);
+            user.setEmail(user.getEmail() + i);
             user.setPassword(passwordEncoder.encode(request.getPassword()));
             HashSet<Role> roles = new HashSet<>();
             roleRepository.findById("USER").ifPresent(roles::add);
@@ -114,18 +111,15 @@ public class UserService {
             // build notification event
 
             var userResponse = userMapper.toUserResponse(user);
-
-
         }
     }
 
-    //Create Password for google
+    // Create Password for google
     public void createPassword(UserCreationPasswordRequest request) {
         var context = SecurityContextHolder.getContext();
         String userId = context.getAuthentication().getName(); // subject = userId
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        User user = userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         // User đã có password rồi thì không cho tạo lại
         if (StringUtils.hasText(user.getPassword())) {
@@ -136,7 +130,6 @@ public class UserService {
         if (!StringUtils.hasText(request.getPassword())) {
             throw new AppException(ErrorCode.UNAUTHENTICATED); // hoặc ErrorCode.INVALID_PASSWORD
         }
-
 
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userRepository.save(user);
@@ -160,28 +153,27 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "users", allEntries = true),
-            @CacheEvict(value = "userById", key = "#userId"),
-            @CacheEvict(value = "myInfo", key = "#root.target.getUsernameById(#userId)")
-    })
+    @Caching(
+            evict = {
+                @CacheEvict(value = "users", allEntries = true),
+                @CacheEvict(value = "userById", key = "#userId"),
+                @CacheEvict(value = "myInfo", key = "#root.target.getUsernameById(#userId)")
+            })
     public void deleteUser(String userId) {
         userRepository.deleteById(userId);
     }
 
-    @Cacheable(value = "myInfo", key = "#root.target.getCurrentUsername()", unless = "#result == null " )
+    @Cacheable(value = "myInfo", key = "#root.target.getCurrentUsername()", unless = "#result == null ")
     public UserResponse getMyInfo() {
         var context = SecurityContextHolder.getContext();
         // subject trong JWT đang là user.getId()
         String userId = context.getAuthentication().getName();
 
         // Vì subject = userId => phải findById
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        User user = userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         UserResponse userResponse = userMapper.toUserResponse(user);
         userResponse.setNoPassword(!StringUtils.hasText(user.getPassword()));
         return userResponse;
     }
-
 }

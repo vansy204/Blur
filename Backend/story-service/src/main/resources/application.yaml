@@ -7,24 +7,29 @@ server:
 spring:
   application:
     name: story-service
+
   data:
     mongodb:
-      uri: mongodb://root:root@localhost:27017/story-service?authSource=admin
+      uri: ${MONGODB_URI:mongodb://root:root@localhost:27017/story-service?authSource=admin}
+
     redis:
       host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      database: 3  # Database 3 for Story Service
-      timeout: 2000ms
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 2
+      port: 6379
+
 app:
   service:
-    profile:
-      url: "http://localhost:8081/profile"
-    notification:
-      url: "http://localhost:8082/notification"
     identity:
-      url: "http://localhost:8080/identity"
+      url: ${IDENTITY_SERVICE_URL:http://localhost:8080/identity}
+    profile:
+      url: ${PROFILE_SERVICE_URL:http://localhost:8081/profile}
+    notification:
+      url: ${NOTIFICATION_SERVICE_URL:http://localhost:8082/notification}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

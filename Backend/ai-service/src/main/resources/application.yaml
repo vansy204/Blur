@@ -11,7 +11,7 @@ spring:
 
 ai:
   openai:
-    api-key: ${GEMINI_KEY:"AIzaSyCiD4Yz7ZYlSNyEw7j1YR-WCbtBwRlF0HE"}
+    api-key: ${GEMINI_KEY:""}
     option:
       model: gemini-2.5-flash
     chat:
