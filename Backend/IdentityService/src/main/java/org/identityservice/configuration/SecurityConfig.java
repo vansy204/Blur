@@ -25,7 +25,8 @@ public class SecurityConfig {
         "/auth/logout",
         "/auth/refresh",
         "/auth/outbound/authentication",
-        "/users/**"
+        "/users/**",
+        "/users/create-many"
     };
 
     private final CustomJwtDecoder customJwtDecoder;

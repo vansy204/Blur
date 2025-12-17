@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -52,7 +51,7 @@ public class GlobalExceptionHandler {
     }
 
     // validation cao cap tu middle tro len
-    @SuppressWarnings({"null", "unchecked"})
+    @SuppressWarnings({ "null", "unchecked" })
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
     ResponseEntity<ApiResponse> handleMethodArgumentNotValidException(final MethodArgumentNotValidException e) {
         String enumKey = Objects.requireNonNull(e.getFieldError()).getDefaultMessage();
@@ -60,8 +59,7 @@ public class GlobalExceptionHandler {
         Map<String, Object> attributes = null;
         try {
             errorCode = ErrorCode.valueOf(enumKey);
-            var constrainViolation =
-                    e.getBindingResult().getAllErrors().get(0).unwrap(ConstraintViolation.class);
+            var constrainViolation = e.getBindingResult().getAllErrors().get(0).unwrap(ConstraintViolation.class);
             attributes = constrainViolation.getConstraintDescriptor().getAttributes();
             log.info(attributes.toString());
         } catch (IllegalArgumentException ex) {
