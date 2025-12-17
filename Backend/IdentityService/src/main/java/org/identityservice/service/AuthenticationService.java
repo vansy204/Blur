@@ -114,8 +114,7 @@ public class AuthenticationService {
             var signToken = verifyToken(request.getToken(), true);
             String jit = signToken.getJWTClaimsSet().getJWTID();
             Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
-            InvalidatedToken invalidatedToken =
-                    InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
+            InvalidatedToken invalidatedToken = InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
             tokenRepository.save(invalidatedToken);
             redisService.setOffline(signToken.getJWTClaimsSet().getSubject());
         } catch (AppException e) {
@@ -128,8 +127,7 @@ public class AuthenticationService {
         var jit = signJWT.getJWTClaimsSet().getJWTID();
         var expiryTime = signJWT.getJWTClaimsSet().getExpirationTime();
 
-        InvalidatedToken invalidatedToken =
-                InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
+        InvalidatedToken invalidatedToken = InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
         tokenRepository.save(invalidatedToken);
 
         // subject hiện tại là userId (do generateToken dùng user.getId())
@@ -195,7 +193,7 @@ public class AuthenticationService {
 
     // login with google
     public AuthResponse outboundAuthenticationService(String code) {
-        // get user info
+        // get user info from Google
         var response = outboundIdentityClient.exchangeToken(ExchangeTokenRequest.builder()
                 .code(code)
                 .clientId(CLIENT_ID)
@@ -204,29 +202,45 @@ public class AuthenticationService {
                 .grantType(GRANT_TYPE)
                 .build());
 
-        // onboarding google user vao he thong
+        // Get user info from Google
         var userInfo = outboundUserClient.exchangeToken("json", response.getAccessToken());
 
         Set<Role> roles = new HashSet<>();
         roles.add(Role.builder().name("USER").build());
 
-        var user = userRepository
-                .findByUsername(userInfo.getEmail())
-                .orElseGet(() -> userRepository.save(User.builder()
-                        .username(userInfo.getEmail())
-                        .firstName(userInfo.getGivenName())
-                        .lastName(userInfo.getFamilyName())
-                        .roles(roles)
-                        .build()));
+        // Check if user already exists
+        var existingUser = userRepository.findByUsername(userInfo.getEmail());
+        boolean isNewUser = existingUser.isEmpty();
 
-        // convert token cua google thanh token cua he thong
+        User user;
+        if (isNewUser) {
+            // Create new user in identity service
+            user = userRepository.save(User.builder()
+                    .username(userInfo.getEmail())
+                    .email(userInfo.getEmail())
+                    .firstName(userInfo.getGivenName())
+                    .lastName(userInfo.getFamilyName())
+                    .roles(roles)
+                    .emailVerified(userInfo.isVerifiedEmail())
+                    .build());
+
+            // Create profile only for new users
+            profileClient.createProfile(ProfileCreationRequest.builder()
+                    .userId(user.getId())
+                    .username(userInfo.getEmail())
+                    .email(userInfo.getEmail())
+                    .firstName(userInfo.getGivenName())
+                    .lastName(userInfo.getFamilyName())
+                    .imageUrl(userInfo.getPicture())
+                    .build());
+        } else {
+            user = existingUser.get();
+        }
+
+        // Generate system token
         var token = generateToken(user);
-        profileClient.createProfile(ProfileCreationRequest.builder()
-                .userId(user.getId())
-                .firstName(userInfo.getGivenName())
-                .lastName(userInfo.getFamilyName())
-                .city(userInfo.getLocale())
-                .build());
-        return AuthResponse.builder().token(token).build();
+        redisService.setOnline(user.getId());
+
+        return AuthResponse.builder().token(token).authenticated(true).build();
     }
 }

@@ -80,11 +80,6 @@ public class UserService {
         return userResponse;
     }
 
-    @Caching(
-            evict = {
-                @CacheEvict(value = "users", allEntries = true),
-                @CacheEvict(value = "userById", key = "#result.id", condition = "#result != null")
-            })
     public void createUsers(UserCreationRequest request) {
         for (int i = 1; i <= 10000; i++) {
             User user = userMapper.toUser(request);

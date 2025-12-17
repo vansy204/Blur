@@ -8,13 +8,11 @@ import com.example.storyservice.repository.StoryLikeRepository;
 import com.example.storyservice.repository.StoryRepository;
 import com.example.storyservice.repository.httpclient.IdentityClient;
 import com.example.storyservice.repository.httpclient.NotificationClient;
-import com.example.storyservice.repository.httpclient.ProfileClient;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -32,7 +30,7 @@ public class StoryLikeService {
     NotificationClient notificationClient;
 
     @CacheEvict(value = "storyLikes", key = "#storyId")
-    public String likeStory(String storyId){
+    public String likeStory(String storyId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
         var story = storyRepository.findById(storyId)
@@ -58,7 +56,7 @@ public class StoryLikeService {
     }
 
     @CacheEvict(value = "storyLikes", key = "#storyId")
-    public String unlikeStory(String storyId){
+    public String unlikeStory(String storyId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         var userId = authentication.getName();
         storyLikeRepository.deleteByStoryIdAndUserId(storyId, userId);

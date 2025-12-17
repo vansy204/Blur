@@ -88,18 +88,15 @@ const EditAccountPage = () => {
     }    
     try {
       setIsUploading(true);
-            const attachment = await uploadToCloudnary(file);
-      if (!attachment || !attachment.url) {
+      const imageUrl = await uploadToCloudnary(file);
+      
+      if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
         throw new Error("Upload failed - no URL returned");
-      }
-
-      if (typeof attachment.url !== 'string' || attachment.url.trim() === '') {
-        throw new Error("Invalid URL returned");
       }
 
       setFormData((prev) => ({ 
         ...prev, 
-        imageUrl: attachment.url 
+        imageUrl: imageUrl 
       }));
       
       toast({

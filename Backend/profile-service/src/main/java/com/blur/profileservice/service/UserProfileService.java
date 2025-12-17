@@ -29,7 +29,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -39,12 +38,12 @@ public class UserProfileService {
     UserProfileMapper userProfileMapper;
     NotificationClient notificationClient;
 
-
     public UserProfileResponse createProfile(ProfileCreationRequest request) {
         UserProfile userProfile = userProfileMapper.toUserProfile(request);
         userProfile.setUsername(request.getUsername());
         userProfile.setCreatedAt(LocalDate.now());
         userProfile.setEmail(request.getEmail());
+        userProfile.setImageUrl(request.getImageUrl());
         try {
             userProfile = userProfileRepository.save(userProfile);
         } catch (DataIntegrityViolationException ex) {
@@ -57,7 +56,6 @@ public class UserProfileService {
         return userProfileRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
     }
-
 
     public List<UserProfileResponse> findUserProfileByFirstName(String firstName) {
         return userProfileRepository.findAllByFirstNameContainingIgnoreCase(firstName)
@@ -97,7 +95,6 @@ public class UserProfileService {
         return userProfileRepository.save(userProfile);
     }
 
-
     public void deleteUserProfile(String userProfileId) {
         userProfileRepository.deleteById(userProfileId);
     }
@@ -117,7 +114,7 @@ public class UserProfileService {
         var followingUser = userProfileRepository.findUserProfileById(followerId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
         userProfileRepository.follow(requester.getId(), followerId);
-        log.info("following: {}" , followingUser);
+        log.info("following: {}", followingUser);
 
         // gui notification
         Event event = Event.builder()
@@ -131,10 +128,8 @@ public class UserProfileService {
         log.info("Sending follow event: {}", event);
         notificationClient.sendFollowNotification(event);
 
-
         return "You are following " + followingUser.getFirstName();
     }
-
 
     public String unfollowUser(String followerId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -165,13 +160,10 @@ public class UserProfileService {
                 .toList();
     }
 
-
-
-
-    public List<UserProfileResponse> search(String request){
+    public List<UserProfileResponse> search(String request) {
         var userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        List<UserProfile>  userProfiles = userProfileRepository.findAllByUsernameLike(request);
-        return  userProfiles.stream()
+        List<UserProfile> userProfiles = userProfileRepository.findAllByUsernameLike(request);
+        return userProfiles.stream()
                 .filter(userProfile -> !userId.equals(userProfile.getUserId()))
                 .map(userProfileMapper::toUserProfileResponse)
                 .toList();
