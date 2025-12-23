@@ -272,6 +272,36 @@ export const createComment = async (token, postId, content) => {
   }
 };
 
+// ✅ Thêm hàm reply comment
+export const replyComment = async (token, commentId, content, parentReplyId = null) => {
+  try {
+    const url = parentReplyId
+      ? `${API_BASE_URL}/post/comment/${commentId}/reply?parentReplyId=${parentReplyId}`
+      : `${API_BASE_URL}/post/comment/${commentId}/reply`;
+
+    const response = await axios.post(
+      url,
+      { content },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.data?.code !== 1000) {
+      throw new Error(`Reply comment error: ${response.data?.code}`);
+    }
+
+    console.log('✅ Reply created:', response.data);
+    return response.data?.result;
+  } catch (error) {
+    console.error("❌ Reply comment error:", error);
+    throw error;
+  }
+};
+
 // ✅ Xóa comment
 export const deleteComment = async (token, commentId) => {
   try {

@@ -1,25 +1,31 @@
-// ============= StoryCircle.jsx =============
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import StoryModal from "./StoryModal";
 import AddStoryModal from "./AddStoryModal";
 
-const StoryCircle = ({
-  story,
-  stories = [],
-  openStoryId,
-  isAddNew = false,
-  onStoryCreated,
-  user,
-}) => {
+const StoryCircle = ({ story, stories = [], openStoryId, isAddNew=false, onStoryCreated, user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const navigate = useNavigate();
+
+  const userStories = useMemo(() => (stories.length > 0 ? stories : [story]), [stories, story]);
+
+  useEffect(() => {
+    if (!openStoryId) return;
+
+    const match = userStories.some((s) => String(s?.id) === String(openStoryId));
+    if (match) setIsOpen(true);
+  }, [openStoryId, userStories]);
 
   const handleOpenStory = () => {
-    if (isAddNew) {
-      setShowCreateModal(true);
-    } else {
-      setIsOpen(true);
-    }
+    if (isAddNew) setShowCreateModal(true);
+    else setIsOpen(true);
+  };
+
+  // ✅ đóng modal là phải clear URL param để reload không tự mở lại
+  const handleCloseStory = () => {
+    setIsOpen(false);
+    navigate("/", { replace: true }); // nếu homepage bạn là "/home" thì đổi lại
   };
 
   const handleStoryCreated = (newStory) => {
@@ -28,8 +34,6 @@ const StoryCircle = ({
     }
     setShowCreateModal(false);
   };
-
-  const userStories = stories.length > 0 ? stories : [story];
 
   const getDisplayName = () => {
     if (isAddNew) return "Tạo tin";
@@ -158,15 +162,18 @@ const StoryCircle = ({
       {!isAddNew && (
         <StoryModal
           isOpen={isOpen}
-          onClose={() => setIsOpen(false)}
+          onClose={handleCloseStory}                 // ✅ dùng cái này
           stories={userStories}
-          initialStoryId={story?.id} 
+          initialStoryId={openStoryId || story?.id} 
         />
       )}
       {isAddNew && showCreateModal && (
         <AddStoryModal
           onClose={() => setShowCreateModal(false)}
-          onStoryCreated={handleStoryCreated}
+          onStoryCreated={(newStory) => {
+            onStoryCreated?.(newStory);
+            setShowCreateModal(false);
+          }}
         />
       )}
     </>

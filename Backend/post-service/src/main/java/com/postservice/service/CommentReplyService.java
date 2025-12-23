@@ -106,6 +106,10 @@ public class CommentReplyService {
                 .build();
 
         commentReply = commentReplyRepository.save(commentReply);
+        log.info("✅ Saved CommentReply:");
+        log.info("   → id: {}", commentReply.getId());
+        log.info("   → commentId: {}", commentReply.getCommentId());
+        log.info("   → parentReplyId: {}", commentReply.getParentReplyId());
         log.info("✅ [STEP 5] CommentReply saved with ID: {}", commentReply.getId());
 
         // 5. Xác định người nhận thông báo
@@ -122,7 +126,12 @@ public class CommentReplyService {
         // 6. Kiểm tra xem có phải tự reply không
         if (receiverUserId.equals(currentUserId)) {
             log.warn("⚠️ [STEP 7] SKIP notification - User is replying to their own comment/reply");
-            return commentMapper.toCommentResponse(commentReply);
+            CommentResponse response = commentMapper.toCommentResponse(commentReply);
+            log.info("📊 [DEBUG] CommentResponse AFTER mapping:");
+            log.info("   → id: {}", response.getId());
+            log.info("   → commentId: {}", response.getCommentId());
+            log.info("   → parentReplyId: {}", response.getParentReplyId());
+            return response;
         }
 
         log.info("✅ [STEP 7] Different users detected - Preparing notification...");
@@ -188,7 +197,14 @@ public class CommentReplyService {
             // Không throw exception để không làm fail toàn bộ reply action
         }
 
-        return commentMapper.toCommentResponse(commentReply);
+        CommentResponse response = commentMapper.toCommentResponse(commentReply);
+
+        log.info("📊 [DEBUG] CommentResponse AFTER mapping (with notification):");
+        log.info("   → id: {}", response.getId());
+        log.info("   → commentId: {}", response.getCommentId());
+        log.info("   → parentReplyId: {}", response.getParentReplyId());
+
+        return response;
     }
 
     @Caching(evict = {

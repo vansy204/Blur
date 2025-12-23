@@ -176,7 +176,7 @@ const CommentCard = ({
 
                     <button
                       className="text-xs text-gray-500 font-semibold"
-                      onClick={() => onReplyClick && onReplyClick(reply)}
+                      onClick={() => onReplyClick && onReplyClick(reply, comment.id)}
                     >
                       Reply
                     </button>
