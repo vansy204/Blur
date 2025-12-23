@@ -16,7 +16,7 @@ import { Navigation, Pagination } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-
+import { replyComment } from "../../api/postApi";
 import CommentModal from "../Comment/CommentModal";
 import { timeDifference } from "../../Config/Logic";
 import { getToken } from "../../service/LocalStorageService";
@@ -252,74 +252,118 @@ const PostCard = ({ post, user, onPostDeleted }) => {
 
   // 💬 Create comment
   // 💬 Create comment or reply - FIXED VERSION
-  const handleCreateComment = async (content, parentCommentId = null) => {
-    console.log("🔵 FE: handleCreateComment called");
-    console.log("   Content:", content);
-    console.log("   Parent Comment ID:", parentCommentId);
+  // const handleCreateComment = async (content, parentCommentId = null) => {
+  //   console.log("🔵 FE: handleCreateComment called");
+  //   console.log("   Content:", content);
+  //   console.log("   Parent Comment ID:", parentCommentId);
 
-    if (!content.trim()) return;
+  //   if (!content.trim()) return;
 
-    try {
-      if (parentCommentId) {
-        // ⭐ REPLY TO COMMENT
-        console.log("🔵 FE: Calling reply API...");
+  //   try {
+  //     if (parentCommentId) {
+  //       // ⭐ REPLY TO COMMENT
+  //       console.log("🔵 FE: Calling reply API...");
 
-        const response = await axios.post(
-          `http://localhost:8888/api/post/comment/${parentCommentId}/reply`,
-          { content },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+  //       const response = await axios.post(
+  //         `http://localhost:8888/api/post/comment/${parentCommentId}/reply`,
+  //         { content },
+  //         {
+  //           headers: {
+  //             Authorization: `Bearer ${token}`,
+  //             "Content-Type": "application/json",
+  //           },
+  //         }
+  //       );
 
-        console.log("✅ FE: Reply API response:", response.data);
+  //       console.log("✅ FE: Reply API response:", response.data);
 
-        if (response.data.code === 1000) {
-          const newReply = response.data.result;
-          setComments((prev) => [...prev, newReply]);
+  //       if (response.data.code === 1000) {
+  //         const newReply = response.data.result;
+  //         setComments((prev) => [...prev, newReply]);
 
-          toast({
-            title: "Reply created successfully.",
-            status: "success",
-            duration: 2000,
-            position: "top-right",
-          });
-        }
-      } else {
-        // ⭐ CREATE ROOT COMMENT
-        console.log("🔵 FE: Calling create comment API...");
+  //         toast({
+  //           title: "Reply created successfully.",
+  //           status: "success",
+  //           duration: 2000,
+  //           position: "top-right",
+  //         });
+  //       }
+  //     } else {
+  //       // ⭐ CREATE ROOT COMMENT
+  //       console.log("🔵 FE: Calling create comment API...");
 
-        const createdComment = await createComment(token, post.id, content);
-        setComments((prev) => [...prev, createdComment]);
+  //       const createdComment = await createComment(token, post.id, content);
+  //       setComments((prev) => [...prev, createdComment]);
 
-        toast({
-          title: "Comment created successfully.",
-          status: "success",
-          duration: 2000,
-          position: "top-right",
-        });
-      }
+  //       toast({
+  //         title: "Comment created successfully.",
+  //         status: "success",
+  //         duration: 2000,
+  //         position: "top-right",
+  //       });
+  //     }
 
-      setComment("");
-    } catch (error) {
-      console.error("❌ FE: Error creating comment/reply:", error);
+  //     setComment("");
+  //   } catch (error) {
+  //     console.error("❌ FE: Error creating comment/reply:", error);
+
+  //     toast({
+  //       title: parentCommentId
+  //         ? "Failed to create reply"
+  //         : "Failed to create comment",
+  //       description: error.response?.data?.message || error.message,
+  //       status: "error",
+  //       duration: 3000,
+  //       position: "top-right",
+  //     });
+  //   }
+  // };
+
+  // ❤️ TOGGLE LIKE/UNLIKE - FLEXIBLE userId MATCHING
+  const handleCreateComment = async (content, commentId = null, parentReplyId = null) => {
+  console.log("🔵 FE: handleCreateComment called");
+  
+  if (!content.trim()) return;
+
+  try {
+    if (commentId) {
+      // ✅ GỌI HÀM TỪ postApi.js
+      const newReply = await replyComment(token, commentId, content, parentReplyId);
+      
+      setComments((prev) => [...prev, newReply]);
 
       toast({
-        title: parentCommentId
-          ? "Failed to create reply"
-          : "Failed to create comment",
-        description: error.response?.data?.message || error.message,
-        status: "error",
-        duration: 3000,
+        title: "Reply created successfully.",
+        status: "success",
+        duration: 2000,
+        position: "top-right",
+      });
+    } else {
+      // ✅ ROOT COMMENT (giữ nguyên)
+      const createdComment = await createComment(token, post.id, content);
+      setComments((prev) => [...prev, createdComment]);
+
+      toast({
+        title: "Comment created successfully.",
+        status: "success",
+        duration: 2000,
         position: "top-right",
       });
     }
-  };
 
-  // ❤️ TOGGLE LIKE/UNLIKE - FLEXIBLE userId MATCHING
+    setComment("");
+  } catch (error) {
+    console.error("❌ FE: Error:", error);
+    toast({
+      title: commentId ? "Failed to create reply" : "Failed to create comment",
+      description: error.response?.data?.message || error.message,
+      status: "error",
+      duration: 3000,
+      position: "top-right",
+    });
+  }
+};
+
   const handlePostLike = async () => {
     const previousLiked = isPostLiked;
     const previousLikes = [...likes];
@@ -729,4 +773,4 @@ const PostCard = ({ post, user, onPostDeleted }) => {
   );
 };
 
-export default PostCard;
+export default PostCard

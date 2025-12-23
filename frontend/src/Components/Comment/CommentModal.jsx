@@ -34,7 +34,6 @@ const CommentModal = ({
   isPostLike,
   handlePostLike,
   handleSavePost,
-  // hàm cha: nhận (content, parentCommentId|null)
   handleCreateComment,
 }) => {
   const [isPlaying, setIsPlaying] = useState({});
@@ -42,7 +41,7 @@ const CommentModal = ({
   const [comment, setComment] = useState("");
   const [commentUsers, setCommentUsers] = useState({});
   const [mediaDimensions, setMediaDimensions] = useState({});
-  const [replyingTo, setReplyingTo] = useState(null); // { id, isReply }
+  const [replyingTo, setReplyingTo] = useState(null);
   const videoRefs = useRef([]);
   const inputRef = useRef(null);
 
@@ -54,13 +53,12 @@ const CommentModal = ({
     const map = {};
 
     (comments || []).forEach((c) => {
-      if (!c.parentReplyId) {
-        // comment gốc (bình luận bài viết)
+      const isReply = !!c.commentId;
+      if (!isReply) {
         roots.push(c);
       } else {
-        // reply -> đưa vào map theo parentReplyId
-        if (!map[c.parentReplyId]) map[c.parentReplyId] = [];
-        map[c.parentReplyId].push(c);
+        if (!map[c.commentId]) map[c.commentId] = [];
+        map[c.commentId].push(c);
       }
     });
 
@@ -116,7 +114,7 @@ const CommentModal = ({
     return dimension.aspectRatio > 1 ? "contain" : "cover";
   };
 
-  // ================== FETCH USER CỦA TỪNG COMMENT ==================
+  // ================== FETCH USER ==================
   useEffect(() => {
     const fetchUsers = async () => {
       if (!token || !comments?.length) return;
@@ -138,42 +136,56 @@ const CommentModal = ({
     };
 
     fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comments, token]);
 
-  // ================== REPLY HANDLER ==================
+  // ================== BUILD MENTION ==================
   const buildMention = (cmt, u) => {
     const fullName =
-      // 1. full name mà backend gắn thẳng vào reply/comment
       cmt.userName ||
-      // 2. họ + tên nếu có trong comment
       [cmt.firstName, cmt.lastName].filter(Boolean).join(" ") ||
-      // 3. fullName / name trong user fetch được
       u?.fullName ||
       [u?.firstName, u?.lastName].filter(Boolean).join(" ") ||
       u?.name ||
-      // 4. cuối cùng mới fallback sang username
       u?.username ||
       "User";
 
     return `@${fullName.replace(/\s+/g, "")}`;
   };
 
+  // ================== REPLY HANDLER - FIXED ==================
   const handleReplyClick = (cmt, u) => {
     const mention = buildMention(cmt, u);
 
-    setReplyingTo({ id: cmt.id, isReply: !!cmt.parentReplyId });
-    setComment((prev) => {
-      if (prev.startsWith(mention + " ")) return prev;
-      return `${mention} `;
+    const isReply = !!cmt.commentId;
+    
+    let actualCommentId;
+    let actualParentReplyId;
+
+    if (isReply) {
+      actualCommentId = cmt.commentId;
+      actualParentReplyId = cmt.id;
+    } else {
+      actualCommentId = cmt.id;
+      actualParentReplyId = null;
+    }
+
+    console.log("🔵 handleReplyClick:", {
+      isReply,
+      actualCommentId,
+      actualParentReplyId,
+      replyObject: cmt
     });
 
-    if (inputRef.current) inputRef.current.focus();
+    setReplyingTo({ 
+      commentId: actualCommentId, 
+      parentReplyId: actualParentReplyId 
+    });
+    
+    setComment((prev) => (prev.startsWith(mention + " ") ? prev : `${mention} `));
+    inputRef.current?.focus();
   };
 
-  // ================== LIKE COMMENT (stub) ==================
   const handleToggleCommentLike = (cmt, willLike) => {
-    // TODO: gọi API like/unlike comment nếu có
     console.log("toggle like comment", cmt.id, willLike);
   };
 
@@ -186,11 +198,17 @@ const CommentModal = ({
   const handleCreateCommentInternal = (text) => {
     if (!text.trim()) return;
 
-    // gửi luôn cho cha: content + id comment đang reply (nếu có)
-    const parentId = replyingTo?.id || null;
-    handleCreateComment(text, parentId); // hàm cha nhận thêm arg nhưng có thể bỏ qua nếu chưa dùng
+    console.log("🔵 Creating comment/reply:", {
+      text,
+      replyingTo
+    });
 
-    // reset state
+    handleCreateComment(
+      text, 
+      replyingTo?.commentId || null,
+      replyingTo?.parentReplyId || null
+    );
+    
     setComment("");
     setReplyingTo(null);
   };
@@ -202,7 +220,7 @@ const CommentModal = ({
       <ModalContent borderRadius="2xl" overflow="hidden" shadow="2xl">
         <ModalBody p={0}>
           <div className="flex h-[85vh] bg-white">
-            {/* Media Section - INSTAGRAM STYLE */}
+            {/* Media Section */}
             <div className="w-[55%] bg-black relative overflow-hidden">
               <button
                 onClick={onClose}
@@ -217,8 +235,7 @@ const CommentModal = ({
                   navigation
                   pagination={{
                     clickable: true,
-                    bulletActiveClass:
-                      "swiper-pagination-bullet-active !bg-white",
+                    bulletActiveClass: "swiper-pagination-bullet-active !bg-white",
                   }}
                   modules={[Navigation, Pagination]}
                   style={{
@@ -286,7 +303,7 @@ const CommentModal = ({
                 </button>
               </div>
 
-              {/* Comments List – ROOT + REPLIES */}
+              {/* Comments List */}
               <div className="flex-1 overflow-auto px-4 py-2 bg-gray-50">
                 {rootComments.length > 0 ? (
                   rootComments.map((cmt) => (
@@ -303,10 +320,7 @@ const CommentModal = ({
                         handleToggleCommentLike(cmt, willLike)
                       }
                       onReplyClick={(reply) =>
-                        handleReplyClick(
-                          reply,
-                          commentUsers[reply.userId] || {}
-                        )
+                        handleReplyClick(reply, commentUsers[reply.userId] || {})
                       }
                     />
                   ))
@@ -327,7 +341,6 @@ const CommentModal = ({
 
               {/* Actions & Stats */}
               <div className="border-t border-gray-100 bg-white">
-                {/* Action Buttons */}
                 <div className="flex justify-between items-center px-4 py-3">
                   <div className="flex items-center gap-4">
                     <button
@@ -360,7 +373,6 @@ const CommentModal = ({
                   </button>
                 </div>
 
-                {/* Stats */}
                 <div className="px-4 pb-3 space-y-1">
                   <p className="font-semibold text-sm text-gray-800">
                     {likeCount || 0} {likeCount === 1 ? "like" : "likes"}

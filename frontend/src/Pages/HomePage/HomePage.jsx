@@ -35,7 +35,8 @@ const mergeUniqueById = (prev, incoming) => {
 const HomePage = () => {
   const { storyId } = useParams(); // lấy từ /story/:storyId
   const navigate = useNavigate();
-  const openStoryId = storyId || null;
+  const openStoryId = storyId ? String(storyId) : null;
+
 
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
