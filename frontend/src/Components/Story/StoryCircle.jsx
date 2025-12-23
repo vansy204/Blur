@@ -1,9 +1,16 @@
 // ============= StoryCircle.jsx =============
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import StoryModal from "./StoryModal";
 import AddStoryModal from "./AddStoryModal";
 
-const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, user }) => {
+const StoryCircle = ({
+  story,
+  stories = [],
+  openStoryId,
+  isAddNew = false,
+  onStoryCreated,
+  user,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -16,7 +23,7 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, us
   };
 
   const handleStoryCreated = (newStory) => {
-    if (onStoryCreated && typeof onStoryCreated === 'function') {
+    if (onStoryCreated && typeof onStoryCreated === "function") {
       onStoryCreated(newStory);
     }
     setShowCreateModal(false);
@@ -27,7 +34,8 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, us
   const getDisplayName = () => {
     if (isAddNew) return "Tạo tin";
     if (!story) return "Người dùng";
-    if (story.firstName) return `${story.firstName} ${story.lastName || ""}`.trim();
+    if (story.firstName)
+      return `${story.firstName} ${story.lastName || ""}`.trim();
     return story.username || "Người dùng";
   };
 
@@ -39,6 +47,15 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, us
     }
     return story?.thumbnailUrl;
   };
+  useEffect(() => {
+    if (!openStoryId) return;
+
+    // ✅ mở nếu storyId thuộc group stories của user này
+    const match = (stories?.length ? stories : [story]).some(
+      (s) => s?.id === openStoryId
+    );
+    if (match) setIsOpen(true);
+  }, [openStoryId, story?.id, stories]);
 
   const renderAddStory = () => (
     <div
@@ -47,7 +64,7 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, us
     >
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-sky-100/30 to-transparent group-hover:from-sky-200/40 transition-all duration-300" />
-      
+
       {/* Plus icon with animated ring */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="relative">
@@ -55,11 +72,13 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, us
           <div className="absolute inset-0 w-16 h-16 rounded-full bg-sky-400/20 animate-ping" />
           {/* Main button */}
           <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white text-3xl font-light shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
-            <span className="transform group-hover:rotate-90 transition-transform duration-300">+</span>
+            <span className="transform group-hover:rotate-90 transition-transform duration-300">
+              +
+            </span>
           </div>
         </div>
       </div>
-      
+
       {/* Label with gradient text */}
       <div className="absolute bottom-3 left-0 right-0 text-center">
         <span className="text-sm font-semibold bg-gradient-to-r from-sky-600 to-blue-600 bg-clip-text text-transparent drop-shadow">
@@ -100,7 +119,10 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, us
       <div className="absolute top-3 left-3 w-11 h-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 p-0.5 shadow-lg">
         <div className="w-full h-full rounded-full overflow-hidden bg-white p-0.5">
           <img
-            src={user?.imageUrl || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"}
+            src={
+              user?.imageUrl ||
+              "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
+            }
             alt="avatar"
             className="w-full h-full object-cover rounded-full"
           />
@@ -138,7 +160,7 @@ const StoryCircle = ({ story, stories = [], isAddNew = false, onStoryCreated, us
           isOpen={isOpen}
           onClose={() => setIsOpen(false)}
           stories={userStories}
-          story={story}
+          initialStoryId={story?.id} 
         />
       )}
       {isAddNew && showCreateModal && (

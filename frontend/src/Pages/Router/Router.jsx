@@ -138,6 +138,8 @@ const Router = () => {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/notification" element={<NotificationsPage />} />
             <Route path="/post/:postId" element={<PostDetailPage />} />
+            <Route path="/story/:storyId" element={<HomePage />} />
+
           </Routes> 
         </div>
       </div>

@@ -107,10 +107,10 @@ export const deleteStory = async (storyId) => {
 };
 
 // Like story
-export const likeStory = async (storyId,token) => {
+export const likeStory = async (storyId, reactionType = "LIKE") => {
   try {
     const res = await axios.put(
-      `${STORY_API}/like/${storyId}`,
+      `${STORY_API}/like/${storyId}?reactionType=${encodeURIComponent(reactionType)}`,
       {},
       getAuthHeaders()
     );
@@ -121,17 +121,23 @@ export const likeStory = async (storyId,token) => {
   }
 };
 
+
 // Unlike story
 export const unlikeStory = async (storyId) => {
   try {
-    const res = await axios.put(
-      `${STORY_API}/unlike/${storyId}`,
-      {},
-      getAuthHeaders()
-    );
+    const res = await axios.put(`${STORY_API}/unlike/${storyId}`, {}, getAuthHeaders());
     return res.data.result;
   } catch (error) {
     console.error(`Error unliking story ${storyId}:`, error);
+    return null;
+  }
+};
+export const viewStory = async (storyId) => {
+  try {
+    const res = await axios.post(`${STORY_API}/view/${storyId}`, {}, getAuthHeaders());
+    return res.data.result;
+  } catch (error) {
+    console.error(`Error viewing story ${storyId}:`, error);
     return null;
   }
 };

@@ -146,10 +146,16 @@ public class PostService {
     @Transactional
     public String likePost(String postId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
         var userId = authentication.getName();
+
 
         var post = postRepository.findById(postId)
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
+        String senderUserId = userId;
+        String receiverUserId = post.getUserId();
+        var senderProfile = profileClient.getProfile(senderUserId).getResult();
+        var receiverProfile = profileClient.getProfile(receiverUserId).getResult();
 
         // Không cho tự like bài viết của mình
         if (userId.equals(post.getUserId())) {
@@ -185,6 +191,8 @@ public class PostService {
                         .senderName(sender.getResult().getUsername())
                         .receiverId(receiver.getResult().getId())
                         .receiverEmail(receiver.getResult().getEmail())
+                        .senderUserId(senderUserId)
+                        .receiverUserId(receiverUserId)
                         .receiverName(receiver.getResult().getUsername())
                         .timestamp(LocalDateTime.now())
                         .build();

@@ -44,7 +44,10 @@ const NotificationsPage = () => {
       try {
         setIsLoading(true);
         const result = await getAllNotifications(token, userId);
-        setNotifications(result || []);
+        setNotifications((result || []).map((n) => ({
+          ...n,
+          storyId: n.storyId ?? n.story_id, // chuẩn hoá
+        })));
       } catch (error) {
         console.error("Error fetching notifications:", error);
       } finally {
@@ -75,6 +78,7 @@ const NotificationsPage = () => {
         latest.timestamp || latest.createdDate || new Date().toISOString(),
       type: latest.type || "general",
       postId: latest.postId,
+      storyId: latest.storyId ?? latest.story_id,
       senderId: latest.senderId,
       seen: latest.seen ?? false,
     };
@@ -130,6 +134,22 @@ const NotificationsPage = () => {
 
   // ✅ Khi click vào notification → navigate tới post page
   const handleNotificationClick = async (notification) => {
+    const storyId = notification.storyId ?? notification.story_id;
+
+  // ✅ ƯU TIÊN STORY
+  if (storyId) {
+    try {
+      if (!notification.seen) {
+        await markNotificationAsRead(token, notification.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, seen: true } : n))
+        );
+      }
+    } catch (e) {}
+
+    navigate("/", { state: { openStoryId: String(storyId) } });
+    return;
+  }
     const postId =
       notification.postId || notification.post_id || notification.entityId;
 

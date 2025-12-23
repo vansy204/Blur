@@ -1,3 +1,5 @@
+import { useNotification } from "../../contexts/NotificationContext";
+import { useRef } from "react";
 import React, { useEffect, useState } from "react";
 import { LuCircleDashed } from "react-icons/lu";
 import { MdEdit } from "react-icons/md";
@@ -5,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { getToken } from "../../service/LocalStorageService";
 import { fetchUserInfo, getFollowers, getFollowings } from "../../api/userApi";
 import { fetchUserPosts } from "../../api/postApi";
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 
 const ProfileUserDetails = () => {
   const navigate = useNavigate();
@@ -14,6 +18,9 @@ const ProfileUserDetails = () => {
   const [followings, setFollowings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const token = getToken();
+  const { notifications: realtimeNotifications } = useNotification();
+const lastFollowNotiIdRef = useRef(null);
+
 
   useEffect(() => {
     const getUserInfo = async () => {
@@ -51,6 +58,70 @@ const ProfileUserDetails = () => {
       getUserPosts();
     }
   }, [token]);
+  useEffect(() => {
+  if (!user?.id || !token) return;
+  if (!realtimeNotifications || realtimeNotifications.length === 0) return;
+
+  const latest = realtimeNotifications[0];
+  if (!latest?.id) return;
+
+  // ✅ chống chạy lại nhiều lần
+  if (lastFollowNotiIdRef.current === latest.id) return;
+
+  const type = String(latest.type || "").toLowerCase();
+  if (type !== "follow") return;
+
+  lastFollowNotiIdRef.current = latest.id;
+
+  // ✅ reload followers count
+  getFollowers(user.id, token).then((data) => {
+    setFollowers(data || []);
+  });
+}, [realtimeNotifications, user?.id, token]);
+
+
+  // ✅ THÊM: WebSocket để cập nhật realtime số followers
+  // useEffect(() => {
+  //   if (!user?.id || !token) return;
+
+  //   const socket = new SockJS("http://localhost:8888/ws");
+  //   const stompClient = new Client({
+  //     webSocketFactory: () => socket,
+  //     connectHeaders: {
+  //       Authorization: `Bearer ${token}`,
+  //     },
+  //     onConnect: () => {
+  //       console.log("✅ Connected to WebSocket for follower updates");
+
+  //       // Subscribe để nhận thông báo follow
+  //       stompClient.subscribe(
+  //         `/user/${user.id}/queue/notifications`,
+  //         (message) => {
+  //           const notification = JSON.parse(message.body);
+            
+  //           // ✅ Nếu là thông báo Follow, reload số followers
+  //           if (notification.type === "Follow") {
+  //             console.log("🔔 Received follow notification, updating followers count");
+  //             getFollowers(user.id, token).then((data) => {
+  //               setFollowers(data || []);
+  //             });
+  //           }
+  //         }
+  //       );
+  //     },
+  //     onStompError: (error) => {
+  //       console.error("WebSocket error:", error);
+  //     },
+  //   });
+
+  //   stompClient.activate();
+
+  //   return () => {
+  //     if (stompClient.active) {
+  //       stompClient.deactivate();
+  //     }
+  //   };
+  // }, [user?.id, token]);
 
   if (isLoading) {
     return (
@@ -73,7 +144,7 @@ const ProfileUserDetails = () => {
     <div className="py-10 w-full px-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-md transition-shadow duration-300">
         <div className="flex flex-col md:flex-row items-center gap-8">
-          {/* Profile Image with gradient ring */}
+          {/* Profile Image */}
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full blur-md opacity-20 group-hover:opacity-30 transition-opacity"></div>
             <img
@@ -94,7 +165,6 @@ const ProfileUserDetails = () => {
 
           {/* User Info */}
           <div className="flex-1 space-y-5 text-center md:text-left w-full">
-            {/* Username and Actions */}
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-4">
               <h2 className="text-2xl font-bold text-gray-800">
                 {user?.firstName || "User"}
@@ -146,9 +216,7 @@ const ProfileUserDetails = () => {
                 </p>
               )}
               {!user?.bio && (
-                <p className="text-gray-400 text-sm italic">
-                  No bio yet
-                </p>
+                <p className="text-gray-400 text-sm italic">No bio yet</p>
               )}
             </div>
 

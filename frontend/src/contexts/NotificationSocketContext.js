@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { jwtDecode } from "jwt-decode";
@@ -9,52 +9,89 @@ const NotificationSocketContext = createContext(null);
 
 export const NotificationSocketProvider = ({ children }) => {
   const stompClientRef = useRef(null);
+  const [isConnected, setIsConnected] = useState(false);
   const { addNotification } = useNotification();
 
   useEffect(() => {
     const token = getToken();
-    if (!token) return;
+    if (!token) {
+      console.log("⚠️ No token found, skipping WebSocket connection");
+      return;
+    }
+
+    let userId;
+    try {
+      const decoded = jwtDecode(token);
+      userId = decoded.sub;
+      console.log("👤 Decoded userId from JWT:", userId);
+    } catch (error) {
+      console.error("❌ Failed to decode token:", error);
+      return;
+    }
+
+    // ✅ FIX: Thêm /api prefix
+    const wsUrl = `http://localhost:8082/notification/ws-notification?token=${token}`;
+console.log("🔌 Connecting to:", wsUrl);
 
     const client = new Client({
-      webSocketFactory: () =>
-        new SockJS(
-          `http://localhost:8082/notification/ws-notification?token=${token}`
-        ),
-      connectHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
+      webSocketFactory: () => new SockJS(wsUrl),
+      
       reconnectDelay: 5000,
-      debug: (str) => console.log(str),
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      
+      debug: (str) => {
+        console.log("🔍 STOMP:", str);
+      },
 
       onConnect: () => {
-        console.log("✅ Connected to /ws-notification");
-        const decoded = jwtDecode(token);
-        const userId = decoded.sub;
-        console.log("👤 Subscribed userId:", userId);
+        console.log("✅ STOMP Connected to notification service");
+        setIsConnected(true);
 
-        client.subscribe(`/user/${userId}/notification`, (message) => {
-  try {
-    const data = JSON.parse(message.body);
-    console.log("🔔 Realtime notification received:", data);
+        const subscriptionPath = `/user/${userId}/queue/notifications`;
+        console.log("📡 Subscribing to:", subscriptionPath);
 
-    addNotification({
-      id: data.id,
-      senderName: data.senderName,
-      message: data.content,
-      avatar: data.senderImageUrl,
-      createdDate: data.timestamp,
-      type: data.type || "general", // ⭐ THÊM
-      postId: data.postId, // ⭐ THÊM (nếu backend gửi)
-      seen: false,
-    });
-  } catch (e) {
-    console.error("❌ Failed to parse message:", e);
-  }
-});
+        client.subscribe(subscriptionPath, (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.log("🔔 Realtime notification received:", data);
+
+            addNotification({
+              id: data.id,
+              senderId: data.senderId,
+              senderName: data.senderName,
+              senderFirstName: data.senderFirstName,
+              senderLastName: data.senderLastName,
+              avatar: data.senderImageUrl,
+              message: data.content,
+              createdDate: data.timestamp,
+              type: data.type,
+              postId: data.postId,
+              storyId: data.storyId,
+              seen: data.read || false,
+            });
+          } catch (e) {
+            console.error("❌ Failed to parse notification:", e);
+          }
+        });
+
+        console.log("✅ Subscription successful");
       },
 
       onStompError: (frame) => {
         console.error("❌ STOMP Error:", frame.headers["message"]);
+        console.error("❌ Frame body:", frame.body);
+        setIsConnected(false);
+      },
+
+      onWebSocketClose: () => {
+        console.log("🔌 WebSocket closed");
+        setIsConnected(false);
+      },
+
+      onDisconnect: () => {
+        console.log("❌ STOMP Disconnected");
+        setIsConnected(false);
       },
     });
 
@@ -62,16 +99,30 @@ export const NotificationSocketProvider = ({ children }) => {
     stompClientRef.current = client;
 
     return () => {
-      client.deactivate();
+      console.log("🧹 Cleaning up WebSocket connection");
+      if (client.active) {
+        client.deactivate();
+      }
+      setIsConnected(false);
     };
   }, [addNotification]);
 
+  const contextValue = {
+    stompClient: stompClientRef.current,
+    isConnected,
+  };
+
   return (
-    <NotificationSocketContext.Provider value={stompClientRef.current}>
+    <NotificationSocketContext.Provider value={contextValue}>
       {children}
     </NotificationSocketContext.Provider>
   );
 };
 
-export const useNotificationSocket = () =>
-  useContext(NotificationSocketContext);
+export const useNotificationSocket = () => {
+  const context = useContext(NotificationSocketContext);
+  if (!context) {
+    throw new Error("useNotificationSocket must be used within NotificationSocketProvider");
+  }
+  return context;
+};

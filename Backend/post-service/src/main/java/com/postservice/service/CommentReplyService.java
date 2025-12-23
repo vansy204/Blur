@@ -110,6 +110,7 @@ public class CommentReplyService {
 
         // 5. Xác định người nhận thông báo
         String receiverUserId;
+        String senderUserId = currentUserId;
         if (parentReply != null) {
             receiverUserId = parentReply.getUserId();
             log.info("🔵 [STEP 6] Receiver is PARENT REPLY owner: {}", receiverUserId);
@@ -153,14 +154,19 @@ public class CommentReplyService {
             // Tạo Event
             Event event = Event.builder()
                     .postId(comment.getPostId())
+
                     .senderId(senderIdentity.getResult().getId())
+                    .senderUserId(senderUserId)
                     .senderName(senderFullName)
                     .senderFirstName(senderFirstName)
                     .senderLastName(senderLastName)
                     .senderImageUrl(senderImageUrl)
+
                     .receiverId(receiverIdentity.getResult().getId())
+                    .receiverUserId(receiverUserId)
                     .receiverName(receiverFullName)
                     .receiverEmail(receiverIdentity.getResult().getEmail())
+
                     .timestamp(LocalDateTime.now())
                     .build();
 
