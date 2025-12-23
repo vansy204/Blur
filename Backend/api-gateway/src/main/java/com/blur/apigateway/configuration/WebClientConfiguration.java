@@ -15,7 +15,6 @@ import org.springframework.web.reactive.function.client.support.WebClientAdapter
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 public class WebClientConfiguration {
@@ -67,8 +66,7 @@ public class WebClientConfiguration {
         corsConfig.setAllowedMethods(Arrays.asList(allowedMethods.split(",")));
         corsConfig.setExposedHeaders(Arrays.asList(
                 "Authorization",
-                "Content-Type"
-        ));
+                "Content-Type"));
         corsConfig.setMaxAge(maxAge);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
