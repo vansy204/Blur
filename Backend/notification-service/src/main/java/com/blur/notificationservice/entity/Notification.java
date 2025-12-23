@@ -20,11 +20,13 @@ public class Notification {
     @Id
     String id;
     String postId;
-    String senderId;
+    String senderId;           // Profile ID (Neo4j)
+    String senderUserId;       // ⭐ THÊM: User ID (identity-service)
     String senderName;
     String senderFirstName;
     String senderLastName;
-    String receiverId;
+    String receiverId;         // Profile ID (Neo4j)
+    String receiverUserId;     // ⭐ THÊM: User ID (identity-service)
     String receiverName;
     String receiverEmail;
     String senderImageUrl;
@@ -32,5 +34,6 @@ public class Notification {
     String content;
     LocalDateTime timestamp;
     Boolean read = false;
-
+    String entityId;
+    String storyId;
 }

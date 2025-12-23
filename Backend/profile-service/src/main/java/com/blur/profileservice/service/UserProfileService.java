@@ -110,27 +110,33 @@ public class UserProfileService {
             throw new AppException(ErrorCode.CANNOT_FOLLOW_YOURSELF);
         }
 
-        // Lấy Neo4j UUID từ userId
         var requester = userProfileRepository.findUserProfileByUserId(reqUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
 
         var followingUser = userProfileRepository.findUserProfileById(followerId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_PROFILE_NOT_FOUND));
-        userProfileRepository.follow(requester.getId(), followerId);
-        log.info("following: {}" , followingUser);
 
-        // gui notification
+        userProfileRepository.follow(requester.getId(), followerId);
+        log.info("User {} is now following {}", requester.getId(), followerId);
+
+        // ✅ GỬI ĐẦY ĐỦ THÔNG TIN
         Event event = Event.builder()
-                .senderId(requester.getId())
+                .senderId(requester.getId())              // Profile ID (cho frontend navigate)
+                .senderUserId(requester.getUserId())      // User ID (nếu cần)
                 .senderName(requester.getFirstName() + " " + requester.getLastName())
+                .senderFirstName(requester.getFirstName())
+                .senderLastName(requester.getLastName())
+                .senderImageUrl(requester.getImageUrl())  // Avatar
                 .receiverId(followingUser.getId())
+                .receiverUserId(followingUser.getUserId())
                 .receiverName(followingUser.getFirstName() + " " + followingUser.getLastName())
                 .receiverEmail(followingUser.getEmail())
                 .timestamp(LocalDateTime.now())
                 .build();
-        log.info("Sending follow event: {}", event);
-        notificationClient.sendFollowNotification(event);
 
+        log.info("✅ Sending follow event: senderId={}, receiverId={}",
+                event.getSenderId(), event.getReceiverId());
+        notificationClient.sendFollowNotification(event);
 
         return "You are following " + followingUser.getFirstName();
     }
