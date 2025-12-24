@@ -147,7 +147,7 @@ const NotificationsPage = () => {
       }
     } catch (e) {}
 
-    navigate("/", { state: { openStoryId: String(storyId) } });
+    navigate(`/story/${storyId}`);
     return;
   }
     const postId =
