@@ -21,6 +21,135 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 
+// ================== COMMENT ITEM COMPONENT ==================
+const CommentItem = ({
+  comment,
+  replies,
+  commentUsers,
+  buildMention,
+  getDisplayName,
+  onReplyClick,
+}) => {
+  const [showReplies, setShowReplies] = useState(false);
+  const cUser = commentUsers[comment.userId] || {};
+  const displayName = getDisplayName(comment, cUser);
+
+  return (
+    <div>
+      {/* Root Comment */}
+      <div className="flex gap-3">
+        <img
+          src={
+            cUser.imageUrl ||
+            comment.avatar ||
+            "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
+          }
+          alt="User"
+          className="w-8 h-8 rounded-full object-cover"
+        />
+        <div className="flex-1">
+          <div className="bg-gray-50 rounded-2xl px-4 py-2">
+            <p className="font-semibold text-sm">{displayName}</p>
+            <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+          </div>
+
+          <div className="flex items-center gap-3 mt-1 ml-4">
+            <p className="text-xs text-gray-500">
+              {comment.createdAt
+                ? new Date(comment.createdAt).toLocaleString("vi-VN")
+                : "Vừa xong"}
+            </p>
+
+            <button
+              onClick={() => onReplyClick(comment, cUser, comment.id)}
+              className="text-xs text-gray-500 hover:text-sky-600 font-semibold"
+            >
+              Reply
+            </button>
+          </div>
+
+          {/* Toggle View Replies */}
+          {replies.length > 0 && (
+            <button
+              onClick={() => setShowReplies(!showReplies)}
+              className="flex items-center gap-2 mt-2 ml-4 group"
+            >
+              <div className="w-6 h-[0.5px] bg-gray-400"></div>
+              <span className="text-xs font-semibold text-gray-500 group-hover:text-sky-600">
+                {showReplies
+                  ? "Hide replies"
+                  : `View replies (${replies.length})`}
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Replies - CHỈ HIỆN KHI CLICK */}
+      {showReplies && replies.length > 0 && (
+        <div className="ml-11 mt-3 space-y-3">
+          {replies.map((reply) => {
+            const replyUser = commentUsers[reply.userId] || {};
+            const replyDisplayName = getDisplayName(reply, replyUser);
+
+            // Tách mention
+            const mentionMatch = reply.content.match(/^@(\S+)\s/);
+            const mention = mentionMatch ? mentionMatch[0] : "";
+            const replyContent = mention
+              ? reply.content.slice(mention.length)
+              : reply.content;
+
+            return (
+              <div key={reply.id} className="flex gap-3">
+                <img
+                  src={
+                    replyUser.imageUrl ||
+                    reply.avatar ||
+                    "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
+                  }
+                  alt="User"
+                  className="w-7 h-7 rounded-full object-cover"
+                />
+                <div className="flex-1">
+                  <div className="bg-gray-50 rounded-2xl px-4 py-2">
+                    <p className="font-semibold text-sm">{replyDisplayName}</p>
+                    <p className="text-sm text-gray-700 mt-1">
+                      {mention && (
+                        <span className="text-blue-500 font-semibold">
+                          {mention}
+                        </span>
+                      )}
+                      {replyContent}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-1 ml-4">
+                    <p className="text-xs text-gray-500">
+                      {reply.createdAt
+                        ? new Date(reply.createdAt).toLocaleString("vi-VN")
+                        : "Vừa xong"}
+                    </p>
+
+                    <button
+                      onClick={() =>
+                        onReplyClick(reply, replyUser, comment.id)
+                      }
+                      className="text-xs text-gray-500 hover:text-sky-600 font-semibold"
+                    >
+                      Reply
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ================== MAIN COMPONENT ==================
 const PostDetailPage = () => {
   const { postId } = useParams();
   const location = useLocation();
@@ -38,51 +167,34 @@ const PostDetailPage = () => {
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [userId, setUserId] = useState(null);
-
-  // user info cho từng comment
   const [commentUsers, setCommentUsers] = useState({});
-  // comment đang được reply
   const [replyingTo, setReplyingTo] = useState(null);
-  // id comment gốc dùng để gọi API reply
   const [replyParentId, setReplyParentId] = useState(null);
-
-  // Media
   const [mediaDimensions, setMediaDimensions] = useState({});
   const [primaryAspectRatio, setPrimaryAspectRatio] = useState(null);
   const videoRefs = useRef([]);
   const inputRef = useRef(null);
 
-  // ================== DISPLAY NAME & MENTION (giống CommentCard / CommentModal) ==================
-
-  // giống getDisplayName trong CommentCard
+  // ================== DISPLAY NAME & MENTION ==================
   const getDisplayName = (obj = {}, user = {}) => {
     return (
-      // 1. BE gửi sẵn userName (thường là full name)
       obj.userName ||
-      // 2. firstName + lastName trong chính comment
       [obj.firstName, obj.lastName].filter(Boolean).join(" ") ||
-      // 3. lấy từ user fetch được
       [user.firstName, user.lastName].filter(Boolean).join(" ") ||
       user.fullName ||
       user.name ||
-      // 4. fallback cuối cùng là username
       user.username ||
       "User"
     );
   };
 
-  // giống buildMention trong CommentModal
   const buildMention = (cmt = {}, u = {}) => {
     const fullName =
-      // 1. full name mà backend gắn vào comment/reply
       cmt.userName ||
-      // 2. họ + tên trong comment
       [cmt.firstName, cmt.lastName].filter(Boolean).join(" ") ||
-      // 3. fullName / họ tên trong user fetch được
       u.fullName ||
       [u.firstName, u.lastName].filter(Boolean).join(" ") ||
       u.name ||
-      // 4. cuối cùng mới tới username
       u.username ||
       "User";
 
@@ -120,10 +232,7 @@ const PostDetailPage = () => {
   const handleImageLoad = (index, e) => {
     const img = e.target;
     const aspectRatio = img.naturalWidth / img.naturalHeight;
-    setMediaDimensions((prev) => ({
-      ...prev,
-      [index]: { aspectRatio },
-    }));
+    setMediaDimensions((prev) => ({ ...prev, [index]: { aspectRatio } }));
     if (index === 0 && primaryAspectRatio === null) {
       setPrimaryAspectRatio(aspectRatio);
     }
@@ -132,10 +241,7 @@ const PostDetailPage = () => {
   const handleVideoLoad = (index, e) => {
     const video = e.target;
     const aspectRatio = video.videoWidth / video.videoHeight;
-    setMediaDimensions((prev) => ({
-      ...prev,
-      [index]: { aspectRatio },
-    }));
+    setMediaDimensions((prev) => ({ ...prev, [index]: { aspectRatio } }));
     if (index === 0 && primaryAspectRatio === null) {
       setPrimaryAspectRatio(aspectRatio);
     }
@@ -213,20 +319,16 @@ const PostDetailPage = () => {
     const fetchUsersForComments = async () => {
       if (!token || !comments.length) return;
 
-      console.log('📥 Fetching users for', comments.length, 'comments');
-
       const newUsers = {};
       await Promise.all(
         comments.map(async (cmt) => {
           if (!cmt.userId || commentUsers[cmt.userId]) return;
           try {
-            console.log('🔄 Fetching user:', cmt.userId);
             const res = await axios.get(
               `http://localhost:8888/api/identity/users/${cmt.userId}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             const userData = res.data?.result || res.data;
-            console.log('✅ Fetched user:', cmt.userId, userData);
             newUsers[cmt.userId] = userData;
           } catch (err) {
             console.error("❌ Error fetching comment user:", err);
@@ -235,13 +337,11 @@ const PostDetailPage = () => {
       );
 
       if (Object.keys(newUsers).length > 0) {
-        console.log('💾 Updating commentUsers with:', newUsers);
         setCommentUsers((prev) => ({ ...prev, ...newUsers }));
       }
     };
 
     fetchUsersForComments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comments, token]);
 
   // ================== MAP post -> postOwner ==================
@@ -291,71 +391,126 @@ const PostDetailPage = () => {
     }
   };
 
+  // ================== REPLY CLICK HANDLER ==================
+  const handleReplyClick = (cmt, cUser, rootCommentId) => {
+    const mention = buildMention(cmt, cUser);
+    
+    // ✅ Xác định: reply vào comment gốc hay reply vào reply
+    const isReply = !!cmt.commentId;
+
+    setReplyingTo(cmt);
+    
+    if (isReply) {
+    // ✅ SỬA: Reply vào reply
+    // → commentId = comment gốc (từ cmt.commentId)
+    // → parentReplyId = id của reply này
+    setReplyParentId({
+      commentId: cmt.commentId,  // ✅ ID của comment gốc
+      parentReplyId: cmt.id       // ✅ ID của reply đang reply
+    });
+  } else {
+    // ✅ Reply vào comment gốc
+    setReplyParentId({
+      commentId: rootCommentId,
+      parentReplyId: null
+    });
+  }
+
+  setCommentText((prev) =>
+    prev.startsWith(mention + " ") ? prev : `${mention} `
+  );
+
+  if (inputRef.current) {
+    inputRef.current.focus();
+  }
+};
+
   // ================== COMMENT / REPLY HANDLER ==================
   const handleCreateComment = async (commentContent) => {
-    if (!commentContent.trim() || isSubmittingComment) return;
+  if (!commentContent.trim() || isSubmittingComment) return;
 
-    const parentCommentId = replyParentId || null;
+  // ✅ SỬA: Lấy từ object
+  const commentId = replyParentId?.commentId || null;
+  const parentReplyId = replyParentId?.parentReplyId || null;
 
-    try {
-      setIsSubmittingComment(true);
+  try {
+    setIsSubmittingComment(true);
 
-      if (parentCommentId) {
-        // REPLY
-        const response = await axios.post(
-          `http://localhost:8888/api/post/comment/${parentCommentId}/reply`,
-          { content: commentContent },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+    if (commentId) {
+      // REPLY - SỬA URL
+      const url = parentReplyId
+        ? `http://localhost:8888/api/post/comment/${commentId}/reply?parentReplyId=${parentReplyId}`
+        : `http://localhost:8888/api/post/comment/${commentId}/reply`;
 
-        if (response.data.code === 1000) {
-          const newReply = response.data.result;
-          setComments((prev) => [...prev, newReply]);
+      console.log("🔵 Calling reply API:", { url, commentId, parentReplyId, content: commentContent });
 
-          toast({
-            title: "Đã trả lời",
-            status: "success",
-            duration: 2000,
-            position: "top-right",
-          });
+      const response = await axios.post(
+        url,
+        { content: commentContent },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-      } else {
-        // COMMENT GỐC
-        const createdComment = await createComment(
-          token,
-          postId,
-          commentContent
-        );
-        setComments((prev) => [...prev, createdComment]);
+      );
+
+      if (response.data.code === 1000) {
+        const newReply = response.data.result;
+        setComments((prev) => [...prev, newReply]);
 
         toast({
-          title: "Đã bình luận",
+          title: "Đã trả lời",
           status: "success",
           duration: 2000,
           position: "top-right",
         });
       }
+    } else {
+      // COMMENT GỐC
+      const createdComment = await createComment(
+        token,
+        postId,
+        commentContent
+      );
+      setComments((prev) => [...prev, createdComment]);
 
-      setCommentText("");
-      setReplyingTo(null);
-      setReplyParentId(null);
-    } catch (error) {
-      console.error("❌ Error creating comment:", error);
       toast({
-        title: "Không thể gửi bình luận",
-        status: "error",
+        title: "Đã bình luận",
+        status: "success",
         duration: 2000,
         position: "top-right",
       });
-    } finally {
-      setIsSubmittingComment(false);
     }
-  };
+
+    setCommentText("");
+    setReplyingTo(null);
+    setReplyParentId(null);
+  } catch (error) {
+    console.error("❌ Error creating comment:", error);
+    toast({
+      title: "Không thể gửi bình luận",
+      status: "error",
+      duration: 2000,
+      position: "top-right",
+    });
+  } finally {
+    setIsSubmittingComment(false);
+  }
+};
+
+  // ================== PHÂN TÁCH ROOT & REPLIES ==================
+  const rootComments = comments.filter((c) => !c.commentId);
+  const repliesMap = {};
+
+  comments.forEach((c) => {
+    if (c.commentId) {
+      if (!repliesMap[c.commentId]) {
+        repliesMap[c.commentId] = [];
+      }
+      repliesMap[c.commentId].push(c);
+    }
+  });
 
   // ================== LOADING / NOT FOUND ==================
   if (isLoading) {
@@ -420,7 +575,6 @@ const PostDetailPage = () => {
               <h3 className="font-semibold text-gray-900">
                 {postOwner ? getDisplayName(postOwner, postOwner) : "User"}
               </h3>
-
               <p className="text-xs text-gray-500">
                 {post.createdAt
                   ? new Date(post.createdAt).toLocaleDateString("vi-VN", {
@@ -558,162 +712,17 @@ const PostDetailPage = () => {
                 Chưa có bình luận nào.
               </p>
             ) : (
-              (() => {
-                // Phân tách root comments và replies như CommentCard
-                const rootComments = comments.filter((c) => !c.parentReplyId);
-                const repliesMap = {};
-                
-                comments.forEach((c) => {
-                  if (c.parentReplyId) {
-                    if (!repliesMap[c.parentReplyId]) {
-                      repliesMap[c.parentReplyId] = [];
-                    }
-                    repliesMap[c.parentReplyId].push(c);
-                  }
-                });
-
-                return rootComments.map((comment) => {
-                  const cUser = commentUsers[comment.userId] || {};
-                  const displayName = getDisplayName(comment, cUser);
-                  const replies = repliesMap[comment.id] || [];
-
-                  return (
-                    <div key={comment.id}>
-                      {/* Root Comment */}
-                      <div className="flex gap-3">
-                        <img
-                          src={
-                            cUser.imageUrl ||
-                            comment.avatar ||
-                            "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
-                          }
-                          alt="User"
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div className="flex-1">
-                          <div className="bg-gray-50 rounded-2xl px-4 py-2">
-                            <p className="font-semibold text-sm">{displayName}</p>
-                            <p className="text-sm text-gray-700 mt-1">
-                              {comment.content}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-3 mt-1 ml-4">
-                            <p className="text-xs text-gray-500">
-                              {comment.createdAt
-                                ? new Date(comment.createdAt).toLocaleString("vi-VN")
-                                : "Vừa xong"}
-                            </p>
-
-                            <button
-                              onClick={() => {
-                                const mention = buildMention(comment, cUser);
-                                setReplyingTo(comment);
-                                setReplyParentId(comment.id);
-
-                                setCommentText((prev) =>
-                                  prev.startsWith(mention + " ") ? prev : `${mention} `
-                                );
-                                if (inputRef.current) {
-                                  inputRef.current.focus();
-                                }
-                              }}
-                              className="text-xs text-gray-500 hover:text-sky-600 font-semibold"
-                            >
-                              Reply
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Replies - THỤT LỀ */}
-                      {replies.length > 0 && (
-                        <div className="ml-11 mt-3 space-y-3">
-                          {replies.map((reply) => {
-                            const replyUser = commentUsers[reply.userId] || {};
-                            
-                            // DEBUG: Xem backend trả về gì
-                            console.log('🔍 Reply data:', {
-                              replyId: reply.id,
-                              userName: reply.userName,
-                              firstName: reply.firstName,
-                              lastName: reply.lastName,
-                              username: reply.username,
-                              replyUser: replyUser
-                            });
-                            
-                            const replyDisplayName = getDisplayName(reply, replyUser);
-
-                            // Tách mention
-                            const mentionMatch = reply.content.match(/^@(\S+)\s/);
-                            const mention = mentionMatch ? mentionMatch[0] : "";
-                            const replyContent = mention
-                              ? reply.content.slice(mention.length)
-                              : reply.content;
-
-                            return (
-                              <div key={reply.id} className="flex gap-3">
-                                <img
-                                  src={
-                                    replyUser.imageUrl ||
-                                    reply.avatar ||
-                                    "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png"
-                                  }
-                                  alt="User"
-                                  className="w-7 h-7 rounded-full object-cover"
-                                />
-                                <div className="flex-1">
-                                  <div className="bg-gray-50 rounded-2xl px-4 py-2">
-                                    <p className="font-semibold text-sm">
-                                      {replyDisplayName}
-                                    </p>
-                                    <p className="text-sm text-gray-700 mt-1">
-                                      {mention && (
-                                        <span className="text-blue-500 font-semibold">
-                                          {mention}
-                                        </span>
-                                      )}
-                                      {replyContent}
-                                    </p>
-                                  </div>
-
-                                  <div className="flex items-center gap-3 mt-1 ml-4">
-                                    <p className="text-xs text-gray-500">
-                                      {reply.createdAt
-                                        ? new Date(reply.createdAt).toLocaleString("vi-VN")
-                                        : "Vừa xong"}
-                                    </p>
-
-                                    <button
-                                      onClick={() => {
-                                        const mention = buildMention(reply, replyUser);
-                                        setReplyingTo(reply);
-                                        setReplyParentId(comment.id); // Reply to root comment
-
-                                        setCommentText((prev) =>
-                                          prev.startsWith(mention + " ")
-                                            ? prev
-                                            : `${mention} `
-                                        );
-                                        if (inputRef.current) {
-                                          inputRef.current.focus();
-                                        }
-                                      }}
-                                      className="text-xs text-gray-500 hover:text-sky-600 font-semibold"
-                                    >
-                                      Reply
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                });
-              })()
+              rootComments.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  replies={repliesMap[comment.id] || []}
+                  commentUsers={commentUsers}
+                  buildMention={buildMention}
+                  getDisplayName={getDisplayName}
+                  onReplyClick={handleReplyClick}
+                />
+              ))
             )}
           </div>
         </div>
